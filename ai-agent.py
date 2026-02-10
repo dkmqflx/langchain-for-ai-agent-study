@@ -13,6 +13,7 @@ load_dotenv()
 
 # API Key 가져오기
 api_key = os.getenv("GEMINI_API_KEY")
+aladin_api_key = os.getenv("ALADIN_API_KEY")
 
 if api_key:
     # 보안을 위해 키의 일부만 출력
@@ -27,37 +28,74 @@ model = init_chat_model("gemini-2.0-flash",
 
 
 
-# 사칙연산 tool 함수 정의
-@tool
-def add(a: int, b: int) -> float:
-  """두 수의 합을 반환합니다."""
-  return a + b
+import requests
+import os
+from typing import List, Dict, Any
 
 @tool
-def divide(a: float, b: float) -> float:
-  """a를 b로 나눈 값을 반환합니다. (b가 0이면 예외 발생)"""
-  if b == 0:
-    raise ValueError("0으로 나눌 수 없습니다.")
-  return a / b
+def get_aladin_bestsellers(count: int = 10) -> List[Dict[str, Any]]:
+    """
+    알라딘 API를 사용하여 현재 가장 인기 있는 베스트셀러 도서 목록을 가져옵니다.
+    
+    Args:
+        count (int): 가져올 도서의 수 (기본값 10, 최대 50).
+        
+    Returns:
+        List[Dict]: 도서 제목, 저자, 가격, 링크 등을 포함한 딕셔너리 리스트.
+    """
+    # 2025-04-07 지침: 보안을 위해 TTBKey는 환경변수 사용 권장
+  
+    url = "http://www.aladin.co.kr/ttb/api/ItemList.aspx"
+    
+    # 알라딘 API 명세서 근거 파라미터 구성
+    params = {
+        "ttbkey": aladin_api_key,
+        "QueryType": "Bestseller",  # 리스트 종류: 베스트셀러
+        "MaxResults": min(count, 50), # 한 페이지 최대 50개 제한
+        "start": 1,
+        "SearchTarget": "Book",
+        "output": "js",            # JSON 방식 출력
+        "Version": "20131101"      # 최신 버전
+    }
 
-@tool
-def multiply(a: float, b: float) -> float:
-  """두 수의 곱을 반환합니다."""
-  return a * b
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status() 
+        #  요청 결과가 4xx 또는 5xx 에러(실패)일 때 예외(requests.exceptions.HTTPError)를 발생시킵니다.
+        # 즉, 요청이 성공(200 OK 등)이 아니면 코드 실행을 중단하고 에러 처리를 하도록 만듭니다.
+        # 이를 통해 API 호출 실패를 쉽게 감지하고, try-except로 예외를 처리할 수 있습니다.
+        data = response.json()
+        
+        # 문서 응답 구조: 'item' 키 안에 도서 리스트가 담겨 있음
+        items = data.get("item", [])
+        
+        # 에이전트가 이해하기 쉽도록 핵심 필드만 필터링 (Token 절약 및 가독성)
+        return [
+            {
+                "title": item.get("title"),
+                "author": item.get("author"),
+                "publisher": item.get("publisher"),
+                "price": item.get("priceSales"),
+                "link": item.get("link")
+            }
+            for item in items
+        ]
+    except Exception as e:
+        return [{"error": f"API 호출 실패: {str(e)}"}]
 
 
 
-# AI는 확률 기반으로 추론하는데, tool를 사용하지 않고도 답을 할 수 있다고 판단하게 되면 tools를 사용하지 않을 수 있다
-# 이런 경우를 방지하려면, system 메시지에 반드시 tool를 사용하도록 지시하는 내용을 추가해야 합니다.
 agent = create_agent(
     model=model,
-    tools=[add, divide, multiply],
-    system_prompt="당신은 계산기입니다. 반드시 도구를 사용하여 계산을 수행해야 합니다. 절대 도구를 사용하지 않고 대답하지 마세요.")
+    tools=[get_aladin_bestsellers],)
 
 
 result = agent.invoke({"messages": [
-  {"role": "user", "content": "32 + 5 * 100를 계산해줘."},
+  {"role": "user", "content": "현재 알라딘에서 가장 인기 있는 베스트셀러 책 5권을 알려줘."},
 ]})
 
 print("Agent의 응답:", result) 
 
+
+
+# ttbsayend04090057001
