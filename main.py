@@ -29,16 +29,19 @@ model = init_chat_model("gemini-2.0-flash",
 
 # SystemMessage와 HumanMessage를 사용해 대화 구성
 
-messages = [
-  SystemMessage(content="You are a value investment investor."),
-  HumanMessage(content="Broadcom price will be increased?"),
-  
-  HumanMessage(content="My favorite color is blue."),
-  HumanMessage(content="What color did I say is my favorite?"),
-  HumanMessage(content="Remind me what my first question was.")
+
+# 메시지를 딕셔너리로 정의 (role, content)
+messages_data = [
+  {"role": "system", "content": "You are a value investment investor."},
+  {"role": "human", "content": "Broadcom price will be increased?"},
+  {"role": "human", "content": "My favorite color is blue."},
+  {"role": "human", "content": "What color did I say is my favorite?"},
+  {"role": "human", "content": "Remind me what my first question was."}
 ]
 
-response = model.invoke(messages)
+
+
+response = model.invoke(messages_data)
 print(response)
 
 
