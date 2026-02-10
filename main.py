@@ -4,18 +4,9 @@ from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
 
-# 영화 정보를 위한 JSON Schema 선언
-movie_json_schema = {
-  "title": "Movie",
-  "type": "object",
-  "properties": {
-    "title": {"type": "string", "description": "영화 제목"},
-    "director": {"type": "string", "description": "감독"},
-    "year": {"type": "integer", "description": "개봉 연도"},
-    "genre": {"type": "string", "description": "장르"}
-  },
-  "required": ["title", "director", "year", "genre"]
-}
+
+# langchain 메시지 객체 임포트
+from langchain.messages import HumanMessage, SystemMessage
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -35,8 +26,14 @@ model = init_chat_model("gemini-2.0-flash",
   api_key=os.getenv("GEMINI_API_KEY"))
 
 
-# JSON Schema 기반 구조적 출력으로 모델 래핑
-model = model.with_structured_output(movie_json_schema)
 
-response = model.invoke("Explain about the movie Truman Show")
-print(response) # {'title': 'The Truman Show', 'director': 'Peter Weir', 'year': 1998, 'genre': 'Comedy-drama'}
+# SystemMessage와 HumanMessage를 사용해 대화 구성
+messages = [
+  SystemMessage(content="You are a value investment investor."),
+  HumanMessage(content="Broadcom price will be increased?")
+]
+
+response = model.invoke(messages)
+print(response)
+
+ 
