@@ -36,6 +36,7 @@ from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain.agents.middleware import LLMToolEmulator
 from langchain.agents.middleware import HumanInTheLoopMiddleware 
+from langchain.agents.middleware import PIIMiddleware 
 
 
 from langgraph.checkpoint.memory import InMemorySaver
@@ -62,51 +63,79 @@ model = init_chat_model("gemini-2.0-flash",
 
 checkpointer=InMemorySaver()
 
-@tool
-def send_email_tool(recipient: str, subject: str, body: str) -> str:
-    """
-    가상의 이메일 전송 도구
-    """
-    return f"이메일이 {recipient}에게 전송되었습니다. 제목: {subject}"
+
+
 
 @tool
-def read_email_tool(email_id: str) -> str:
-    """
-    가상의 이메일 읽기 도구
-    """
-    return f"이메일 {email_id}의 내용: 안녕하세요, 이것은 테스트 이메일입니다."
+def save_book_info():
+    """주어진 책 제목을 저장하는 도구"""
+    # 실제로는 데이터베이스나 파일에 저장하는 로직이 들어감
+    return f"책  정보가 저장되었습니다."
+
+# ================================================================================
+# PII Detection Middleware 예시
+# ================================================================================
+# PII(Personal Identifiable Information) 감지 및 필터링
+
+# 1. 이메일 주소 감지 및 redact 전략
+email_pii_middleware = PIIMiddleware("email", strategy="redact", apply_to_input=True)
+
+# 2. 신용카드 번호 감지 및 mask 전략
+credit_card_pii_middleware = PIIMiddleware("credit_card", strategy="mask", apply_to_input=True,)
+
+# 3. 사용자정의 타입 - 회원번호 형식 (USER-12345)
+custom_pii_middleware = PIIMiddleware(
+    pii_type="user_id",  # 커스텀 타입명
+    detector=r"USER-\d{5}",  # 감지 패턴
+    strategy="mask",  # 필터링 전략
+    apply_to_input=True
+)
+
 
 agent = create_agent(
     model=model,
-    tools=[send_email_tool, read_email_tool],
-    checkpointer=checkpointer,
-    middleware=[LLMToolEmulator(model=model), HumanInTheLoopMiddleware(
-        interrupt_on={
-            "send_email_tool": {'allowed_decisions': ['approve', 'reject', 'edit']}, 
-            "read_email_tool": False}
-    ) ],
-  
-    
-    )
+    tools=[],
+    middleware=[
+        LLMToolEmulator(model=model),               # LLM Tool Emulator
+    email_pii_middleware,           # 이메일 감지 (redact)
+    credit_card_pii_middleware,     # 신용카드 감지 (mask)
+    custom_pii_middleware,          # 회원번호 감지 (mask)
+    ],
+
+)
 
 
-# 이메일 읽기 예시
-result = agent.invoke({"messages": [
-  {"role": "user", "content": "이메일 123을 읽어줘."}]},
-  {"configurable": {"thread_id": 1}})
 
-print("=== 이메일 읽기 결과 ===")
-print(result)
 
-print(result['messages'][-1].content)
+print("\n" + "="*80)
+print("PII Detection Middleware 예시")
+print("="*80)
 
-# 이메일 전송 예시
-result2 = agent.invoke({"messages": [
-  # {"role": "user", "content": "이메일을 작성해 ."}]},
-  {"role": "user", "content": "user@example.com에게 '프로젝트 진행 상황' 제목으로 '잘 진행되고 있습니다' 내용의 이메일을 보내줘."}]},
-  {"configurable": {"thread_id": 2}})
+# 테스트: 이메일 주소 포함 메시지
+print("\n1. 이메일 감지 테스트 (redact):")
+print("원본 메시지: 제 이메일은 john.doe@gmail.com 입니다")
+result_email = agent.invoke({"messages": [
+    {"role": "user", "content": "제 이메일은 john.doe@gmail.com입니다"}]},
+    {"configurable": {"thread_id": 10}})
+print(result_email)
+print("결과:", result_email['messages'][-1].content)
+print("(PII Detection으로 이메일이 필터링됨)\n")
 
-print("\n=== 이메일 전송 결과 ===")
-print(result2)
+# 테스트: 신용카드 번호 포함 메시지
+print("2. 신용카드 번호 감지 테스트 (mask):")
+print("원본 메시지: 제 카드번호는 4532-1234-5678-9010입니다")
+result_card = agent.invoke({"messages": [
+    {"role": "user", "content": "제 신용카드 번호는 4532-1234-5678-9010 입니다"}]},
+    {"configurable": {"thread_id": 11}})
+print(result_card)
+print("결과:", result_card['messages'][-1].content)
+print("(PII Detection으로 신용카드 번호가 필터링됨)\n")
 
-print(result2['messages'][-1].content)
+# 테스트: 커스텀 타입 (회원번호) 포함 메시지
+print("3. 커스텀 타입 감지 테스트 (mask) - 회원번호:")
+print("원본 메시지: 회원번호는 USER-12345입니다")
+result_user_id = agent.invoke({"messages": [
+    {"role": "user", "content": "회원번호는 USER-12345입니다"}]},
+    {"configurable": {"thread_id": 12}})
+print(result_user_id)
+print("결과:", result_user_id['messages'][-1].content)
