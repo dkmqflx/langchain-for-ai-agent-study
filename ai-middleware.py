@@ -1,4 +1,3 @@
-
 """
 ================================================================================
 LangChain Built-in Middleware 정리
@@ -37,6 +36,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import LLMToolEmulator
 from langchain.agents.middleware import HumanInTheLoopMiddleware 
 from langchain.agents.middleware import PIIMiddleware 
+from langchain.agents.middleware import SummarizationMiddleware
 
 
 from langgraph.checkpoint.memory import InMemorySaver
@@ -66,76 +66,48 @@ checkpointer=InMemorySaver()
 
 
 
-@tool
-def save_book_info():
-    """주어진 책 제목을 저장하는 도구"""
-    # 실제로는 데이터베이스나 파일에 저장하는 로직이 들어감
-    return f"책  정보가 저장되었습니다."
 
-# ================================================================================
-# PII Detection Middleware 예시
-# ================================================================================
-# PII(Personal Identifiable Information) 감지 및 필터링
-
-# 1. 이메일 주소 감지 및 redact 전략
-email_pii_middleware = PIIMiddleware("email", strategy="redact", apply_to_input=True)
-
-# 2. 신용카드 번호 감지 및 mask 전략
-credit_card_pii_middleware = PIIMiddleware("credit_card", strategy="mask", apply_to_input=True,)
-
-# 3. 사용자정의 타입 - 회원번호 형식 (USER-12345)
-custom_pii_middleware = PIIMiddleware(
-    pii_type="user_id",  # 커스텀 타입명
-    detector=r"USER-\d{5}",  # 감지 패턴
-    strategy="mask",  # 필터링 전략
-    apply_to_input=True
+# Summarization Middleware
+# This middleware is used to summarize long conversation histories to optimize context size.
+# It is particularly useful when working with models that have a limited context window.
+# By summarizing previous messages, the middleware ensures that the most relevant information
+# is retained while staying within the model's context limit.
+summarization_middleware = SummarizationMiddleware(
+    model="gpt-4.1-mini",
+    trigger=("tokens", 4000),
+    keep=("messages", 20),
 )
 
-
+# Add the summarization middleware to the agent
 agent = create_agent(
     model=model,
     tools=[],
     middleware=[
         LLMToolEmulator(model=model),               # LLM Tool Emulator
-    email_pii_middleware,           # 이메일 감지 (redact)
-    credit_card_pii_middleware,     # 신용카드 감지 (mask)
-    custom_pii_middleware,          # 회원번호 감지 (mask)
+        summarization_middleware        # Updated Summarization Middleware
     ],
-
 )
 
+# Summarization Middleware Test Example
+print("\n4. Summarization Middleware Test:")
+print("Original conversation:")
+conversation = [
+    {"role": "user", "content": "안녕하세요, 오늘 날씨가 참 좋네요."},
+    {"role": "assistant", "content": "안녕하세요! 네, 오늘 날씨가 정말 좋습니다. 어떻게 도와드릴까요?"},
+    {"role": "user", "content": "오늘 저녁에 뭐 먹을지 고민이에요. 추천해 주실 수 있나요?"},
+    {"role": "assistant", "content": "물론이죠! 한식, 중식, 일식 중에 어떤 걸 드시고 싶으신가요?"},
+    {"role": "user", "content": "한식이요!"},
+    {"role": "assistant", "content": "그렇다면 비빔밥이나 불고기를 추천드려요."}
+]
+
+print("\nOriginal Messages:")
+for msg in conversation:
+    print(f"{msg['role']}: {msg['content']}")
+
+result_summary = agent.invoke({"messages": conversation}, {"configurable": {"thread_id": 13}})
+print("\nSummarized Conversation:")
+print(result_summary['messages'][-1].content)
+print("(Summarization Middleware applied to optimize context size)\n")
 
 
 
-print("\n" + "="*80)
-print("PII Detection Middleware 예시")
-print("="*80)
-
-# 테스트: 이메일 주소 포함 메시지
-print("\n1. 이메일 감지 테스트 (redact):")
-print("원본 메시지: 제 이메일은 john.doe@gmail.com 입니다")
-result_email = agent.invoke({"messages": [
-    {"role": "user", "content": "제 이메일은 john.doe@gmail.com입니다"}]},
-    {"configurable": {"thread_id": 10}})
-print(result_email)
-print("결과:", result_email['messages'][-1].content)
-print("(PII Detection으로 이메일이 필터링됨)\n")
-
-# 테스트: 신용카드 번호 포함 메시지
-print("2. 신용카드 번호 감지 테스트 (mask):")
-print("원본 메시지: 제 카드번호는 4532-1234-5678-9010입니다")
-result_card = agent.invoke({"messages": [
-    {"role": "user", "content": "제 신용카드 번호는 4532-1234-5678-9010 입니다"}]},
-    {"configurable": {"thread_id": 11}})
-print(result_card)
-print("결과:", result_card['messages'][-1].content)
-print("(PII Detection으로 신용카드 번호가 필터링됨)\n")
-
-# 테스트: 커스텀 타입 (회원번호) 포함 메시지
-print("3. 커스텀 타입 감지 테스트 (mask) - 회원번호:")
-print("원본 메시지: 회원번호는 USER-12345입니다")
-result_user_id = agent.invoke({"messages": [
-    {"role": "user", "content": "회원번호는 USER-12345입니다"}]},
-    {"configurable": {"thread_id": 12}})
-print(result_user_id)
-print("결과:", result_user_id['messages'][-1].content)
