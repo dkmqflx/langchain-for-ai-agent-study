@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head:*)",
+      "Bash(uv venv:*)",
+      "Bash(tail:*)",
+      "Bash(uv run:*)"
+    ]
+  }
+}
