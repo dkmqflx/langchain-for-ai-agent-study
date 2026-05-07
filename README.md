@@ -1,9 +1,1 @@
-- Context engineering in agents
-
-  - https://docs.langchain.com/oss/python/langchain/context-engineering#data-sources
-
-- Node-style hooks
-
-  - https://docs.langchain.com/oss/javascript/langchain/middleware/custom#node-style-hooks
-
-  - https://docs.langchain.com/oss/python/langchain/short-term-memory#before-model
+- [AI 에이전트는 이렇게 만든다 (랭체인부터 랭그래프까지)](https://wikidocs.net/book/19240)
