@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>03. Agent 심화 — Custom Middleware · Guardrails · Long-term Memory</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* Layout */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav a.current { color: var(--text); font-weight: 700; background: var(--bg); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* Typography */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 19px; font-weight: 700; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* Callouts */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info { background: var(--info-bg); border-color: var(--info-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+
+    /* Roadmap list */
+    .roadmap { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 4px; }
+    .roadmap-item {
+      display: flex; gap: 14px; align-items: flex-start;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 14px 16px;
+      transition: border-color 0.1s, box-shadow 0.1s;
+    }
+    .roadmap-item:hover { border-color: var(--accent); box-shadow: 0 1px 6px rgba(3,102,214,0.08); }
+    .roadmap-num {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px;
+      background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .roadmap-body { min-width: 0; flex: 1; }
+    a.rm-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    a.rm-title:hover { color: var(--accent); text-decoration: none; }
+    .roadmap-body p { font-size: 13px; color: var(--text-secondary); margin: 3px 0 0; }
+    .rm-tag {
+      display: inline-block; font-size: 11px; font-weight: 600; color: var(--text-secondary);
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1px 8px; margin-left: 8px; vertical-align: middle; white-space: nowrap;
+    }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">LangChain 스터디</div>
+    <div class="nav-section">
+      <div class="nav-title">학습 로드맵</div>
+      <a href="../01/index.html">01. 기초</a>
+      <a href="../02/index.html">02. Agent 기초</a>
+      <a class="current" href="../03/index.html">03. Agent 심화</a>
+      <a href="../04/index.html">04. RAG</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">이 폴더 노트북</div>
+      <a href="./01.html">01. Hooks & Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style</a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="./05.html">05. 메시지 객체와 .type 속성</a>
+      <a href="./06.html">06. Guardrails: After Agent 출력 필터</a>
+      <a href="./07.html">07. Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: Agent 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <h1>03. Agent 심화 — Custom Middleware · Guardrails · Long-term Memory</h1>
+    <p class="doc-meta">
+      학습 로드맵 · 11개 강의
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+    </p>
+
+    <p class="lead">에이전트를 직접 커스터마이즈합니다 — <strong>훅/미들웨어</strong>로 실행 흐름에 끼어들고, <strong>가드레일(Guardrails)</strong>로 입출력을 검열하며, <strong>장기 기억(Long-term Memory)</strong>으로 세션을 넘어 기억을 유지합니다.</p>
+
+    <div class="callout callout-info">
+      <strong>📖 사용법</strong>
+      각 항목을 클릭하면 해당 <strong>강의 교재(HTML)</strong>로 이동합니다.
+      실습 노트북(<code>.ipynb</code>)을 열기 전에 같은 번호의 교재를 먼저 읽어보세요.
+    </div>
+
+    <h2>강의 목록</h2>
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">01</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./01.html">Hooks & Middleware 가이드</a><span class="rm-tag">개요</span>
+          <p>미들웨어 vs 훅, Runtime·State 등 핵심 개념 정리.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">02</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./02.html">Custom Middleware: Node-style</a><span class="rm-tag">1장 Middleware</span>
+          <p>@before_model + can_jump_to로 입력을 가로막는 가드.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">03</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./03.html">Custom Middleware: Wrap-style</a><span class="rm-tag">1장 Middleware</span>
+          <p>@wrap_model_call로 상황에 따라 모델을 동적 선택.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">04</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./04.html">멤버십 기반 모델 선택</a><span class="rm-tag">1장 Middleware</span>
+          <p>Context로 회원 등급에 따라 다른 모델로 분기.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">05</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./05.html">메시지 객체와 .type 속성</a><span class="rm-tag">보충</span>
+          <p>SystemMessage 등 메시지 클래스 구조 이해하기.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">06</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./06.html">Guardrails: After Agent 출력 필터</a><span class="rm-tag">2장 Guardrails</span>
+          <p>판사 모델로 에이전트 출력을 검증·필터링.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">07</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./07.html">Guardrails: 정답 누출 방지</a><span class="rm-tag">2장 Guardrails</span>
+          <p>AI가 정답을 그대로 흘렸는지 검사해 힌트로 교정.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">08</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./08.html">student_safety_middleware 원리</a><span class="rm-tag">보충</span>
+          <p>return 없이도 AIMessage가 수정되는 원리.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">09</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./09.html">Long-term Memory: Store CRUD</a><span class="rm-tag">3장 Memory</span>
+          <p>Store로 세션을 넘는 장기 기억 저장·조회.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">10</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./10.html">Long-term Memory: Agent 주입</a><span class="rm-tag">3장 Memory</span>
+          <p>미들웨어로 저장된 기억을 프롬프트에 주입.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">11</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./11.html">@tool 인자 결정·전달 원리</a><span class="rm-tag">심화</span>
+          <p>AI가 채우는 인자 vs 런타임이 주입하는 인자.</p>
+        </div>
+      </div>
+    </div>
+
+  <div class="pager">
+    <a href="../02/index.html"><small>← 이전 폴더</small>02. Agent 기초 — Tool · Memory · Middleware</a>
+    <a class="next" href="../04/index.html"><small>다음 폴더 →</small>04. RAG — 문서 기반 질의응답 시스템 구축</a>
+  </div>
+
+  </main>
+</div>
+
+</body>
+</html>
