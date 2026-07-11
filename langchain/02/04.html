@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>04. Tool Emulator — 실제 도구 없이 LLM으로 결과 모킹하기</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .nav-current { display: block; padding: 5px 8px; font-weight: 700; color: var(--text); }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .role-tool   { background: #fff3e0; color: #e65100; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">04. Tool Emulator 목차</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+    <a href="#why">왜 도구를 "흉내"낼까</a>
+    <a href="#setup">0. 환경 준비</a>
+    <a href="#tools">1. 흉내낼 도구 2개 정의</a>
+    <a href="#emulator">2. LLMToolEmulator 씌우기</a>
+    <a href="#run">3. 실행 결과 뜯어보기</a>
+
+    <div class="nav-section">
+      <div class="nav-title">정리</div>
+      <a href="#flow">실행 흐름 한눈에</a>
+      <a href="#compare">진짜 도구 vs 흉내 도구</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. Tool 기초</a>
+      <a href="./02.html">02. Tool 심화: 외부 API</a>
+      <a href="./03.html">03. Memory 기초</a>
+      <span class="nav-current">04. Tool Emulator</span>
+      <a href="./05.html">05. Middleware: TodoList</a>
+      <a href="./06.html">06. Human-in-the-Loop</a>
+      <a href="./07.html">07. PII 개인정보 탐지</a>
+      <a href="./08.html">08. Structured Output</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>04. Tool Emulator — 실제 도구 없이 LLM으로 결과 모킹하기</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>04.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/02.agent-basic.md">docs/02.agent-basic.md</a> 3.3.1 LLM Tool Emulator
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+      &nbsp;·&nbsp; 선행: <a href="./03.html">03. Memory</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>04.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      도구(Tool)를 만들다 보면 <strong>"아직 진짜로 실행하기는 부담스러운"</strong> 순간이 옵니다 —
+      실제로 이메일이 발송되거나, 유료 API가 호출되거나, DB가 바뀌면 곤란하니까요.
+      이럴 때 <strong><code>LLMToolEmulator</code></strong>는 도구를 <em>진짜로 돌리지 않고</em>,
+      LLM이 <strong>"그럴듯한 결과를 지어내(모킹)"</strong> 대신 채워줍니다.
+      실제 백엔드 없이도 Agent의 전체 흐름을 리허설해 볼 수 있게 해주는 도구예요.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 영화 촬영장의 소품과 대역</strong>
+      은행 강도 장면을 찍는다고 진짜 돈을 털지는 않습니다. <strong>가짜 지폐 다발</strong>을 쓰고,
+      위험한 장면은 배우 대신 <strong>대역(스턴트)</strong>이 뜁니다. 카메라에 담긴 화면은 "진짜처럼" 보이지만
+      실제로는 아무 은행도 털리지 않았죠. <code>LLMToolEmulator</code>가 바로 이 <strong>소품·대역</strong>입니다.
+      Agent는 "이메일을 읽고 보냈다"고 그럴듯하게 연기하지만, <strong>실제 메일함은 손끝 하나 대지 않습니다.</strong>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      LangChain의 Agent에는 <strong>미들웨어(middleware)</strong>라는, 실행 과정에 끼워 넣는 부품이 있습니다.
+      그중 <code>LLMToolEmulator</code>는 <strong>"도구 호출을 가로채서 진짜 실행 대신 LLM의 가짜 응답으로 바꿔치기"</strong>하는
+      미들웨어입니다. 이 장에서는 도구 2개를 만들고, 그 위에 에뮬레이터를 씌워
+      <strong>진짜로는 아무것도 실행되지 않는 리허설</strong>을 돌려봅니다.
+    </div>
+
+    <hr />
+
+    <!-- ── why ── -->
+    <h2 id="why">왜 도구를 "흉내"낼까?</h2>
+
+    <p>
+      3번 노트북까지는 도구를 만들면 <strong>실제로 그 코드가 실행</strong>됐습니다. 하지만 개발 초기에는
+      "실제 실행"이 오히려 걸림돌이 될 때가 많습니다. 원문 교재는 두 가지 대표 상황을 듭니다.
+    </p>
+
+    <ul>
+      <li><strong>도구 호출이 불가능하거나 너무 비쌀 때</strong> — 아직 실제 API가 없거나, 한 번 부를 때마다 요금이 나가는 경우.</li>
+      <li><strong>프로토타입 단계에서 실제 백엔드 없이 개발할 때</strong> — 이메일 서버·결제 시스템을 붙이기 전에 흐름부터 확인하고 싶을 때.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 우주비행사 훈련 시뮬레이터</strong>
+      우주비행사는 훈련할 때 진짜 우주선을 쏘아 올리지 않습니다. 진짜와 <strong>똑같이 생긴 조종석 시뮬레이터</strong>에서
+      버튼을 누르고 절차를 몸에 익히죠. 진짜 로켓은 <strong>비싸고, 위험하고, 한 번 쓰면 되돌릴 수 없으니까요.</strong>
+      <code>LLMToolEmulator</code>도 같은 목적입니다 — 진짜 도구를 쏘아 올리기 전에,
+      <strong>버튼 배치(도구 이름·인자)와 절차(Agent 흐름)가 맞는지</strong> 안전하게 리허설합니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ "흉내낸 결과"는 사실이 아니다</strong>
+      에뮬레이터가 돌려주는 값은 <strong>LLM이 지어낸 가짜(mock) 데이터</strong>입니다.
+      진짜 메일함을 읽은 것도, 진짜로 메일을 보낸 것도 아니에요. 그래서 <strong>결과의 내용을 사실로 믿으면 안 됩니다.</strong>
+      "흐름이 맞게 굴러가는지" 확인하는 <em>리허설용</em>이라는 점을 꼭 기억하세요.
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 환경 준비</h2>
+    <p>
+      앞 장들과 똑같이 모델 하나를 준비합니다. 다만 이번엔 이 모델이 <strong>두 가지 역할</strong>을 겸합니다 —
+      질문에 답하고 도구를 고르는 <strong>"두뇌"</strong> 역할, 그리고 뒤에서 도구 결과를 대신 지어내는 <strong>"대역 배우"</strong> 역할이죠.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <p>
+      새로 등장한 <code>create_agent</code>는 <strong>모델 + 도구 + 미들웨어</strong>를 하나로 묶어
+      스스로 판단하고 도구를 호출하는 <strong>Agent</strong>를 만들어 주는 함수입니다. 뒤에서 바로 씁니다.
+    </p>
+
+    <hr />
+
+    <!-- ── tools ── -->
+    <h2 id="tools">1. 흉내낼 도구 2개 정의 — <code>send_email_tool</code> · <code>read_email_tool</code></h2>
+
+    <p>
+      먼저 Agent가 쓸 도구 두 개를 만듭니다. 하나는 <strong>메일을 보내는 도구</strong>, 하나는 <strong>메일을 읽는 도구</strong>입니다.
+      docstring(<code>"""..."""</code>)에 <em>"(프로토타입)"</em>이라고 적힌 게 힌트예요 —
+      <strong>속은 아직 텅 빈 껍데기</strong>라는 뜻입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 모델하우스(견본주택)</strong>
+      아파트 분양 전에 짓는 <strong>모델하우스</strong>를 떠올려 보세요. 문·싱크대·조명이 다 달려 있어
+      진짜 집처럼 보이지만, 사실 <strong>수도관도 전기도 연결돼 있지 않은</strong> 껍데기입니다.
+      여기 두 도구가 딱 그렇습니다. 함수 <strong>이름·인자·설명(간판)</strong>은 완벽하게 갖췄지만,
+      안의 <code>return</code>은 <strong>대충 채운 임시값</strong>이라 실제 메일 서버와는 아무 연결이 없습니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from typing import List, Dict
+from langchain.tools import tool
+
+@tool
+def send_email_tool(to: str, subject: str, body: str) -&gt; str:
+    """지정한 주소로 이메일을 보내는 도구(프로토타입)."""
+    return f"Email sent. to={to}, subject={subject}"
+
+@tool
+def read_email_tool(limit: int = 3) -&gt; List[Dict[str, str]]:
+    """최근 받은 이메일을 조회하는 도구(프로토타입)."""
+    return [{"from": "hr@example.com", "subject": "정책 안내", "body": "..."}][:limit]</code></pre>
+
+    <p>
+      두 함수 모두 <strong>진짜 일은 하나도 하지 않습니다.</strong>
+      <code>send_email_tool</code>은 그냥 <em>"보냈다"는 문자열</em>을 되돌려줄 뿐이고,
+      <code>read_email_tool</code>은 <em>고정된 가짜 메일 한 통</em>(hr@example.com / "정책 안내")을 되돌려줄 뿐이죠.
+      뒤에서 에뮬레이터를 씌우면 <strong>이 임시 <code>return</code>조차 실제로는 실행되지 않습니다</strong> —
+      이 점을 뒤 "결과 뜯어보기"에서 눈으로 확인하게 됩니다.
+    </p>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — <code>@tool</code> 데코레이터가 하는 일</div>
+      <p>
+        함수 위에 붙인 <code>@tool</code>은 평범한 파이썬 함수를 <strong>Agent가 호출할 수 있는 도구</strong>로 등록해 줍니다.
+        이때 LLM은 함수의 <strong>이름</strong>(<code>read_email_tool</code>), <strong>인자와 타입 힌트</strong>(<code>limit: int = 3</code>),
+        그리고 <strong>docstring</strong>("최근 받은 이메일을 조회하는 도구")을 읽고 <em>"언제 이 도구를 써야 하는지"</em>를 판단합니다.
+      </p>
+      <div class="callout callout-info" style="margin-bottom: 0;">
+        <strong>💡 그래서 에뮬레이터가 가능하다</strong>
+        에뮬레이터는 함수의 <strong>속(내용물)</strong>이 아니라 <strong>겉(이름·인자·설명·반환 타입)</strong>만 보고 그럴듯한 결과를 지어냅니다.
+        모델하우스의 <em>간판과 도면</em>만 보고 "이런 집이겠구나" 상상해서 방문객에게 설명하는 것과 같아요.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── emulator ── -->
+    <h2 id="emulator">2. <code>LLMToolEmulator</code> 씌우기</h2>
+
+    <p>
+      이제 핵심입니다. <code>create_agent</code>에 <strong><code>middleware=[LLMToolEmulator(...)]</code></strong>를 넣어주면,
+      Agent가 도구를 부르는 순간 에뮬레이터가 <strong>중간에서 가로채</strong> 실제 실행 대신 LLM의 가짜 응답으로 바꿔치기합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 무대 뒤 대역 배우</strong>
+      주연 배우가 "위험한 액션 장면"에 들어가려는 순간, 감독이 <strong>"컷! 여기부터 대역"</strong>이라고 외칩니다.
+      그러면 똑같은 옷을 입은 <strong>대역(에뮬레이터)</strong>이 대신 뛰고, 관객(사용자)은 이어 붙은 화면만 보고
+      주연이 다 한 줄 압니다. <code>middleware=[LLMToolEmulator(...)]</code>가 바로 그 <strong>"컷! 대역 투입"</strong> 지시예요.
+      도구가 실행될 자리마다 대역이 들어가 <strong>결과를 대신 연기</strong>합니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import LLMToolEmulator
+
+
+LLMToolEmulator
+
+agent = create_agent(
+    model=model,
+    tools=[send_email_tool, read_email_tool],
+    # tool emulator: 실제 도구 호출 대신 LLM으로 시뮬레이션, 즉, 도구가 만든 결과를 모킹하는것. gemini-2.5-flash 모델 사용
+    middleware=[LLMToolEmulator(model="gpt-4o-mini")],
+    )
+
+# # 이메일 읽기 예시
+result = agent.invoke({"messages": [
+  {"role": "user", "content": "최근 도착한 이메일을 읽고 답장해줘"}]},
+  {"configurable": {"thread_id": 1}})
+
+print("=== 이메일 읽고 쓰기 결과 ===")
+print(result)
+print(result['messages'][-1].content)</code></pre>
+
+    <p>포인트 세 가지만 짚고 넘어가겠습니다.</p>
+    <ul>
+      <li><strong><code>tools=[send_email_tool, read_email_tool]</code></strong> — Agent에게 쓸 수 있는 도구 목록을 알려줍니다.</li>
+      <li><strong><code>middleware=[LLMToolEmulator(model="gpt-4o-mini")]</code></strong> — "이 도구들은 진짜 실행하지 말고 <code>gpt-4o-mini</code>가 결과를 지어내라"고 지시합니다.</li>
+      <li><strong><code>agent.invoke({"messages": [...]})</code></strong> — 3번 노트북에서 배운 <em>메시지 리스트</em>를 그대로 Agent에 던집니다. 여기선 <code>user</code> 역할 한 줄만 넣었어요.</li>
+    </ul>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 주석과 실제 코드가 다르다</strong>
+      코드 주석에는 <em>"gemini-2.5-flash 모델 사용"</em>이라고 적혀 있지만, 실제 인자는 <code>model="gpt-4o-mini"</code>입니다.
+      옛 주석이 남은 것이니 <strong>실제로 동작하는 것은 <code>gpt-4o-mini</code></strong>라고 읽으면 됩니다.
+      (에뮬레이터에 넘긴 모델이 곧 "대역 배우"가 됩니다.)
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 두 개의 선택적 인자: <code>model</code>과 <code>tools</code></div>
+      <p>
+        <code>LLMToolEmulator</code>는 인자 없이 <code>LLMToolEmulator()</code>로도 쓸 수 있고, 이땐
+        기본 모델(<code>anthropic:claude-3-5-sonnet-latest</code>)이 대역을 맡습니다. 여기선 <code>model="gpt-4o-mini"</code>로
+        대역 배우를 직접 지정한 것이죠.
+      </p>
+      <p style="margin-bottom: 0;">
+        또, 도구 <strong>일부만</strong> 흉내내게 할 수도 있습니다. 예를 들어
+        <code>LLMToolEmulator(tools=["read_email_tool"])</code>처럼 이름을 지정하면
+        <strong>지정한 도구만 대역</strong>이 뛰고 나머지는 진짜로 실행됩니다. 아무것도 지정하지 않으면
+        <strong>등록된 모든 도구</strong>가 흉내내기 대상이 됩니다(이 노트북이 그 경우).
+      </p>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — <code>thread_id</code>는 왜 넣었을까?</div>
+      <p style="margin-bottom: 0;">
+        두 번째 인자 <code>{"configurable": {"thread_id": 1}}</code>는 3번 노트북의 <strong>메모리</strong> 이야기와 이어집니다.
+        <code>thread_id</code>는 <em>"이 대화의 방 번호"</em> 같은 것으로, 같은 번호로 다시 호출하면 그 방의 대화를 이어갈 수 있게 해주는 열쇠입니다.
+        이 예제에서는 한 번만 호출하므로 큰 역할은 없지만, Agent가 <strong>대화 단위로 상태를 구분</strong>한다는 감만 잡아두면 충분합니다.
+      </p>
+    </div>
+
+    <hr />
+
+    <!-- ── run ── -->
+    <h2 id="run">3. 실행 결과 뜯어보기</h2>
+
+    <p>
+      <code>"최근 도착한 이메일을 읽고 답장해줘"</code> 한 줄을 던졌을 뿐인데, Agent는 스스로
+      <strong>① 메일을 읽고 → ② 답장을 작성해 → ③ 발송</strong>하는 여러 단계를 알아서 밟았습니다.
+      그런데 그 <strong>중간 결과들이 전부 대역(LLM)이 지어낸 것</strong>이라는 게 이 장의 핵심입니다.
+    </p>
+
+    <h3>최종 답변 (<code>result['messages'][-1].content</code>)</h3>
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">=== 이메일 읽고 쓰기 결과 ===
+제가 최근 도착한 이메일에 답장을 보냈습니다:
+
+1. Mike Johnson에게 "회의 알림"에 대한 답장했습니다.
+2. Sara Brown에게 "프로젝트 업데이트"에 대한 답장했습니다.
+
+모두 성공적으로 발송되었습니다! 다른 도움이 필요하시면 말씀해 주세요.</pre>
+
+    <p>
+      감쪽같죠? 마치 진짜로 메일을 읽고 답장까지 보낸 것처럼 보고합니다. 하지만
+      <strong>Mike Johnson도, Sara Brown도 실제로는 존재하지 않는 사람</strong>입니다 — 전부 대역 LLM이 지어낸 등장인물이에요.
+      이걸 <code>print(result)</code>로 찍은 <strong>메시지 전체 기록</strong>을 보면 확실히 드러납니다.
+    </p>
+
+    <h3>메시지 기록을 대화로 펼쳐보면</h3>
+    <div class="chat">
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">최근 도착한 이메일을 읽고 답장해줘 <span class="tag">← 우리가 던진 요청</span></div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">(내용 없음) <span class="tag">→ read_email_tool(limit=3) 호출 결정</span></div></div>
+      <div class="msg"><div class="role role-tool">Tool</div><div class="bubble">[{"from": "mike.johnson@email.com", "subject": "Meeting Reminder", ...}, {"from": "sara.brown@email.com", ...}, {"from": "newsletter@techupdates.com", ...}] <span class="tag">← 대역이 지어낸 가짜 메일 목록</span></div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">(내용 없음) <span class="tag">→ send_email_tool 2번 호출 (Mike·Sara에게 답장)</span></div></div>
+      <div class="msg"><div class="role role-tool">Tool</div><div class="bubble">Email sent successfully to mike.johnson@email.com with subject "Re: Meeting Reminder". <span class="tag">← 대역이 지어낸 발송 성공 메시지</span></div></div>
+      <div class="msg"><div class="role role-tool">Tool</div><div class="bubble">Email sent successfully to sara.brown@email.com with subject "Re: Project Update".</div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">제가 최근 도착한 이메일에 답장을 보냈습니다... <span class="tag">← 최종 보고</span></div></div>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚨 결정적 증거 — Tool 결과가 우리 코드와 다르다</strong>
+      우리가 정의한 <code>read_email_tool</code>은 분명 <code>hr@example.com</code> / "정책 안내" 한 통을 돌려주도록 짰습니다.
+      그런데 실제 <code>ToolMessage</code>에는 <strong><code>mike.johnson@email.com</code>, <code>sara.brown@email.com</code></strong> 같은
+      <strong>전혀 다른 값</strong>이 담겨 나왔습니다. <code>send_email_tool</code>도 마찬가지예요 —
+      우리 코드는 <code>"Email sent. to=..., subject=..."</code>를 돌려주게 짰는데,
+      결과는 <code>"Email sent successfully to ... with subject ..."</code>라는 <strong>다른 문장</strong>입니다.
+      즉 <strong>우리 함수의 <code>return</code>은 단 한 번도 실행되지 않았고</strong>, 전부 대역 LLM이 즉흥으로 지어낸 겁니다.
+      이것이 "에뮬레이터가 진짜로 도구를 실행하지 않는다"는 가장 확실한 증거입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 AI 메시지에 content가 비어 있을까?</strong>
+      중간의 AI 메시지들은 <code>content=''</code>로 <strong>텍스트가 비어</strong> 있습니다. 대신
+      <code>tool_calls</code>에 <em>"어떤 도구를 어떤 인자로 부를지"</em>가 담겨 있죠. LLM이 <strong>말을 하는 대신 도구를 호출하기로 결정</strong>한
+      순간에는 이렇게 내용이 비고 도구 호출만 실립니다. 도구 결과(Tool 메시지)를 받아 <strong>할 말이 생겼을 때</strong>
+      비로소 마지막 AI 메시지에 텍스트가 채워집니다.
+    </div>
+
+    <hr />
+
+    <!-- ── flow ── -->
+    <h2 id="flow">실행 흐름 한눈에</h2>
+
+    <p>요청 한 줄이 최종 보고까지 이어지는 과정을 단계로 그려보면 이렇습니다. <strong>③·⑤가 대역이 끼어드는 지점</strong>입니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>요청 투입</strong><p>"이메일 읽고 답장해줘"를 Agent에 전달</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>도구 선택</strong><p>LLM이 read_email_tool을 부르기로 결정</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>🎭 대역 투입</strong><p>에뮬레이터가 가로채 가짜 메일 목록을 지어냄</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>답장 작성·발송 결정</strong><p>LLM이 send_email_tool을 2번 호출</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>🎭 대역 투입</strong><p>에뮬레이터가 "발송 성공" 메시지를 지어냄</p></div>
+      <div class="flow-step"><span class="n">6</span><strong>최종 보고</strong><p>LLM이 결과를 요약해 사용자에게 답변</p></div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 진짜 도구였다면?</strong>
+      에뮬레이터가 없었다면 ③에서 우리 <code>read_email_tool</code>이 실제로 실행돼
+      <code>hr@example.com</code> 한 통이 돌아오고, ⑤에서 진짜로 메일이 <strong>발송</strong>됐을 겁니다.
+      에뮬레이터는 이 <strong>③·⑤ 지점만 "대역"으로 바꿔</strong> 나머지 흐름은 그대로 두는 것이죠.
+    </div>
+
+    <hr />
+
+    <!-- ── compare ── -->
+    <h2 id="compare">진짜 도구 vs 흉내 도구</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>진짜 도구 실행 (에뮬레이터 없음)</th><th>흉내 도구 (LLMToolEmulator)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>도구 안의 <code>return</code></td><td>실제로 실행됨</td><td><strong>실행 안 됨</strong> (LLM이 대신 지어냄)</td></tr>
+          <tr><td>결과의 정확성</td><td>진짜 데이터</td><td><strong>가짜(mock) 데이터</strong> — 사실 아님</td></tr>
+          <tr><td>부작용(메일 발송 등)</td><td>실제로 일어남</td><td><strong>일어나지 않음</strong> (안전)</td></tr>
+          <tr><td>비용·외부 API</td><td>실제 요금·호출 발생</td><td>대역 LLM 호출 비용만</td></tr>
+          <tr><td>주로 언제</td><td>실제 서비스 운영</td><td><strong>프로토타입·리허설·테스트</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 리허설과 본공연</strong>
+      연극 <strong>리허설</strong>에서는 조명·동선·대사 타이밍을 마음껏 맞춰봅니다. 실수해도 관객이 없으니 괜찮죠.
+      <strong>본공연</strong>은 실수가 곧 사고입니다. 에뮬레이터는 <strong>리허설 무대</strong>예요 —
+      흐름이 완성되면 에뮬레이터를 떼고 진짜 도구를 연결해 <strong>본공연(실서비스)</strong>으로 올리면 됩니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <code>LLMToolEmulator</code>는 <strong>도구를 진짜로 실행하지 않고, LLM이 결과를 지어내(모킹) 대신 채우는</strong> 미들웨어다.
+      실제 백엔드 없이 Agent 흐름을 <strong>안전하게 리허설</strong>하기 위한 장치다.
+    </div>
+
+    <ul>
+      <li><strong>왜 쓰나</strong> — 도구가 없거나 비싸거나 위험할 때, <strong>프로토타입 단계</strong>에서 흐름만 먼저 확인하려고.</li>
+      <li><strong>어떻게 쓰나</strong> — <code>create_agent(..., middleware=[LLMToolEmulator(model="...")])</code> 한 줄이면 등록된 도구가 전부 대역으로 바뀐다.</li>
+      <li><strong>일부만 흉내</strong> — <code>LLMToolEmulator(tools=["도구이름"])</code>로 특정 도구만 대역 처리, 나머지는 진짜 실행.</li>
+      <li><strong>결정적 특징</strong> — 도구 함수의 <code>return</code>은 <strong>실행되지 않는다.</strong> 결과 <code>ToolMessage</code>가 우리 코드와 다른 값이면 그게 증거다.</li>
+      <li><strong>주의</strong> — 돌려받은 값은 <strong>가짜 데이터</strong>다. 내용을 사실로 믿지 말고, <em>흐름 검증용</em>으로만 쓴다.</li>
+      <li><strong>비유로 한 방에</strong> — 소품과 대역(영화), 조종석 시뮬레이터(우주비행), 모델하우스(부동산), 리허설(연극).</li>
+    </ul>
+
+    <div class="callout callout-warn">
+      <strong>➡️ 다음 이야기</strong>
+      에뮬레이터도 <strong>미들웨어</strong>의 하나였습니다. 다음 노트북에서는 또 다른 미들웨어 —
+      복잡한 요청을 만나면 Agent가 <strong>스스로 할 일 목록(TodoList)을 세우고 단계별로 처리</strong>하게 돕는
+      <code>TodoListMiddleware</code>를 만나봅니다.
+    </div>
+
+    <div class="pager">
+      <a href="./03.html">
+        <small>← 이전 노트북</small>
+        03. Memory 기초 (Short-term)
+      </a>
+      <a class="next" href="./05.html">
+        <small>다음 노트북 →</small>
+        05. Middleware: TodoList (할 일 자동 관리)
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

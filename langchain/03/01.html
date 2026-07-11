@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>01. Hooks &amp; Middleware 가이드</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">01. Hooks &amp; Middleware 목차</div>
+    <a href="#overview">개요 · 미들웨어와 훅이란</a>
+    <a href="#runtime-state">Runtime &amp; State 먼저 이해하기</a>
+    <a href="#dataclass">dataclass — Context 담는 그릇</a>
+    <a href="#node-style">Node-style Hook (@before_model)</a>
+    <a href="#invoke1">실습 ① — 로그 찍어 엿보기</a>
+    <a href="#wrap-style">Wrap-style Hook (@wrap_model_call)</a>
+    <a href="#dynamic">예시 — 동적 모델 선택</a>
+    <a href="#inject">실습 ② — 사용자 이름 주입</a>
+    <a href="#handler-request">handler와 request 이해하기</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#compare">Node vs Wrap 비교</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="#" style="font-weight:700;color:var(--text);">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style →</a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="./05.html">05. 메시지 객체와 .type 속성</a>
+      <a href="./06.html">06. Guardrails: After Agent 필터</a>
+      <a href="./07.html">07. Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: 메모리 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>01. Hooks &amp; Middleware 가이드</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>01.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a> 1장 Advanced Agent
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>01.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      기본 Agent를 넘어서 <strong>실행 흐름 중간에 끼어들어 Agent를 정교하게 제어</strong>하는 두 가지 장치 —
+      <strong>미들웨어(Middleware)</strong>와 <strong>훅(Hook)</strong> — 을 배웁니다.
+      "모델이 답을 만들기 <em>직전</em>에 로그를 남기고 싶다", "사용자 이름을 <em>몰래</em> 프롬프트에 끼워 넣고 싶다" 같은
+      일이 어떻게 가능한지, 비유와 실제 실행 결과로 천천히 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      Agent는 "질문을 받아 → 모델을 부르고 → 도구를 쓰고 → 답을 낸다"는 <strong>흐름(파이프라인)</strong>으로 움직입니다.
+      이 흐름의 <strong>중간중간에 우리 코드를 끼워 넣는 것</strong>이 이 장의 전부입니다.
+      끼워 넣는 <strong>기능 조각</strong>을 미들웨어, 끼워 넣는 <strong>지점</strong>을 훅이라고 부릅니다.
+    </div>
+
+    <p>
+      가장 먼저 잡아야 할 감은 미들웨어와 훅의 관계입니다. 어렵게 느껴지지만, 한 문장으로 줄이면
+      <strong>"무엇을(미들웨어) 언제(훅) 실행할까"</strong>입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 공장 라인의 센서</strong>
+      Agent 시스템을 거대한 <strong>공장 라인</strong>이라고 생각해 보세요.
+      라인 위에는 여러 <strong>기계(노드)</strong>가 있습니다 — LLM을 돌리는 기계, 도구를 실행하는 기계 등.
+      각 기계 바로 앞에는 <strong>센서를 꽂을 수 있는 장착 지점(훅)</strong>이 미리 마련되어 있습니다.
+      우리는 거기에 원하는 <strong>센서 기기(미들웨어)</strong>를 쓱 꽂기만 하면 됩니다.
+      훅이 없다면 공장 내부 배선을 통째로 뜯어고쳐야 하지만, 지점이 미리 있으니
+      우리는 <strong>기능만 만들어 끼워 넣으면</strong> 되는 것이죠.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>용어</th><th>정체</th><th>대답하는 질문</th><th>예</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>미들웨어</strong> (Middleware)</td><td>실행할 코드(기능 단위)</td><td><strong>무엇을?</strong></td><td><code>log_before_model</code> 함수</td></tr>
+          <tr><td><strong>훅</strong> (Hook)</td><td>미들웨어가 걸리는 실행 지점</td><td><strong>언제?</strong></td><td><code>@before_model</code> 데코레이터</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      즉 <strong>미들웨어는 훅이라는 갈고리에 걸어 두는 실제 작업 도구</strong>입니다.
+      "이 기능(<code>log_before_model</code>)을 저 지점(<code>@before_model</code>)에 걸어 줘"라고 등록하는 것이 우리가 할 일의 전부예요.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실행 전 준비</strong>
+      코드를 직접 돌려보려면 프로젝트 루트에 <code>.env</code> 파일이 있고 그 안에 <code>OPENAI_API_KEY</code> 같은
+      API 키가 들어 있어야 합니다. 이 교재만 읽을 때는 필요 없습니다.
+    </div>
+
+    <div class="io-label">📥 코드 — 공통 준비</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <hr />
+
+    <!-- ── Runtime & State ── -->
+    <h2 id="runtime-state">Runtime &amp; State — 미들웨어가 들여다보는 두 상자</h2>
+
+    <p>
+      미들웨어 함수를 열어 보면 <code>state</code>, <code>runtime</code>, <code>request</code> 같은 인자가 등장합니다.
+      이 이름들이 낯설면 미들웨어가 통째로 어렵게 느껴지니, 딱 두 개만 먼저 잡고 갑시다 — <strong>Runtime</strong>과 <strong>State</strong>입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 요리사의 주방(Runtime) vs 지금까지 만든 요리(State)</strong>
+      <strong>Runtime</strong>은 요리사가 일하는 <strong>주방 환경</strong>입니다 — 손님이 누구인지 적힌 <strong>주문서(Context)</strong>,
+      단골손님 취향을 적어 둔 <strong>메모 노트(Store)</strong>, 홀에 상황을 알리는 <strong>인터폰(Stream writer)</strong>.
+      요리 중에 바뀌지 않는 <strong>바깥 환경</strong>이죠.
+      반면 <strong>State</strong>는 요리사가 <strong>지금까지 실제로 만들어 낸 결과물</strong>입니다 — 완성된 접시들(messages),
+      중간 재료(tool_results). 요리가 진행될수록 계속 늘어나는 <strong>안쪽 산출물</strong>이에요.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>큰 구분</th><th>구성 요소</th><th>설명</th></tr>
+        </thead>
+        <tbody>
+          <tr><td rowspan="3"><strong>Runtime</strong><br />(바깥 환경)</td><td><code>Context</code></td><td>사용자 ID, DB 연결 URL처럼 실행 중 <strong>변하지 않는</strong> 정보</td></tr>
+          <tr><td><code>Store</code></td><td>사용자 이름·선호도 같은 <strong>장기 메모리</strong></td></tr>
+          <tr><td><code>Stream writer</code></td><td>내부 작동 로그 등 <strong>실시간 이벤트</strong> 출력</td></tr>
+          <tr><td rowspan="2"><strong>State</strong><br />(내부 산출물)</td><td><code>messages</code></td><td>모델이 Runtime을 참조해 만든 <strong>대화 결과물</strong></td></tr>
+          <tr><td><code>tool_results</code></td><td>도구가 만들어 낸 <strong>정보 모음</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 한 줄 정리</strong>
+      <strong>State</strong>가 Agent 내부 흐름(대화·도구 결과)을 다룬다면, <strong>Runtime</strong>은 그 바깥 환경(사용자 정보·저장소·스트림)을 다룹니다.
+      이 장의 예제에서 우리가 넣어 줄 "사용자 이름"은 대화 중 변하지 않는 정보이므로 <strong>Runtime의 Context</strong>에 담깁니다.
+    </div>
+
+    <hr />
+
+    <!-- ── dataclass ── -->
+    <h2 id="dataclass"><code>dataclass</code> — Context를 담는 깔끔한 그릇</h2>
+
+    <p>
+      방금 Context에 "사용자 이름"을 담는다고 했죠. 그 Context를 정의할 때 파이썬의 <strong><code>dataclass</code></strong>를 씁니다.
+      <code>dataclass</code>는 <strong>데이터를 담는 클래스</strong>를 아주 쉽고 깔끔하게 만들어 주는 도구예요(파이썬 3.7부터 내장).
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 서식 자동 완성기</strong>
+      보통 클래스를 만들려면 "값을 받는 생성자(<code>__init__</code>)", "예쁘게 출력하는 법(<code>__repr__</code>)",
+      "두 개가 같은지 비교하는 법(<code>__eq__</code>)"을 <strong>매번 손으로</strong> 적어야 합니다.
+      <code>@dataclass</code>는 <strong>"어떤 칸이 필요한지"만 적으면 나머지 지루한 서식을 자동으로 채워 주는 문서 자동 완성기</strong>입니다.
+      우리는 <code>user_name: str</code> 한 줄만 쓰면, 파이썬이 "아, 이건 <code>user_name</code>을 받는 생성자가 필요하겠구나" 하고 알아서 만들어 줍니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dataclasses import dataclass
+
+@dataclass
+class Context:
+  user_name: str</code></pre>
+
+    <p>
+      <code>@dataclass</code> 데코레이터만 붙였을 뿐인데, 이 클래스는 아래 세 가지를 <strong>공짜로</strong> 얻습니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>자동 생성 메서드</th><th>하는 일</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>__init__</code></td><td>인스턴스를 만들 때 값을 받는 <strong>생성자</strong> (예: <code>Context(user_name="Jay")</code>)</td></tr>
+          <tr><td><code>__repr__</code></td><td><code>print(ctx)</code> 시 <code>Context(user_name='Jay')</code>처럼 <strong>보기 좋게</strong> 출력 (일반 클래스는 메모리 주소가 나옴)</td></tr>
+          <tr><td><code>__eq__</code></td><td><code>==</code> 비교를 <strong>주소가 아니라 데이터 내용</strong> 기준으로 수행</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 여기서 쓰나?</strong>
+      LangChain의 Context는 사용자 이름·설정값처럼 <strong>단순한 데이터의 묶음</strong>인 경우가 많습니다.
+      복잡한 로직보다 <strong>데이터 그 자체</strong>를 안전하게 전달하는 게 목적이라, 코드가 짧고 읽기 쉬운 <code>dataclass</code>를 쓰는 것이 관례입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── Node-style ── -->
+    <h2 id="node-style">방법 1 — Node-style Hook (<code>@before_model</code>)</h2>
+
+    <p>
+      이제 진짜 미들웨어를 만들어 봅니다. 첫 번째 방식은 <strong>Node-style Hook</strong>입니다.
+      입력 파라미터로 <code>state</code>와 <code>runtime</code>을 받고, 흐름의 <strong>특정 지점(before/after)에서 순차적으로</strong> 실행됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 라인 옆에 선 검수원(관찰자)</strong>
+      Node-style은 공장 라인 <strong>옆에 서서 지나가는 물건을 지켜보는 검수원</strong>과 같습니다.
+      물건이 기계에 들어가기 <strong>직전(before_model)</strong>에 "번호 잘 찍혔나" 살펴보고, 이상 없으면 로그를 적고 그냥 흘려보냅니다.
+      물건 자체를 <strong>붙잡거나 바꾸는 게 주 임무가 아니라</strong>, <strong>들여다보고 기록·검사</strong>하는 데 특화돼 있죠.
+      그래서 공식 문서도 <strong>로깅·검증·상태 갱신</strong>에 이 방식을 추천합니다 — 노드 내부의 상세한 맥락에 바로 접근할 수 있으니까요.
+    </div>
+
+    <p>아래는 모델이 호출되기 <strong>직전</strong>에 상태와 런타임을 그대로 찍어 보는 미들웨어입니다.</p>
+
+    <div class="io-label">📥 코드 — @before_model 미들웨어 정의</div>
+<pre class="code-block"><code>from langchain.agents.middleware import before_model
+
+@before_model
+def log_before_model(state, runtime) :
+    print(f"(step1)before_model_state : \n{state}")
+    print(f"(step2)before_model_runtime : \n{runtime}")
+    print(f"(step3)사용자 이름 : {runtime.context.user_name}")
+    return None</code></pre>
+
+    <ul>
+      <li><code>@before_model</code>이 <strong>훅(지점)</strong> — "모델 호출 직전에 걸어 줘"라는 뜻.</li>
+      <li><code>log_before_model</code>이 <strong>미들웨어(기능)</strong> — 실제로 로그를 남기는 코드.</li>
+      <li><code>state</code>로는 현재까지의 <strong>메시지</strong>를, <code>runtime.context.user_name</code>으로는 우리가 넣어 준 <strong>사용자 이름</strong>을 꺼냅니다.</li>
+      <li><code>return None</code> — 상태를 바꾸지 않고 <strong>그대로 흘려보낸다</strong>는 뜻(관찰만 함).</li>
+    </ul>
+
+    <p>이제 이 미들웨어를 Agent에 <strong>장착</strong>합니다. 핵심은 <code>context_schema=Context</code>를 넘겨 주는 것 — 이래야 미들웨어가 <code>runtime.context</code>로 우리 데이터를 볼 수 있습니다.</p>
+
+    <div class="io-label">📥 코드 — Agent에 미들웨어 장착</div>
+<pre class="code-block"><code>agent = create_agent(
+    model="gpt-5-mini",
+    tools=[],
+    middleware=[log_before_model],
+    context_schema=Context,
+)</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>@before_model</code>은 매번 실행됩니다</strong>
+      <code>@before_model</code>은 <strong>모델이 호출될 때마다</strong> 실행됩니다(도구를 쓴 뒤 모델을 다시 부를 때도 반복).
+      반면 <code>@before_agent</code>는 Agent 실행 <strong>전체에서 딱 한 번</strong>만 실행됩니다. 로그가 여러 번 찍힌다면 이 차이 때문이에요.
+    </div>
+
+    <!-- ── invoke 1 ── -->
+    <h3 id="invoke1">실습 ① — 미들웨어로 내부 엿보기</h3>
+
+    <p>이제 Agent를 호출합니다. 이때 <code>context=Context(user_name="Jay")</code>로 <strong>사용자 이름을 주입</strong>합니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>agent.invoke(
+    {"messages": [{"role": "user", "content": "제 이름이 뭐죠?"}]},
+    context=Context(user_name="Jay"),
+)</code></pre>
+
+    <p>미들웨어가 모델 호출 직전에 끼어들어, 아래처럼 <strong>내부 상태를 그대로 출력</strong>합니다.</p>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">(step1)before_model_state :
+{'messages': [HumanMessage(content='제 이름이 뭐죠?', additional_kwargs={}, response_metadata={}, id='2ec93f0a-...')]}
+(step2)before_model_runtime :
+Runtime(context=Context(user_name='Jay'), store=None, stream_writer=&lt;function Pregel.stream.&lt;locals&gt;.stream_writer at 0x113a5b1a0&gt;, previous=None)
+(step3)사용자 이름 : Jay</pre>
+
+    <p>
+      <code>state</code> 안에는 사용자 메시지가, <code>runtime</code> 안에는 우리가 넣은 <code>Context(user_name='Jay')</code>가 그대로 들어 있습니다.
+      그래서 <code>runtime.context.user_name</code>으로 <strong>"Jay"</strong>를 정확히 꺼냈죠.
+    </p>
+
+    <div class="callout callout-danger">
+      <strong>🚨 함정 — "이름을 봤는데 왜 답을 못 하지?"</strong>
+      미들웨어는 사용자 이름 "Jay"를 <strong>분명히 읽었습니다.</strong> 그런데 정작 모델의 최종 답변은 이렇습니다:
+      <br /><br />
+      <em>"모르겠어요 — 이 채팅에선 아직 이름을 알려주지 않으셨어요…"</em>
+      <br /><br />
+      왜일까요? Node-style은 <strong>옆에서 지켜보며 로그만 남겼을 뿐</strong>, 그 이름을 <strong>모델에게 건네주지는 않았기</strong> 때문입니다.
+      검수원이 물건 번호를 노트에 적었다고 해서, 그 번호가 물건 자체에 새겨지는 건 아니니까요.
+      <strong>"관찰"과 "개입(변형)"은 다릅니다.</strong> 이 아쉬움을 해결하는 것이 바로 다음에 나올 Wrap-style입니다.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — Node-style Hook은 어디에 쓰나 (공식 권장 용도)</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>용도</th><th>설명</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Validation</strong> (검증)</td><td>입력 데이터가 비즈니스 로직에 들어가기 <strong>직전</strong>에 이상 없는지 검사</td></tr>
+            <tr><td><strong>Logging</strong> (로깅)</td><td>노드 내부에서 벌어지는 <strong>상세한 작업 단계</strong>를 기록</td></tr>
+            <tr><td><strong>State Updates</strong> (상태 갱신)</td><td>실행 결과에 따라 <strong>즉시 상태를 바꿔야</strong> 할 때</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-bottom:0;">
+        공통점은 모두 <strong>"흐름을 크게 틀지 않고, 특정 지점에서 곁들이는 작업"</strong>이라는 점입니다.
+        데코레이터로는 <code>@before_agent</code>, <code>@before_model</code>, <code>@after_model</code>, <code>@after_agent</code>가 있습니다.
+      </p>
+    </div>
+
+    <hr />
+
+    <!-- ── Wrap-style ── -->
+    <h2 id="wrap-style">방법 2 — Wrap-style Hook (<code>@wrap_model_call</code>)</h2>
+
+    <p>
+      두 번째 방식은 <strong>Wrap-style Hook</strong>입니다. 이름 그대로 실행을 <strong>감싸서(wrap)</strong>,
+      모델이나 도구가 호출될 때 그 <strong>실행과 제어를 통째로 가로챕니다(intercept)</strong>.
+      입력 파라미터는 <code>request</code>(요청 꾸러미)와 <code>handler</code>(실제 실행 함수)입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 물건을 붙잡는 문지기</strong>
+      Node-style이 "옆에서 지켜보는 검수원"이었다면, Wrap-style은 <strong>기계 앞을 막고 선 문지기</strong>입니다.
+      들어가는 물건(<code>request</code>)을 <strong>손에 쥐고</strong>, 라벨을 바꿔 붙이거나(변형) · 아예 기계를 거치지 않고 되돌려 보내거나(건너뛰기) ·
+      실패하면 몇 번이고 다시 밀어 넣을(재시도) 수 있습니다.
+      "실제로 기계를 돌려라"라고 <strong>버튼을 눌러 주는 행위가 <code>handler(request)</code></strong>이고,
+      그 버튼을 <strong>누를지·언제 누를지·몇 번 누를지</strong>를 문지기가 결정하는 것이죠.
+    </div>
+
+    <p>Wrap-style이 가진 <strong>세 가지 힘</strong>은, 실제 기계(모델·도구)를 <strong>몇 번 돌리느냐</strong>로 나누면 한눈에 들어옵니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>패턴</th><th>실행 횟수</th><th>무엇을 하나</th><th>예시</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>① 단락 실행</strong><br />(Short-circuit)</td><td>0번</td><td><code>handler</code>를 <strong>아예 부르지 않고</strong> 결과를 바로 반환</td><td><strong>캐싱</strong>(같은 질문이면 저장된 답 즉시 반환), <strong>Emulation</strong>(가짜 데이터 반환)</td></tr>
+          <tr><td><strong>② 정상 흐름</strong><br />(Normal flow)</td><td>1번</td><td>평범하게 한 번 실행하되 <strong>입력·출력을 가공</strong></td><td><strong>Transformation</strong>(들어가기 전 인자 보안 처리, 복잡한 JSON을 읽기 쉬운 텍스트로 변환)</td></tr>
+          <tr><td><strong>③ 반복 실행</strong><br />(Retry logic)</td><td>여러 번</td><td>실패하면 <strong>성공할 때까지</strong> 다시 시도</td><td><strong>Retries</strong>(네트워크 오류 시 미들웨어 레벨에서 3번 더 재시도)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 두 종류의 Wrap</strong>
+      감싸는 대상에 따라 두 가지가 있습니다.
+      <code>wrap_model_call</code>은 각 <strong>모델 호출</strong> 주변에서, <code>wrap_tool_call</code>은 각 <strong>도구 호출</strong> 주변에서 작동합니다.
+      이 노트북에서는 <code>wrap_model_call</code>을 다룹니다.
+    </div>
+
+    <!-- ── dynamic model ── -->
+    <h3 id="dynamic">예시 — 메시지 길이에 따라 모델을 바꿔 끼우기</h3>
+
+    <p>
+      Wrap-style의 "가로채서 바꾸기"를 보여 주는 대표 예시입니다.
+      사용자 메시지가 <strong>짧으면 값싼 모델</strong>, <strong>길면 강력한 모델</strong>을 쓰도록 <code>request.model</code> 자체를 교체합니다.
+      비싼 GPT-5를 항상 쓰는 대신, <strong>상황에 맞게 골라 써서 비용을 아끼는</strong> 실전 패턴이죠.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import wrap_model_call
+from langchain_openai import ChatOpenAI
+
+# 작성 예시
+@wrap_model_call
+def dynamic_model_selector(request, handler):
+    # 최근 사용자의 입력 메시지 추출
+    last_msg = request.messages[-1].content if request.messages else ""
+    msg_len = len(last_msg)
+
+    # 길이에 따라 모델 선택
+    if msg_len &lt; 10:
+        model_name = "gpt-5-nano"
+    elif msg_len &lt; 30:
+        model_name = "gpt-5-mini"
+    else:
+        model_name = "gpt-5"
+
+    # request.model을 새로운 모델로 교체
+    new_model = ChatOpenAI(model_name=model_name)
+    new_request = request.override(model=new_model)
+
+    # 수정된 요청으로 LLM 호출
+    return handler(new_request)</code></pre>
+
+    <ul>
+      <li><code>request.messages[-1]</code>로 <strong>가장 최근 메시지</strong>를 꺼내 길이를 잽니다.</li>
+      <li><code>request.override(model=new_model)</code>로 <strong>요청 안의 모델을 바꿔 끼웁니다.</strong> 원본을 건드리지 않고 <strong>새 요청</strong>을 만든다는 점이 포인트.</li>
+      <li>마지막에 <code>handler(new_request)</code> — <strong>바뀐 요청으로</strong> 실제 모델을 호출합니다.</li>
+    </ul>
+
+    <!-- ── inject_user_name ── -->
+    <h3 id="inject">실습 ② — 사용자 이름을 시스템 프롬프트에 주입하기</h3>
+
+    <p>
+      드디어 아까 실습 ①의 <strong>아쉬움을 해결</strong>할 차례입니다.
+      Node-style은 이름을 "봤지만" 모델에 못 넘겼죠. Wrap-style로는 이름을 <strong>시스템 프롬프트에 직접 끼워 넣어</strong> 모델이 알게 만들 수 있습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 모델에게 직접 떠먹여 주기</strong>
+      <code>request</code>는 모델에게 전달할 정보가 다 든 <strong>보따리</strong>입니다.
+      이 보따리 안 <strong>책상(<code>runtime</code>)</strong> 위에 놓인 <strong>신분증(<code>context.user_name</code>)</strong>을 꺼내,
+      "사용자의 이름은 Jay Pak입니다"라는 <strong>쪽지(시스템 프롬프트)</strong>로 만들어 보따리에 <strong>다시 넣어</strong> 모델에게 건넵니다.
+      Node-style이 신분증을 힐끗 보고 노트에만 적었다면, Wrap-style은 그 정보를 <strong>모델 입에 직접 떠먹여 주는</strong> 셈이에요.
+    </div>
+
+    <div class="io-label">📥 코드 — 요청을 가로채 시스템 프롬프트 덮어쓰기</div>
+<pre class="code-block"><code>from typing import Callable
+from langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse
+from langchain.messages import HumanMessage, SystemMessage
+
+@wrap_model_call
+def inject_user_name(request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]) -&gt; ModelResponse:
+    print(f"request : \n{request}")
+
+    # 1. request 보따리 안의 책상(runtime)에서 신분증 정보 추출
+    user_name = request.runtime.context.user_name
+
+    if user_name:
+        system_message = f"사용자의 이름은 {user_name}입니다"
+        # 2. request.override()를 사용해 시스템 프롬프트 덮어쓰기 (모델에게 직접 떠먹여 주기)
+        request = request.override(system_prompt=system_message)
+
+    # 3. 조작된 request를 handler를 통해 모델로 전송
+    return handler(request)</code></pre>
+
+    <p>이제 이 미들웨어를 장착한 Agent를 만들고, 아까와 <strong>똑같은 질문</strong>을 던져 봅니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+agent = create_agent(
+    model="gpt-5-mini",
+    tools=[],
+    middleware=[inject_user_name],
+    context_schema=Context,
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "제 이름이 뭐죠?"}]},
+    context=Context(user_name="Jay Pak"),
+)
+print(result["messages"][-1].content) </code></pre>
+
+    <p>먼저 <code>print(f"request : ...")</code>가 가로챈 요청 꾸러미를 통째로 보여 줍니다. 그 안에 우리 Context가 실려 있는 게 보이죠.</p>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">request :
+ModelRequest(model=ChatOpenAI(..., model_name='gpt-5-mini', ...), messages=[HumanMessage(content='제 이름이 뭐죠?', ...)], system_message=None, tool_choice=None, tools=[], response_format=None, state={'messages': [...]}, runtime=Runtime(context=Context(user_name='Jay Pak'), store=None, stream_writer=&lt;function ...&gt;, previous=None), model_settings={})
+Jay Pak님입니다. 어떻게 불러드리면 될까요?</pre>
+
+    <div class="callout callout-info">
+      <strong>✅ 이번엔 답을 합니다!</strong>
+      마지막 줄 <strong>"Jay Pak님입니다."</strong> — 실습 ①에서는 "모르겠어요"였던 모델이, 이번엔 이름을 정확히 답했습니다.
+      차이는 단 하나 — 미들웨어가 이름을 <strong>보기만</strong> 했느냐(Node-style), <strong>요청에 끼워 넣어</strong> 모델에게 전달했느냐(Wrap-style)입니다.
+    </div>
+
+    <div class="chat">
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">제 이름이 뭐죠?</div></div>
+      <div class="msg"><div class="role role-system">System</div><div class="bubble">사용자의 이름은 Jay Pak입니다 <span class="tag">← 미들웨어가 몰래 주입한 쪽지</span></div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">Jay Pak님입니다. 어떻게 불러드리면 될까요? <span class="tag">← 주입된 쪽지 덕에 정답</span></div></div>
+    </div>
+
+    <hr />
+
+    <!-- ── handler & request ── -->
+    <h2 id="handler-request">두 주인공 다시 보기 — <code>handler</code>와 <code>request</code></h2>
+
+    <p>Wrap-style을 다룰 때 계속 나온 <code>handler</code>와 <code>request</code>, 이 둘의 정체를 확실히 정리하고 갑시다.</p>
+
+    <h3>1. <code>handler</code> 란?</h3>
+    <p>
+      <code>handler</code>는 <strong>"실제 모델(LLM) 호출을 실행하는 함수"</strong>이자 <strong>"다음 단계로 넘겨주는 함수"</strong>입니다.
+      <code>@wrap_model_call</code> 미들웨어는 모델 호출을 <strong>가로챈</strong> 상태이므로, <code>handler</code>를 <strong>직접 불러 줘야만</strong> 비로소 진짜 LLM이 실행됩니다.
+      (문지기가 버튼을 눌러 줘야 기계가 돈다고 했죠.)
+    </p>
+
+    <div class="io-label">📥 코드 — 가로채기의 전형적인 3단 구조</div>
+<pre class="code-block"><code>@wrap_model_call
+def wrap_model_call_hook(request, handler):
+    # 1. 모델 호출 전 처리 (예: 프롬프트 수정)
+
+    # 2. 실제 모델 호출 실행 (handler 호출 필수!)
+    result = handler(request)
+
+    # 3. 모델 호출 후 처리 (예: 결과 가공)
+    return result</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>handler</code>를 안 부르면?</strong>
+      <code>handler(request)</code>를 빼먹으면 실제 모델이 <strong>영영 호출되지 않습니다.</strong>
+      단, 이걸 <strong>일부러</strong> 안 부르는 게 앞서 본 <strong>단락 실행(캐싱·Emulation)</strong>입니다 —
+      "실수로 빼먹기"와 "의도적으로 건너뛰기"는 코드가 같아도 <strong>의도가 다르다</strong>는 점만 기억하세요.
+    </div>
+
+    <h3>2. <code>request</code> 란?</h3>
+    <p>
+      <code>request</code>는 <strong>"모델이나 도구를 호출하는 데 필요한 모든 정보를 담은 데이터 꾸러미(보따리)"</strong>입니다.
+      프롬프트·파라미터·설정값이 모두 여기 들어 있습니다. 실습 ②의 출력에서 봤듯, 주요 칸은 이렇습니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>필드</th><th>담긴 것</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>model</code></td><td>어떤 모델을 쓸지 (예: <code>ChatOpenAI</code>)</td></tr>
+          <tr><td><code>system_prompt</code></td><td>시스템 프롬프트 (없으면 <code>None</code>)</td></tr>
+          <tr><td><code>messages</code></td><td>대화 메시지 목록</td></tr>
+          <tr><td><code>tools</code> / <code>tool_choice</code></td><td>사용 가능한 도구 · 강제 선택할 도구</td></tr>
+          <tr><td><code>response_format</code></td><td>출력 포맷 (예: JSON schema)</td></tr>
+          <tr><td><code>state</code> / <code>runtime</code></td><td>실행 상태(메시지 기록) · 실행 환경(context·store·stream)</td></tr>
+          <tr><td><code>model_settings</code></td><td>모델 설정 (온도, 토큰 제한 등)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>request.override(...)</code>의 정체</strong>
+      우리가 계속 쓴 <code>request.override(model=...)</code>, <code>request.override(system_prompt=...)</code>는
+      이 꾸러미의 특정 칸만 바꾼 <strong>새 요청을 만들어 주는 메서드</strong>입니다.
+      원본을 직접 뜯어고치지 않고 <strong>바뀐 사본</strong>을 만들어 넘기므로 안전합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── compare ── -->
+    <h2 id="compare">한눈에 비교 — Node-style vs Wrap-style</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>Node-style Hook</th><th>Wrap-style Hook</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>동작 방식</strong></td><td>특정 지점(before/after)에서 <strong>순차적으로</strong> 동작</td><td>실행 흐름을 <strong>감싸서(intercept)</strong> 조작</td></tr>
+          <tr><td><strong>입력 파라미터</strong></td><td><code>state</code>, <code>runtime</code></td><td><code>request</code>, <code>handler</code></td></tr>
+          <tr><td><strong>비유</strong></td><td>옆에서 지켜보는 <strong>검수원</strong></td><td>앞을 막고 선 <strong>문지기</strong></td></tr>
+          <tr><td><strong>적합한 용도</strong></td><td>상태 확인, 로깅, 유효성 검사</td><td>동적 프롬프트 삽입, 흐름 건너뛰기 등 <strong>흐름 제어·변형</strong></td></tr>
+          <tr><td><strong>데코레이터</strong></td><td><code>@before_agent</code>, <code>@before_model</code>,<br /><code>@after_model</code>, <code>@after_agent</code></td><td><code>@wrap_model_call</code>, <code>@wrap_tool_call</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 실전 감각 — 둘의 콤비 플레이</strong>
+      Context와 미들웨어를 조합하면 강력한 개인화가 됩니다. 예를 들어
+      <strong>로그인한 사용자에게는 고급 모델(GPT-5)을, 비로그인 사용자에게는 기본 모델(GPT-5-nano)을</strong> 쓰도록 하는
+      Agent 서비스를 이 장에서 배운 재료만으로 만들 수 있습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      미들웨어는 <strong>"무엇을"</strong>, 훅은 <strong>"언제"</strong>. 그리고 관찰만 할 거면 <strong>Node-style</strong>,
+      흐름을 <strong>가로채 바꿀</strong> 거면 <strong>Wrap-style</strong>.
+    </div>
+
+    <ul>
+      <li><strong>미들웨어 vs 훅</strong> — 미들웨어(기능)를 훅(지점)이라는 갈고리에 <strong>걸어서</strong> 쓴다.</li>
+      <li><strong>Runtime vs State</strong> — Runtime은 바깥 환경(context·store·stream, 주방), State는 내부 산출물(messages·tool_results, 만든 요리).</li>
+      <li><strong><code>dataclass</code></strong> — Context를 담는 그릇. <code>@dataclass</code> 한 줄로 <code>__init__</code>·<code>__repr__</code>·<code>__eq__</code>를 공짜로 얻는다.</li>
+      <li><strong>Node-style</strong>(<code>state</code>, <code>runtime</code>) — 옆에서 지켜보는 검수원. <strong>로깅·검증·상태 갱신</strong>에 적합. 이름을 <em>봤지만</em> 모델에 못 넘겨 "모르겠어요".</li>
+      <li><strong>Wrap-style</strong>(<code>request</code>, <code>handler</code>) — 앞을 막는 문지기. <strong>단락 실행(0번)·정상 흐름(1번)·재시도(여러 번)</strong>. 이름을 <em>주입해</em> "Jay Pak님입니다".</li>
+      <li><strong><code>handler</code>·<code>request</code></strong> — <code>handler(request)</code>를 불러야 진짜 모델이 돈다. <code>request.override(...)</code>로 꾸러미의 특정 칸만 바꾼 새 요청을 만든다.</li>
+    </ul>
+
+    <div class="pager">
+      <span></span>
+      <a class="next" href="./02.html">
+        <small>다음 노트북 →</small>
+        02. Custom Middleware: Node-style
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

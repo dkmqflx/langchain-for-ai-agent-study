@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>05. 메시지 객체와 .type 속성 이해하기</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">05. 메시지 .type 목차</div>
+    <a href="#overview">개요 · 왜 <code>.type</code>이 중요한가</a>
+    <a href="#context">실전 맥락 — 교육용 가드레일</a>
+    <a href="#code">가드레일 미들웨어 코드</a>
+    <a href="#run">에이전트 실행 결과</a>
+    <a href="#type"><code>.type</code>은 어디서 왔나 — BaseMessage</a>
+    <a href="#repr">왜 print엔 안 보였나 (<code>__repr__</code>)</a>
+
+    <div class="nav-section">
+      <div class="nav-title">보충</div>
+      <a href="#jump"><code>return None</code> vs <code>jump_to</code></a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북 (03. Agent 심화)</div>
+      <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style</a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="#" style="font-weight:700;color:var(--text);background:var(--bg);">05. 메시지 객체와 .type</a>
+      <a href="./06.html">06. Custom Guardrails: 출력 필터</a>
+      <a href="./07.html">07. Custom Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: 메모리 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>05. 메시지 객체와 <code>.type</code> 속성 이해하기</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>05.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+    </p>
+
+    <p class="lead">
+      이 노트북은 겉보기엔 <strong>"학생이 부정행위를 못 하게 막는 교육용 가드레일"</strong>을 만드는 실습입니다.
+      하지만 진짜 배울 것은 그 코드 속에 숨은 딱 한 줄, <code>if last_message.type != "human"</code>입니다.
+      메시지를 <code>print</code>했을 땐 분명 <code>type</code>이 안 보였는데,
+      코드에서는 <code>.type</code>으로 꺼내 쓰고 있죠. <strong>이 <code>.type</code>은 대체 어디서 온 걸까요?</strong>
+      그 정체를 파헤치는 것이 오늘의 목표입니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      LangChain의 모든 메시지(<code>HumanMessage</code>, <code>AIMessage</code>, <code>SystemMessage</code> …)는
+      <strong>같은 부모 클래스(<code>BaseMessage</code>)에서 태어난 형제들</strong>입니다.
+      그래서 겉모습(내용)은 달라도 <strong>공통 속성</strong>을 나눠 갖는데, 그중 하나가 "이 말을 누가 했는가"를
+      알려주는 <code>type</code>입니다. 이 장에서는 ① <code>.type</code>이 왜 필요한지(실전 가드레일),
+      ② 그게 어디서 왔는지(<code>BaseMessage</code> 상속), ③ 왜 화면 출력엔 안 보이는지(<code>__repr__</code>)를 순서대로 봅니다.
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 모든 메시지가 달고 있는 명찰</strong>
+      회의실에 들어온 모든 사람이 가슴에 <strong>명찰</strong>을 달고 있다고 상상해보세요.
+      명찰에는 <em>"발언자: 사회자"</em>, <em>"발언자: 참석자"</em>, <em>"발언자: 진행봇"</em>처럼 <strong>누가 말했는지</strong>가 적혀 있습니다.
+      LangChain 메시지의 <code>.type</code>이 바로 이 <strong>명찰</strong>입니다 —
+      <code>"human"</code>(사람), <code>"ai"</code>(모델), <code>"system"</code>(지시)처럼요.
+      가드레일(문지기)은 이 명찰만 슬쩍 보고 <strong>"아, 이건 사람이 방금 한 말이구나"</strong>라고 판단해
+      개입할지 말지를 결정합니다. 오늘 이야기의 주인공이 바로 이 명찰입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── context ── -->
+    <h2 id="context">1. 실전 맥락 — <code>.type</code>은 언제 필요한가</h2>
+
+    <p>
+      우리가 만들 것은 <strong>학생용 AI 튜터</strong>에 붙이는 안전장치입니다.
+      학생이 "숙제 대신 써줘" 같은 <strong>부정행위성 질문</strong>을 하면, 그 질문을 굳이 비싼 LLM에게 보내지 않고
+      <strong>미리 가로채서</strong> "스스로 고민해보라"는 교육적 멘트로 되돌려주는 것이죠.
+      이렇게 모델 호출 <em>이전</em>에 끼어드는 문지기를 <strong>미들웨어(middleware)</strong>라고 부릅니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 고속도로 톨게이트</strong>
+      에이전트의 실행 흐름을 <strong>고속도로</strong>라고 생각해보세요. 목적지는 <strong>LLM(모델 호출)</strong>입니다.
+      <code>@before_agent</code> 미들웨어는 그 앞을 지키는 <strong>톨게이트</strong>예요.
+      들어오는 차(메시지)를 검문해서 문제없으면 그냥 통과시키고,
+      수상하면 <strong>목적지까지 갈 것도 없이 바로 회차로(Exit)로 내보냅니다.</strong>
+      그런데 톨게이트가 검문을 하려면 먼저 <strong>"이 차가 진짜 검문 대상(=사람이 방금 한 말)인가"</strong>부터 확인해야 하죠.
+      그 확인이 바로 <code>.type</code> 검사입니다.
+    </div>
+
+    <p>가드레일이 판단하는 순서를 그림으로 보면 이렇습니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>메시지 도착</strong><p>에이전트에 <code>state["messages"]</code>가 들어옴</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>빈 리스트?</strong><p>비었으면 검사할 게 없으니 <code>return None</code></p></div>
+      <div class="flow-step"><span class="n">3</span><strong>사람 말인가?</strong><p><code>.type != "human"</code>이면 그냥 통과</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>금지어 검사</strong><p>부정행위·딴짓·유해어 포함 시 차단</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>통과 / 차단</strong><p>깨끗하면 LLM으로, 걸리면 <code>jump_to: end</code></p></div>
+    </div>
+
+    <hr />
+
+    <!-- ── code ── -->
+    <h2 id="code">2. 가드레일 미들웨어 코드</h2>
+
+    <p>먼저 모델을 준비하고, 어떤 표현을 막을지 <strong>금지어 사전</strong>을 만듭니다.</p>
+
+    <div class="io-label">📥 코드 — 준비</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <div class="io-label">📥 코드 — 금지어 사전</div>
+<pre class="code-block"><code>forbidden_topics = {
+    "cheating": ["답지", "정답 알려줘", "숙제 대신", "써줘", "베끼기"],
+    "distraction": ["롤", "게임", "유튜브", "아이돌", "웹툰"],
+    "harmful": ["담배", "술", "폭력", "바보", "멍청이"],
+}</code></pre>
+
+    <p>
+      이제 핵심 미들웨어입니다. 코드가 길어 보이지만 구조는 단순합니다 —
+      <strong>① 방어(빈 리스트/사람 말 확인) → ② 카테고리별 금지어 검사 → ③ 통과</strong>의 3단계예요.
+      특히 <strong>진하게 볼 두 줄</strong>은 <code>last_message = state["messages"][-1]</code>(마지막 메시지 꺼내기)와
+      그 바로 아래 <code>if last_message.type != "human"</code>(그게 사람 말인지 확인)입니다.
+    </p>
+
+    <div class="io-label">📥 코드 — <code>@before_agent</code> 가드레일</div>
+<pre class="code-block"><code>from langchain.agents.middleware import before_agent
+
+@before_agent(can_jump_to=["end"])
+def education_guardrail(state, runtime):
+    """
+    학생의 질문 의도를 파악하여 교육적이지 않거나 부정행위가 의심될 경우,
+    LLM(AI)에게 질문을 넘기지 않고 교육적인 멘트로 즉시 교정합니다.
+    """
+
+    # 1. 메시지 유효성 검사
+    if not state["messages"]:
+        return None
+
+    # 에이전트가 처음 시작될 때나 특수한 상황에서 메시지 리스트가 비어 있을 수 있습니다.
+    # 비어 있는 리스트에서 마지막 메시지를 찾으려고 하면([-1]) 파이썬에서 **IndexError**가 발생하여 프로그램이 멈춥니다.
+    # 이를 방지하기 위한 첫 번째 방어선입니다.
+
+
+    last_message = state["messages"][-1]
+    # print(last_message)
+
+
+    if last_message.type != "human":
+        return None
+    # 우리가 만들려는 미들웨어(예: 질문 요약, 보안 검사 등)는 보통 사용자의 질문에 대해서만 작동해야 합니다.
+    # 만약 AI의 답변이나 도구 결과에 대해 미들웨어가 또 작동하면, 무한 루프에 빠지거나 엉뚱한 처리를 할 위험이 있습니다.
+
+    user_text = last_message.content
+
+    # 2. 카테고리별 검사 로직
+    # 단순히 막는 것을 넘어, '왜' 안되는지 카테고리별로 다른 피드백 주기
+
+    # Case A: 부정행위 방지 (Cheating Prevention)
+    # AI가 숙제를 통째로 해주는 것을 방지
+    for keyword in forbidden_topics["cheating"]:
+        if keyword in user_text:
+            return {
+                "messages": [{
+                    "role": "assistant",
+                    "content": "🚫 스스로 고민해봐야 실력이 늘어요! 정답을 바로 알려드리는 대신, 힌트를 드릴까요? 어떤 부분이 가장 어려운지 말해주세요."
+                }],
+                "jump_to": "end"
+            }
+
+    # Case B: 학습 집중 유도 (Focus Management)
+    # 공부 중에 게임이나 딴짓 이야기를 하면 다시 공부로 유도
+    for keyword in forbidden_topics["distraction"]:
+        if keyword in user_text:
+            return {
+                "messages": [{
+                    "role": "assistant",
+                    "content": "⏰ 지금은 공부에 집중할 시간이에요! 딴짓은 쉬는 시간에 하고, 지금 풀고 있는 문제에 집중해볼까요?"
+                }],
+                "jump_to": "end"
+            }
+
+    # Case C: 유해 콘텐츠 차단 (Safety)
+    # 교육 서비스의 브랜드 안전성(Brand Safety)을 위한 기능
+    for keyword in forbidden_topics["harmful"]:
+        if keyword in user_text:
+            return {
+                "messages": [{
+                    "role": "assistant",
+                    "content": "⚠️ 부적절한 대화 주제입니다. 바르고 고운 말을 사용해주세요."
+                }],
+                "jump_to": "end"
+            }
+
+    # 3. 통과 (Pass)
+    # 위 조건들에 걸리지 않으면 정상적으로 AI 튜터(LLM)가 답변 생성
+    return None</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 왜 <code>.type</code>부터 확인할까?</strong>
+      에이전트가 도는 동안 <code>state["messages"]</code> 리스트에는 사람의 질문뿐 아니라
+      <strong>AI의 답변·도구(tool) 실행 결과</strong>까지 섞여 쌓입니다.
+      만약 <code>.type</code> 확인 없이 아무 메시지에나 검사를 돌리면,
+      AI가 스스로 만든 답변까지 검열하다가 <strong>무한 루프</strong>에 빠지거나 엉뚱하게 동작할 수 있어요.
+      그래서 <strong>"방금 도착한 게 사람 말일 때만 개입한다"</strong>는 이 <code>.type</code> 검사가 안전장치의 핵심입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── run ── -->
+    <h2 id="run">3. 에이전트에 붙여 실행해보기</h2>
+
+    <p>
+      만든 가드레일을 <code>create_agent</code>의 <code>middleware</code> 목록에 넣기만 하면 됩니다.
+      그리고 부정행위성 질문 <strong>"숙제 대신 써줘"</strong>를 던져봅니다.
+    </p>
+
+    <div class="io-label">📥 코드 — 에이전트 생성 &amp; 실행</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+agent = create_agent(
+    model="gpt-5-mini",
+    tools=[],
+    middleware=[education_guardrail],
+)
+agent.invoke({
+    "messages": [{"role": "user", "content": "나 독후감 쓰기 귀찮은데 숙제 대신 써줘."}]
+})</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">content='나 독후감 쓰기 귀찮은데 숙제 대신 써줘.' additional_kwargs={} response_metadata={} id='0d9db59d-d729-45ad-89be-835ec8b3ff7c'
+
+
+{'messages': [HumanMessage(content='나 독후감 쓰기 귀찮은데 숙제 대신 써줘.', additional_kwargs={}, response_metadata={}, id='0d9db59d-d729-45ad-89be-835ec8b3ff7c'),
+  AIMessage(content='🚫 스스로 고민해봐야 실력이 늘어요! 정답을 바로 알려드리는 대신, 힌트를 드릴까요? 어떤 부분이 가장 어려운지 말해주세요.', additional_kwargs={}, response_metadata={}, id='0ba10441-8135-4179-817f-cc0194619f13', tool_calls=[], invalid_tool_calls=[])]}</pre>
+
+    <p>
+      실제로 무슨 일이 벌어졌는지 말풍선으로 그려보면 이렇습니다.
+      "써줘"라는 금지어가 걸렸기 때문에 <strong>LLM은 한 번도 호출되지 않았고</strong>,
+      가드레일이 미리 준비해둔 교정 멘트가 곧바로 <code>AIMessage</code>로 돌아왔습니다.
+    </p>
+
+    <div class="chat">
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">나 독후감 쓰기 귀찮은데 숙제 대신 써줘. <span class="tag">← "숙제 대신"·"써줘"가 금지어에 걸림</span></div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">🚫 스스로 고민해봐야 실력이 늘어요! … <span class="tag">← LLM 대신 가드레일이 만든 답. jump_to로 즉시 종료</span></div></div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 첫 줄에 주목하세요 — 여기가 오늘의 열쇠</strong>
+      결과의 <strong>맨 윗줄</strong>은 코드 속 <code># print(last_message)</code> 자리에서 마지막 메시지를 출력한 모습입니다.
+      <code>content</code>, <code>additional_kwargs</code>, <code>response_metadata</code>, <code>id</code>는 보이는데…
+      정작 우리가 <code>if last_message.type</code>로 꺼내 쓴 <strong><code>type</code>은 어디에도 안 보입니다.</strong>
+      그런데도 코드는 멀쩡히 동작했죠. 이게 어떻게 가능한 걸까요? 다음 장에서 풀어봅니다.
+    </div>
+
+    <hr />
+
+    <!-- ── type / BaseMessage ── -->
+    <h2 id="type">4. <code>.type</code>은 어디서 왔나 — <code>BaseMessage</code> 상속</h2>
+
+    <p>
+      <code>print(state)</code>를 했을 때 <code>HumanMessage(...)</code>라고 나오는 객체에서 <code>.type</code>에 접근할 수 있는 이유는
+      <strong><code>HumanMessage</code>가 LangChain의 <code>BaseMessage</code>라는 클래스를 상속받아 만들어졌기 때문</strong>입니다.
+      즉 <code>type</code>은 우리가 안 넣어줘도 부모에게서 물려받은 <strong>기본 장착 속성</strong>이에요.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 같은 붕어빵 틀에서 나온 형제들</strong>
+      <code>HumanMessage</code>, <code>AIMessage</code>, <code>SystemMessage</code>는 겉에 담긴 팥·슈크림·초코가 다를 뿐,
+      전부 <strong>똑같은 붕어빵 틀(<code>BaseMessage</code>)</strong>에서 찍혀 나옵니다.
+      그 틀에는 <em>내용을 담는 홈</em>(<code>content</code>), <em>종류를 새기는 홈</em>(<code>type</code>),
+      <em>고유번호 홈</em>(<code>id</code>)이 파여 있죠. 그래서 어떤 붕어빵이든 <strong>이 홈들은 반드시 가지고 있습니다.</strong>
+      우리가 <code>.type</code>을 꺼낼 수 있는 건, 그 홈이 <strong>애초에 틀에 새겨져 있기 때문</strong>입니다.
+    </div>
+
+    <p>LangChain이 정의한 모든 메시지 객체는 공통적으로 다음 속성들을 가집니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>속성</th><th>담긴 내용</th><th>예시 값</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>content</code></td><td>메시지의 실제 텍스트 내용</td><td><code>"숙제 대신 써줘"</code></td></tr>
+          <tr><td><code>type</code></td><td>메시지의 <strong>종류(명찰)</strong> 문자열</td><td><code>"human"</code> · <code>"ai"</code> · <code>"system"</code></td></tr>
+          <tr><td><code>additional_kwargs</code></td><td>추가적인 부가 정보</td><td><code>{}</code></td></tr>
+          <tr><td><code>id</code></td><td>메시지 고유 식별자</td><td><code>"0d9db59d-…"</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>.type</code> 값과 메시지 클래스는 짝꿍</strong>
+      <code>HumanMessage</code>의 <code>.type</code>은 <code>"human"</code>,
+      <code>AIMessage</code>는 <code>"ai"</code>,
+      <code>SystemMessage</code>는 <code>"system"</code>,
+      도구 실행 결과인 <code>ToolMessage</code>는 <code>"tool"</code>입니다.
+      그래서 <code>last_message.type != "human"</code>은 곧 <strong>"이게 사람이 방금 한 말이 아니면"</strong>이라는 뜻이 됩니다.
+      클래스 이름으로 <code>isinstance()</code> 검사를 하는 것보다 문자열 하나로 비교하는 이 방식이 더 간결하죠.
+    </div>
+
+    <hr />
+
+    <!-- ── repr ── -->
+    <h2 id="repr">5. 그런데 왜 <code>print</code>할 땐 안 보였나 — <code>__repr__</code></h2>
+
+    <p>
+      <code>print(state)</code>나 <code>print(last_message)</code>가 화면에 보여주는 글자는
+      객체의 <strong><code>__repr__</code>(표현식) 메서드가 정해둔 내용</strong>일 뿐입니다.
+      즉 "이 객체를 사람이 읽기 좋게 어떻게 요약해 보여줄까"를 개발자가 미리 정해둔 <strong>겉모습</strong>이에요.
+      실제 객체 내부 구조는 개념적으로 다음과 같습니다.
+    </p>
+
+    <div class="io-label">📥 개념 코드 — 클래스 내부에는 <code>type</code>이 이미 있다</div>
+<pre class="code-block"><code>class HumanMessage(BaseMessage):
+    type: str = "human"  # 클래스 내부에 이미 정의됨
+    content: str
+    # ... 기타 속성들</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 택배 상자의 겉면과 속 라벨</strong>
+      택배 상자 <strong>겉면</strong>에 이미 큼지막하게 <em>"HumanMessage"</em>라고 적혀 있다고 해봐요.
+      그럼 굳이 상자를 열고 안쪽 라벨에 <em>"종류: human"</em>이라고 <strong>또 적을 필요가 없겠죠.</strong>
+      중복이니까요. LangChain 개발자도 똑같이 생각했습니다 —
+      <code>__repr__</code>에서 이미 <strong>클래스 이름(<code>HumanMessage</code>) 자체로 종류를 알 수 있으니</strong>
+      출력에서 <code>type</code>은 생략하도록 설계한 겁니다.
+      하지만 <strong>안쪽 라벨(속성)은 엄연히 존재</strong>하기 때문에, 코드에서 점(<code>.</code>)으로 언제든 꺼낼 수 있습니다.
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚫 흔한 오해 — "출력에 안 보이면 없는 것이다"</strong>
+      <code>print</code> 결과에 <code>type</code>이 없다고 해서 <em>"이 객체엔 type이 없구나"</em>라고 결론 내리면 안 됩니다.
+      <strong>화면에 표시되는 것(<code>__repr__</code>)과 메모리에 실제로 존재하는 것은 별개</strong>입니다.
+      객체가 무엇을 가지고 있는지 확실히 알고 싶다면 <code>print</code> 대신
+      <code>dir(last_message)</code>나 <code>last_message.type</code>처럼 <strong>직접 접근</strong>해 확인하세요.
+    </div>
+
+    <hr />
+
+    <!-- ── jump supplement ── -->
+    <h2 id="jump">6. 보충 — <code>return None</code>과 <code>jump_to</code>의 의미</h2>
+
+    <p>
+      가드레일 코드 곳곳에 나오는 <code>return None</code>과 <code>return {"jump_to": "end", ...}</code>도 짚고 넘어갈까요.
+      <code>@before_agent(can_jump_to=["end"])</code>가 붙은 미들웨어에서 이 둘은 정반대의 뜻을 가집니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 톨게이트의 두 가지 명령</strong>
+      다시 톨게이트로 돌아가 볼게요.
+      <strong><code>return None</code></strong>은 <em>"통과!"</em> — 아무것도 손대지 않고 차를 원래 목적지(LLM)로 그냥 보냅니다.
+      <strong><code>return {"jump_to": "end"}</code></strong>는 <em>"통과 금지, 회차로!"</em> —
+      목적지까지 갈 것도 없이 차를 <strong>즉시 출구(end)로 내보냅니다.</strong>
+      그리고 <code>can_jump_to=["end"]</code>는 이 톨게이트에게 <strong>"필요하면 출구로 순간이동시킬 권한을 준다"</strong>는 사전 허가증이고요.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — <code>return None</code>은 "검사 무사 통과" 신호</div>
+
+      <p>아래 예시를 보면 흐름이 한눈에 들어옵니다.</p>
+
+<pre class="code-block"><code>@before_agent(can_jump_to=["end"])
+def my_middleware(state, runtime):
+    # 1. 검사 로직 (예: 질문이 너무 짧은가?)
+    if len(state["messages"][-1].content) &lt; 2:
+        # 너무 짧으면 모델 호출 안 하고 바로 끝냄 (점프!)
+        return {"__jump_to__": "end", "messages": [AIMessage(content="질문이 너무 짧아요.")]}
+
+    # 2. 검사를 통과했다면?
+    return None # "정상적으로 모델에게 질문을 전달해라"</code></pre>
+
+      <div class="table-wrap" style="margin-top: 12px;">
+        <table>
+          <thead>
+            <tr><th>반환값</th><th>의미</th><th>톨게이트 비유</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>return None</code></td><td>아무것도 안 바꾸고 <strong>다음 단계(보통 LLM)로 진행</strong></td><td>그냥 통과</td></tr>
+            <tr><td><code>return {"jump_to": "end", …}</code></td><td>중간 단계 다 건너뛰고 <strong>즉시 종료</strong></td><td>회차로로 내보냄</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info" style="margin-bottom: 0;">
+        <strong>한 줄 요약</strong>
+        <code>can_jump_to=["end"]</code> = "출구로 순간이동시킬 <strong>권한</strong>이 있다" ·
+        <code>return None</code> = "그 권한 <strong>안 쓰고</strong> 순서대로 진행" ·
+        <code>return {"jump_to": "end"}</code> = "그 권한 <strong>써서</strong> 바로 끝내기".
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      LangChain의 모든 메시지는 <strong><code>BaseMessage</code>에서 태어난 형제</strong>라서
+      <code>content</code>·<code>type</code>·<code>id</code> 같은 공통 속성을 늘 가진다.
+      <code>type</code>은 "누가 한 말인지"를 알려주는 <strong>명찰</strong>이며,
+      <code>print</code>에 안 보여도 <strong>메모리엔 엄연히 존재</strong>한다.
+    </div>
+
+    <ul>
+      <li><strong><code>.type</code> = 메시지의 명찰</strong> — <code>"human"</code>·<code>"ai"</code>·<code>"system"</code>·<code>"tool"</code>. 가드레일은 이걸 보고 사람 말일 때만 개입한다.</li>
+      <li><strong>왜 <code>.type</code>부터 확인?</strong> — <code>messages</code>엔 AI 답변·도구 결과도 섞이므로, 사람 질문에만 반응하도록 걸러 무한 루프를 막는다.</li>
+      <li><strong>어디서 왔나</strong> — <code>HumanMessage</code>는 <code>BaseMessage</code>를 상속. <code>type</code>은 클래스에 미리 정의된(붕어빵 틀에 새겨진) 기본 속성이다.</li>
+      <li><strong>왜 <code>print</code>엔 안 보이나</strong> — <code>__repr__</code>이 클래스 이름으로 이미 종류를 알 수 있어 <code>type</code>을 생략할 뿐, 실제 속성은 살아있다(택배 상자 겉면 vs 속 라벨).</li>
+      <li><strong>미들웨어 반환값</strong> — <code>return None</code>은 "통과"(다음 단계로), <code>jump_to: "end"</code>는 "회차로"(즉시 종료). <code>can_jump_to</code>는 그 권한 허가증.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./04.html">
+        <small>← 이전 노트북</small>
+        04. 멤버십 기반 모델 선택
+      </a>
+      <a class="next" href="./06.html">
+        <small>다음 노트북 →</small>
+        06. Custom Guardrails: 출력 필터
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

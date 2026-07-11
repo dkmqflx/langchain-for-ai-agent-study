@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>11. @tool 인자 결정·전달 원리</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .nav-current { display: block; padding: 5px 8px; font-weight: 700; color: var(--text); }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">11. @tool 인자 원리 목차</div>
+    <a href="#overview">개요 · 이 노트북이 던지는 질문</a>
+    <a href="#setup">0. 준비물 — Context · UserInfo · Store</a>
+    <a href="#typeddict">TypedDict vs Pydantic (보충)</a>
+    <a href="#tools">1. 도구 두 개 만들기</a>
+    <a href="#who-fills">2. 인자는 누가 채우나</a>
+    <a href="#principle">3. @tool 인자 결정·전달 원리</a>
+    <a href="#run">4. 에이전트 조립 &amp; 실행</a>
+    <a href="#push-pull">5. Push vs Pull — 10 vs 11</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북 (03 Agent 심화)</div>
+      <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style</a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="./05.html">05. 메시지 객체와 .type 속성</a>
+      <a href="./06.html">06. Guardrails: After Agent 필터</a>
+      <a href="./07.html">07. Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: 메모리 주입</a>
+      <span class="nav-current">11. @tool 인자 결정·전달 원리</span>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>11. <code>@tool</code> 인자 결정·전달 원리</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>11.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./10.html">10. Agent 메모리 주입</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>11.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      에이전트에 도구(<code>@tool</code>)를 여러 개 붙이다 보면 이런 의문이 생깁니다 —
+      "어떤 함수는 인자가 <code>city</code> 하나인데, 어떤 함수는 <code>runtime</code>이라는 낯선 인자가 붙어 있네?
+      이 값들은 <strong>대체 누가 채워 넣는 거지?</strong>" 이 노트북은 바로 그 답 —
+      <strong>도구 인자에는 'AI가 채우는 칸'과 '시스템이 자동으로 채우는 칸'이 섞여 있다</strong> — 를
+      메모리 저장·조회 예제를 통해 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 병원 접수 서류</strong>
+      병원에서 서류를 작성할 때, 어떤 칸은 <strong>환자가 직접 손으로 씁니다</strong> — "어디가 아프세요?", "이름이 뭐예요?".
+      반면 어떤 칸은 <strong>접수처 컴퓨터가 자동으로 찍어줍니다</strong> — 접수 번호, 방문 시각, 진료 기록 ID.
+      <code>@tool</code> 함수의 인자도 똑같이 두 종류입니다.
+      <strong>AI(환자)가 대화에서 뽑아 채우는 인자</strong>가 있고,
+      <strong>시스템(접수처 컴퓨터)이 알아서 꽂아주는 인자</strong>가 있어요.
+      이 둘을 구분할 줄 알면 도구 함수의 시그니처가 갑자기 읽히기 시작합니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 노트북에서 배우는 것</strong>
+      메모리를 <strong>저장</strong>하는 도구와 <strong>조회</strong>하는 도구를 만들어 에이전트에 붙입니다.
+      그 과정에서 (1) LLM이 도구 인자를 <strong>어떻게 스스로 채우는지</strong>,
+      (2) <code>runtime</code> 같은 특수 인자는 <strong>왜 LLM이 건드리지 않는지</strong>,
+      (3) 지난 10장의 "무조건 주입" 방식과 이번 "필요할 때만 호출" 방식이 <strong>토큰 비용에서 어떻게 갈리는지</strong>를 배웁니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 0. setup ── -->
+    <h2 id="setup">0. 준비물 — <code>Context</code> · <code>UserInfo</code> · <code>Store</code></h2>
+
+    <p>
+      먼저 모델과 기본 도구/에이전트 함수를 불러옵니다. 10장과 똑같이 시작하지만, 이번엔 도구가 주인공입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <p>
+      다음으로, 이 노트북의 핵심 재료 세 가지를 정의합니다. 각자 역할이 뚜렷합니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Context</strong><p>"지금 누가 실행 중인가"를 담는 신분증 (user_id, app_name)</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>UserInfo</strong><p>LLM이 대화에서 뽑아낼 정보의 <strong>양식(칸 구조)</strong></p></div>
+      <div class="flow-step"><span class="n">3</span><strong>Store</strong><p>뽑아낸 정보를 실제로 쌓아둘 <strong>창고(메모리 저장소)</strong></p></div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 택배 상자에 붙이는 3종 세트</strong>
+      <code>Context</code>는 <strong>보내는 사람 스티커</strong>(누구의 물건인지),
+      <code>UserInfo</code>는 <strong>내용물 기재란</strong>(무엇을 어떤 칸에 적을지),
+      <code>Store</code>는 <strong>물건이 실제로 쌓이는 창고</strong>입니다.
+      셋이 맞물려야 "누구의(Context) 어떤 정보를(UserInfo) 어디에(Store) 넣을지"가 결정됩니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dataclasses import dataclass
+from typing import TypedDict
+from langgraph.store.memory import InMemoryStore
+
+# 1. 실행 컨텍스트 정의 (누가 실행하는지 식별)
+@dataclass
+class Context:
+    user_id: str
+    app_name: str
+
+# 2. LLM이 추출해야 할 정보의 구조를 정의
+class UserInfo(TypedDict):
+    personal_information : str
+    preference: str
+# LLM이 추출해야 할 정보의 구조를 정의 (사용자의 request로 부터 추출해야 할 정보의 구조를 정의)
+# 즉, LLM이 request로 부터 정보를 추출한다음, 해당 정보를 Tool에 전달해야하는 경우 전달한다
+
+# 3. 빈 Store 초기화
+store = InMemoryStore()</code></pre>
+
+    <p>
+      여기서 눈여겨볼 점은 <code>UserInfo</code>를 <strong><code>TypedDict</code></strong>로 정의했다는 것입니다.
+      이 <code>UserInfo</code>가 잠시 뒤 저장 도구의 인자 타입으로 쓰이면서, LLM에게 "<strong>이 칸(personal_information, preference)에
+      맞춰 정보를 채워줘</strong>"라는 양식지 역할을 하게 됩니다. 그런데 왜 하필 <code>TypedDict</code>일까요?
+      <code>Pydantic</code>과는 뭐가 다를까요? 노트북이 이 대목에서 짚어주는 내용을 보충 카드로 옮깁니다.
+    </p>
+
+    <!-- ── TypedDict vs Pydantic supplement ── -->
+    <div class="info-card" id="typeddict">
+      <div class="info-card-title">📘 보충 — <code>TypedDict</code> vs <code>Pydantic</code>, 뭐가 다를까?</div>
+
+      <p>
+        둘의 가장 큰 차이는 딱 하나 — <strong>"실행 중에 데이터를 검증(Validation)하느냐, 안 하느냐"</strong>입니다.
+      </p>
+
+      <div class="callout callout-analogy" style="margin-top: 4px;">
+        <strong>🔍 비유 — 이름표 vs 검사원</strong>
+        <code>TypedDict</code>는 <strong>이름표</strong>입니다. "여기엔 <code>age</code>라는 칸이 있어"라고 <em>알려주기만</em> 할 뿐,
+        엉뚱한 값이 들어와도 막지 않습니다.
+        <code>Pydantic</code>은 <strong>검사원</strong>입니다. "이 칸은 반드시 정수여야 해!"라며 <em>실제로 검사</em>하고,
+        틀리면 바로 퇴짜(에러)를 놓습니다.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>특징</th><th><code>TypedDict</code> (파이썬 내장)</th><th><code>Pydantic</code> (외부 라이브러리)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>실행 시 검증</strong></td><td>안 함 (타입이 틀려도 에러 없음)</td><td>함 (틀리면 즉시 에러)</td></tr>
+            <tr><td><strong>타입 변환</strong></td><td>안 함 ("10"은 문자열 그대로)</td><td>함 ("10" → 정수 <code>10</code>으로 변환)</td></tr>
+            <tr><td><strong>정체</strong></td><td>단순한 딕셔너리(<code>dict</code>)</td><td>새로운 객체(Object)</td></tr>
+            <tr><td><strong>속도</strong></td><td>매우 빠름 (검증이 없으므로)</td><td>상대적으로 느림 (검증 과정 존재)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>① <code>TypedDict</code> — 검사 안 함</h4>
+<pre class="code-block"><code>from typing import TypedDict
+
+class User(TypedDict):
+    age: int
+
+# 에러가 안 납니다! (타입 힌트일 뿐이라서)
+user = User(age="스무살")
+print(user["age"])  # "스무살" (문자열 그대로 출력됨)</code></pre>
+
+      <h4>② <code>Pydantic</code> — 엄격하게 검사함</h4>
+<pre class="code-block"><code>from pydantic import BaseModel
+
+class User(BaseModel):
+    age: int
+
+user1 = User(age="20")     # "20"을 정수 20으로 자동 변환 (성공)
+user2 = User(age="스무살")  # 정수로 못 바꿔서 ValidationError! (실패)</code></pre>
+
+      <div class="callout callout-info" style="margin-bottom: 0;">
+        <strong>💡 언제 뭘 쓰나</strong>
+        속도가 중요하고 값을 <em>가볍게 받아 넘기기만</em> 할 땐 <code>TypedDict</code>,
+        데이터 <em>정확성</em>이 중요하고 LLM이 뱉은 불안정한 값을 <em>안전하게 정제</em>하고 싶을 땐 <code>Pydantic</code>.
+        최근 LangChain은 LLM 응답 구조화에 <strong>Pydantic</strong>을 더 권장하는 추세입니다(LLM이 가끔 이상한 값을 주니까요).
+        이 노트북은 학습용으로 가벼운 <code>TypedDict</code>를 씁니다.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── 1. tools ── -->
+    <h2 id="tools">1. 도구 두 개 만들기 — <code>get_user_info</code> · <code>save_user_info</code></h2>
+
+    <p>
+      이제 에이전트에게 쥐여줄 도구 두 개를 만듭니다. 하나는 정보를 <strong>꺼내는(조회)</strong> 도구,
+      다른 하나는 정보를 <strong>넣는(저장)</strong> 도구입니다. 두 함수의 <strong>인자 구성이 다르다</strong>는 점을
+      미리 마음에 담아두세요 — 바로 다음 절의 핵심 주제입니다.
+    </p>
+
+    <h3>① 조회 도구 — <code>get_user_info(runtime)</code></h3>
+
+    <p>
+      "내 정보 보여줘"에 답하는 도구입니다. 사용자가 <strong>따로 넘겨줄 데이터는 없습니다</strong>.
+      다만 "<strong>지금 질문한 사람이 누구인지(user_id)</strong>"를 알아야 창고에서 그 사람 것만 꺼낼 수 있죠.
+      그 정보는 <code>runtime</code>이라는 인자를 통해 얻습니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>import uuid
+from langchain_core.runnables import RunnableConfig
+from langchain.tools import tool, ToolRuntime
+
+# --- 조회 도구 ---
+@tool
+def get_user_info(runtime) -&gt; str:
+    """
+    현재 사용자의 정보 조회 (시스템 내부용 도구)
+    """
+    user_id = runtime.context.user_id
+    app = runtime.context.app_name
+
+    # 해당 네임스페이스의 모든 메모리 검색
+    memories = runtime.store.search((user_id, app))
+
+    if not memories:
+        return "기록된 정보 없음"
+
+    results = []
+    for item in memories:
+        # 저장된 데이터 구조(UserInfo)에 맞춰 필드 확인
+        data = item.value
+        print('data', data)
+        if "personal_information" in data: # 딕셔너리 key 중에 personal_information이 있으면
+            results.append(f"- 개인정보: {data['personal_information']}")
+        if "preference" in data:
+            results.append(f"- 선호도: {data['preference']}")
+
+    return "\n".join(results) if results else "데이터 형식 불일치로 읽을 수 없음"</code></pre>
+
+    <p>
+      <code>runtime.context</code>에서 <code>user_id</code>·<code>app_name</code>을 꺼내
+      <code>runtime.store.search(...)</code>로 그 사람의 메모리만 조회합니다.
+      <code>context</code>와 <code>store</code>가 모두 <code>runtime</code> 하나에 매달려 있는 게 보이죠.
+    </p>
+
+    <h3>② 저장 도구 — <code>save_user_info(user_info, runtime)</code></h3>
+
+    <p>
+      "내 이름은 Alice야, 차를 좋아해" 같은 말에서 <strong>정보를 뽑아 창고에 넣는</strong> 도구입니다.
+      조회 도구와 달리 <strong>인자가 두 개</strong>입니다 — 무엇을 저장할지(<code>user_info</code>)와,
+      누구의 창고에 넣을지(<code>runtime</code>).
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.tools import ToolRuntime
+
+# --- 저장 도구 ---
+@tool
+def save_user_info(user_info: UserInfo, runtime: ToolRuntime) -&gt; str:
+    """
+    사용자의 정보를 저장하거나 업데이트
+    """
+    # 1. 실행 컨텍스트에서 user_id 가져오기
+    user_id = runtime.context.user_id
+    app = runtime.context.app_name
+    store = runtime.store
+
+    # 2. Store에 데이터 저장 (UUID를 생성하여 계속 누적)
+    memory_key = str(uuid.uuid4())
+    store.put((user_id, app), memory_key, user_info)
+
+    return f"정보가 안전하게 저장되었습니다. (ID: {memory_key})"</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 두 도구의 미묘한 차이 — 타입 힌트</strong>
+      자세히 보면 저장 도구는 <code>runtime: <strong>ToolRuntime</strong></code>이라고 <strong>타입을 명시</strong>했지만,
+      조회 도구는 그냥 <code>runtime</code>(힌트 없음)입니다. 특수 인자는 <strong><code>ToolRuntime</code> 타입을 붙여주는 것이 정석</strong>입니다.
+      그래야 프레임워크가 "이건 시스템이 주입할 인자"라고 확실히 알아보고 LLM에게 보이는 설명서에서 숨겨줍니다.
+      (실제로 뒤의 실행 결과를 보면, 힌트 없는 조회 도구에서는 LLM이 <code>runtime</code> 칸을 채우려 시도한 흔적 <code>'runtime': {}</code>이 남습니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── 2. who fills ── -->
+    <h2 id="who-fills">2. 인자는 누가 채우나 — AI vs 시스템</h2>
+
+    <p>
+      두 도구의 인자를 나란히 놓고 보면 규칙이 보입니다. <code>@tool</code> 함수가 받을 수 있는 인자는
+      크게 <strong>두 부류</strong>로 나뉩니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>부류</th><th>누가 채우나</th><th>예시</th><th>정체</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>일반 인자</strong></td>
+            <td><strong>AI(LLM)</strong> — 대화에서 값을 추출</td>
+            <td><code>user_info</code>, <code>city</code>, <code>query</code></td>
+            <td>함수 실행에 필요한 <strong>데이터</strong></td>
+          </tr>
+          <tr>
+            <td><strong>특수 인자</strong><br />(주입, Injected)</td>
+            <td><strong>시스템(Runtime)</strong> — 자동 주입</td>
+            <td><code>runtime</code>, <code>config</code>, <code>tool_call_id</code></td>
+            <td>함수 실행에 필요한 <strong>환경 정보</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 식당 서버와 주방</strong>
+      손님이 서버에게 "김치찌개 하나요"라고 <strong>주문 내용</strong>을 말합니다 — 이건 손님(AI)이 채우는 값입니다.
+      하지만 주방으로 넘어가는 주문표에는 <strong>테이블 번호, 주문 시각</strong>도 함께 찍혀 있죠.
+      이건 손님이 말한 게 아니라 <strong>포스(POS) 시스템이 자동으로</strong> 붙인 겁니다.
+      <code>user_info</code>는 손님이 말한 주문, <code>runtime</code>은 시스템이 찍어준 테이블 번호예요.
+    </div>
+
+    <p>그래서 두 함수의 인자 개수가 다른 이유가 자연스럽게 설명됩니다.</p>
+
+    <ul>
+      <li><strong><code>save_user_info</code></strong> — "<strong>무엇을</strong> 저장할지" 알아야 하니 <code>user_info</code>(AI가 채움)가 필요하고,
+        "<strong>누구의</strong> 창고에 넣을지" 알아야 하니 <code>runtime</code>(시스템이 채움)도 필요합니다. → 인자 2개</li>
+      <li><strong><code>get_user_info</code></strong> — 사용자가 줄 데이터는 따로 없습니다("그냥 내 정보 보여줘").
+        하지만 "<strong>누구의</strong> 정보인지"는 알아야 하니 <code>runtime</code>만 있으면 충분합니다. → 인자 1개</li>
+    </ul>
+
+    <hr />
+
+    <!-- ── 3. principle ── -->
+    <h2 id="principle">3. <code>@tool</code> 인자 결정·전달 원리</h2>
+
+    <p>
+      그렇다면 <strong>AI는 대체 어떻게</strong> "이 인자에 이 값을 넣어야지"라고 판단할까요?
+      결론부터 말하면, LLM은 함수의 <strong>이름</strong>, <strong>설명(docstring)</strong>, <strong>인자의 타입 힌트</strong>
+      — 이 세 가지를 <strong>설명서(스키마)</strong>처럼 읽고 스스로 값을 정합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 라벨만 보고 채우는 서류</strong>
+      낯선 신청서를 받아도 우리는 칸 옆의 <strong>라벨</strong>을 보고 채웁니다 — "이름" 칸엔 이름을, "생년월일" 칸엔 날짜를요.
+      LLM도 똑같습니다. <code>@tool</code>이 함수의 <strong>이름·docstring·타입 힌트</strong>를 라벨로 만들어 건네주면,
+      LLM은 그 라벨을 읽고 대화 속에서 알맞은 값을 뽑아 채웁니다.
+      그래서 <strong>docstring과 타입 힌트를 잘 써두는 것</strong>이 곧 "AI가 실수 없이 인자를 채우게 만드는 법"입니다.
+    </div>
+
+    <h3>① 일반 인자가 있는 경우 (AI가 채움)</h3>
+
+    <p>예를 들어 이런 날씨 도구가 있다고 해봅시다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>@tool
+def get_weather(city: str) -&gt; str:
+    """특정 도시의 현재 날씨를 가져옵니다."""
+    return f"{city}의 날씨는 맑고 22도입니다."</code></pre>
+
+    <p>
+      사용자가 "서울 날씨 어때?"라고 물으면, LLM은 docstring("특정 도시의 현재 날씨")과 타입 힌트(<code>city: str</code>)를 보고
+      "<code>city</code> 칸에 도시 이름을 넣어야겠구나"라고 이해합니다. 그리고 내부적으로
+      <code>{"city": "Seoul"}</code>이라는 JSON을 만들어내고, LangChain이 이를 <code>get_weather(city="Seoul")</code> 호출로 바꿔줍니다.
+    </p>
+
+    <div class="io-label">▶ 이렇게 흘러갑니다</div>
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>스키마 읽기</strong><p>LLM이 이름·docstring·타입 힌트를 설명서로 받음</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>값 추출</strong><p>대화에서 뽑아 <code>{"city":"Seoul"}</code> JSON 생성</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>주입</strong><p>프레임워크가 특수 인자(<code>runtime</code>)를 자동으로 끼움</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>함수 호출</strong><p>실제 파이썬 함수가 두 값을 받아 실행</p></div>
+    </div>
+
+    <h3>② 특수 인자가 있는 경우 (시스템이 채움)</h3>
+
+    <p>
+      <code>get_user_info(runtime)</code>의 <code>runtime</code>에 무엇이 들어갈지는 LLM이 정하지 않습니다.
+      프레임워크의 <strong>'인자 주입(Injection)' 규칙</strong>이 정합니다.
+    </p>
+
+    <ul>
+      <li><strong>LLM은 이 인자의 존재를 모릅니다.</strong> <code>@tool</code>이 LLM에게 보내는 도구 설명서에서
+        <code>runtime</code> 같은 특수 인자는 <strong>자동으로 제외</strong>됩니다(그래서 LLM이 값을 지어낼 필요가 없죠).</li>
+      <li><strong>시스템이 자동 주입합니다.</strong> LangGraph/LangChain이 도구를 실행하는 순간,
+        인자 이름/타입이 <code>runtime</code>인 것을 보고 자신이 관리하는 실행 객체(Context·Store 등)를 <strong>알아서 끼워 넣어</strong> 호출합니다.</li>
+    </ul>
+
+    <div class="callout callout-info">
+      <strong>💡 한 줄 정리</strong>
+      일반 인자(<code>city</code>, <code>user_info</code>)는 <strong>AI</strong>가 채우고,
+      특수 인자(<code>runtime</code>, <code>config</code>, <code>tool_call_id</code>)는 <strong>시스템</strong>이 자동으로 채웁니다.
+      도구는 이 둘을 조합해 자기 일을 수행합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 4. run ── -->
+    <h2 id="run">4. 에이전트 조립 &amp; 실행</h2>
+
+    <p>
+      두 도구를 에이전트에 붙입니다. 중요한 건 <code>store=store</code>로 창고를 연결하고,
+      <code>context_schema=Context</code>로 "실행마다 신분증(Context)을 받겠다"고 선언하는 부분입니다.
+      이 두 줄 덕분에 도구 안의 <code>runtime.store</code>·<code>runtime.context</code>가 실제 값으로 채워집니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+agent = create_agent(
+    model="gpt-5-nano",
+    tools=[get_user_info, save_user_info],
+    store=store,         # 에이전트에 store 연결
+    context_schema=Context
+)</code></pre>
+
+    <h3>① 저장 실행 — 정보를 뽑아 창고에 넣기</h3>
+
+    <p>
+      "내 이름은 이제 'Alice'야. 커피보단 차를 좋아해"라고 말을 겁니다.
+      <code>invoke</code>의 두 번째 인자로 <code>context=Context(...)</code>를 넘겨 <strong>신분증</strong>을 함께 건네는 점을 보세요.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>response1 = agent.invoke(
+    {"messages": [{"role": "user", "content": "내 이름은 이제 'Alice'야. 커피보단 차를 좋아해"}]},
+    context=Context(user_id="user_001", app_name="personal_assistant")
+)
+print(response1)
+print(response1["messages"][-1].content)</code></pre>
+
+    <p>
+      LLM은 이 문장에서 정보를 추출해 <strong>스스로 저장 도구를 호출</strong>합니다.
+      아래 실행 결과의 <code>tool_calls</code>를 보면, LLM이 <code>user_info</code> 칸을
+      <code>{'personal_information': 'Alice', 'preference': 'tea'}</code>로 <strong>알아서 채워</strong> 넣은 것을 확인할 수 있습니다.
+      (<code>runtime</code>은 목록에 없죠 — 시스템 몫이니까요.)
+    </p>
+
+    <div class="io-label">▶ 이렇게 나와요 (실행 결과 · 핵심만 발췌)</div>
+<pre class="result-block"># AIMessage 안의 tool_calls — LLM이 채운 인자
+tool_calls=[{
+  'name': 'save_user_info',
+  'args': {'user_info': {'personal_information': 'Alice', 'preference': 'tea'}},
+  'id': 'call_vlCcCQM4PaUlH0k8bHvnxL8M',
+  'type': 'tool_call'
+}]
+
+# ToolMessage — 저장 도구가 돌려준 결과
+정보가 안전하게 저장되었습니다. (ID: 4cd9b24e-0d70-4bfa-ae7a-6ed1dc2519cf)
+
+# 최종 답변 (response1["messages"][-1].content)
+좋아요, Alice! 앞으로 그렇게 부를게요. 커피 대신 차를 선호하신다니 기억해둘게요. ...</pre>
+
+    <h3>② 조회 실행 — 창고에서 꺼내오기</h3>
+
+    <p>
+      이번엔 "나에 대해 아는 정보 말해줘"라고 묻습니다. LLM은 "이건 저장된 정보를 봐야겠네"라고 판단해
+      <strong>조회 도구를 호출</strong>합니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>response2 = agent.invoke(
+    {"messages": [{"role": "user", "content": "나에 대해 아는 정보 말해줘"}]},
+    context=Context(user_id="user_001", app_name="personal_assistant")
+)
+print(response2)
+print(response2["messages"][-1].content)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요 (실행 결과 · 핵심만 발췌)</div>
+<pre class="result-block"># 도구 내부의 print('data', data) 가 찍은 로그 — 창고에 쌓인 것들
+data {'personal_information': 'Alice', 'preference': 'tea'}
+data {'personal_information': 'Name: Alice', 'preference': 'tea over coffee'}
+data {'personal_information': 'name: Alice', 'preference': 'prefers tea to coffee'}
+
+# tool_calls — 힌트 없는 runtime이라 LLM이 빈 값을 채우려 한 흔적
+tool_calls=[{'name': 'get_user_info', 'args': {'runtime': {}}, ... }]
+
+# ToolMessage — 조회 도구가 돌려준 결과
+- 개인정보: Alice
+- 선호도: tea
+- 개인정보: Name: Alice
+- 선호도: tea over coffee
+- 개인정보: name: Alice
+- 선호도: prefers tea to coffee
+
+# 최종 답변 (response2["messages"][-1].content)
+지금까지 저장된 정보는 다음과 같습니다.
+- 이름: Alice
+- 선호도: 차를 선호(커피보다 차를 더 좋아함)</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 왜 정보가 세 번이나 쌓였을까?</strong>
+      저장 도구는 매번 <strong>새 UUID로 계속 누적(put)</strong>합니다 — 기존 값을 덮어쓰지 않아요.
+      그래서 같은 사람 정보가 표현만 조금씩 다르게 세 벌 쌓였습니다.
+      또한 <code>args</code>에 <code>'runtime': {}</code>가 보이는 건, 조회 도구가 <code>runtime</code>에 <code>ToolRuntime</code> 힌트를 안 붙여
+      LLM에게 완전히 숨겨지지 못한 흔적입니다. 실전에서는 <strong>타입 힌트를 붙이고, 중복 저장은 갱신(update) 로직으로 다듬는</strong> 것이 좋습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 5. push vs pull ── -->
+    <h2 id="push-pull">5. Push vs Pull — 10장 방식과 11장 방식</h2>
+
+    <p>
+      지난 <a href="./10.html">10장</a>과 이번 11장은 <strong>같은 목표(과거 기억 활용)</strong>를 다른 방식으로 이룹니다.
+      핵심 차이는 "<strong>누가</strong>, <strong>언제</strong> 정보를 가져오느냐"이고, 그 차이가 <strong>토큰 비용</strong>으로 직결됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 시험장에 들고 가는 교재</strong>
+      <strong>10장(Push)</strong>은 시험 볼 때 <strong>모든 교과서를 통째로</strong> 들고 들어가는 방식입니다 —
+      필요 없는 과목 책까지 매번 다 펼쳐 놓으니 무겁고 비효율적이죠.
+      <strong>11장(Pull)</strong>은 시험을 보다가 <strong>모르는 게 나왔을 때만 필요한 페이지를</strong> 찾아보는 방식입니다.
+      평소엔 책을 안 펼치니 훨씬 가볍고 경제적입니다.
+    </div>
+
+    <h3>10장 방식 — 미들웨어가 무조건 주입 (Push)</h3>
+    <p>
+      LLM이 물어보기도 전에, 미들웨어(<code>before_agent</code> 훅)가 과거 기억을 꺼내 <strong>프롬프트 맨 앞에 미리 붙여</strong> 보냅니다.
+      문제는 "오늘 날씨 어때?"처럼 <strong>사용자 정보가 전혀 필요 없는 대화</strong>에서도 매번 과거 기억을 통째로 실어 보낸다는 것.
+      대화가 길고 기억이 많아질수록 <strong>매 요청마다 수천 토큰</strong>을 낭비합니다.
+    </p>
+
+    <h3>11장 방식 — 모델이 필요할 때만 호출 (Pull)</h3>
+    <p>
+      LLM에게 <code>get_user_info</code>라는 <strong>도구를 쥐여주고</strong> 스스로 판단하게 합니다.
+      "안녕"엔 도구 없이 그냥 답하고(토큰 절약), "내가 좋아하는 음료로 추천해줘"처럼
+      <strong>취향을 알아야 하는 순간에만</strong> 도구를 호출해 정보를 가져옵니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>비교 항목</th><th>10장 (미들웨어 주입 · Push)</th><th>11장 (도구 호출 · Pull)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>주도권</strong></td><td>시스템(미들웨어)이 강제 주입</td><td>LLM(모델)이 스스로 판단해 요청</td></tr>
+          <tr><td><strong>토큰 사용</strong></td><td>매 요청마다 과거 기억 전체 포함 (비효율)</td><td>필요한 순간에만 도구 결과 포함 (효율적)</td></tr>
+          <tr><td><strong>구현 방식</strong></td><td><code>before_agent</code> 훅에서 <code>state</code> 수정</td><td><code>@tool</code> 정의 후 에이전트에 등록</td></tr>
+          <tr><td><strong>비유</strong></td><td>교과서를 통째로 들고 시험장에</td><td>모르는 게 나오면 필요한 페이지만</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 그래서 결론은</strong>
+      11장 방식은 LLM에게 "<strong>기억을 조회할 수 있는 능력(도구)</strong>"을 부여한 것입니다.
+      덕분에 에이전트가 "자기 마음대로 도구를 호출하는" 것처럼 보이는데, 그건 사실
+      <strong>모델의 자율적 판단에 의한 정보 조회</strong>입니다 — 훨씬 경제적이고 똑똑하죠.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <code>@tool</code> 함수의 인자에는 <strong>'AI가 대화에서 뽑아 채우는 칸'</strong>과
+      <strong>'시스템이 실행 환경에서 자동으로 꽂아주는 칸'</strong>이 섞여 있다. 이 둘을 구분하면 도구 시그니처가 읽힌다.
+    </div>
+
+    <ul>
+      <li><strong>일반 인자(AI가 채움)</strong> — <code>user_info</code>, <code>city</code> 등. LLM이 <strong>이름·docstring·타입 힌트</strong>를 설명서로 읽고 값을 추출해 JSON으로 만든다.</li>
+      <li><strong>특수 인자(시스템이 채움)</strong> — <code>runtime</code>, <code>config</code>, <code>tool_call_id</code>. LLM 설명서에서 <strong>제외</strong>되고, 프레임워크가 실행 시 <strong>자동 주입</strong>한다.</li>
+      <li><strong>정석</strong> — 특수 인자엔 <code>runtime: ToolRuntime</code>처럼 <strong>타입 힌트를 명시</strong>해 확실히 숨기고 주입되게 한다.</li>
+      <li><strong><code>TypedDict</code> vs <code>Pydantic</code></strong> — 이름표(검증 안 함) vs 검사원(검증 함). 정확성이 중요하면 Pydantic.</li>
+      <li><strong>Push(10) vs Pull(11)</strong> — 무조건 주입은 매번 토큰 낭비, 도구 호출은 <strong>필요할 때만</strong> 가져와 경제적. "교과서 통째로 vs 필요한 페이지만".</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./10.html">
+        <small>← 이전 노트북</small>
+        10. Long-term Memory — Agent 메모리 주입
+      </a>
+      <span></span>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

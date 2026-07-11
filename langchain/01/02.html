@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>02. Memory — 메시지로 대화 맥락 만들기</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">02. Memory 목차</div>
+    <a href="#overview">개요 · LLM은 왜 기억을 못 할까</a>
+    <a href="#roles">메시지 3형제 — System · Human · AI</a>
+    <a href="#setup">0. 환경 준비</a>
+    <a href="#basic">1. System + Human으로 대화 구성</a>
+    <a href="#memory">2. 메시지 리스트 = 메모리</a>
+    <a href="#dict">3. 딕셔너리 포맷 (OpenAI 스타일)</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+      <a href="#next">다음 — LangGraph</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">← 01. Model</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>02. Memory — 메시지로 대화 맥락 만들기</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>02.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/01.langchain.md">docs/01.langchain.md</a> 3장 Memory
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+      &nbsp;·&nbsp; 선행: <a href="./01.html">01. Model</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>02.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      LLM은 사실 <strong>대화를 전혀 기억하지 못합니다.</strong> 그런데 ChatGPT는 어떻게 앞 대화를 이어갈까요?
+      이 장에서는 그 비밀 — <strong>"메모리는 사실 메시지 리스트를 다시 보내주는 것"</strong> — 을 비유로 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 기억을 못 하는 상담사</strong>
+      영화 <em>메멘토</em>의 주인공처럼, LLM은 <strong>대화가 끝나는 순간 방금 나눈 이야기를 전부 잊습니다.</strong>
+      다음에 말을 걸면 <strong>당신을 처음 보는 사람</strong>처럼 대합니다. 이걸 어려운 말로
+      <strong>"stateless(상태가 없다)"</strong>라고 합니다.
+      그럼 어떻게 대화를 이어갈까요? 방법은 하나 — <strong>매번 지금까지의 대화 전체를 다시 들려주는 것</strong>입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      "메모리"라는 특별한 기능이 따로 있는 게 아닙니다. <strong>메시지를 리스트에 차곡차곡 쌓아 매번 함께 보내면</strong>,
+      모델은 그걸 전부 읽고 마치 기억하는 것처럼 답합니다. 그 <strong>메시지를 만들고 쌓는 방법</strong>을 배웁니다.
+    </div>
+
+    <!-- ── roles ── -->
+    <h2 id="roles">먼저, 메시지 3형제 — System · Human · AI</h2>
+
+    <p>
+      대화는 <strong>메시지(message)</strong>들의 모음입니다. 그리고 각 메시지에는 <strong>역할(role)</strong>이 있습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 연극 무대</strong>
+      대화를 한 편의 <strong>연극</strong>이라고 생각해보세요.
+      <strong>감독(System)</strong>은 무대 뒤에서 "너는 가치투자자를 연기해"라고 배역과 규칙을 정해줍니다.
+      <strong>관객(Human)</strong>은 객석에서 질문을 던지고,
+      <strong>배우(AI)</strong>는 감독의 지시를 지키면서 관객에게 대사로 답합니다.
+      이 세 역할이 번갈아 쌓이면서 하나의 대화(연극)가 됩니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>메시지 클래스</th><th>역할 (연극에 비유)</th><th>딕셔너리의 role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>SystemMessage</code></td><td>감독의 지시 — 페르소나·규칙을 미리 주입</td><td><code>system</code></td></tr>
+          <tr><td><code>HumanMessage</code></td><td>관객의 질문 — 사용자의 요청·입력</td><td><code>user</code> / <code>human</code></td></tr>
+          <tr><td><code>AIMessage</code></td><td>배우의 대사 — 모델의 답변</td><td><code>assistant</code> / <code>ai</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 환경 준비</h2>
+    <p>01장과 똑같이 모델 하나를 준비합니다. 이번 장의 주인공은 모델이 아니라 <strong>모델에 건네는 메시지 리스트</strong>입니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+
+# .env 파일에서 환경 변수(OPENAI_API_KEY 등)를 로드
+load_dotenv()
+
+# 모델 선언 — 이번 노트북에서는 메시지 리스트를 다양한 방식으로 invoke해 본다.
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <hr />
+
+    <!-- ── basic ── -->
+    <h2 id="basic">1. <code>SystemMessage</code> + <code>HumanMessage</code>로 대화 구성</h2>
+
+    <p>
+      가장 기본적인 대화는 <strong>감독의 지시(System) + 관객의 질문(Human)</strong>을 리스트에 담아 보내는 것입니다.
+      이렇게 하면 모델은 System에서 정한 <strong>페르소나(역할)를 유지한 채로</strong> 답합니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.messages import HumanMessage, SystemMessage
+
+# SystemMessage로 페르소나를 지정하고, HumanMessage로 사용자 질문을 전달한다.
+messages = [
+  SystemMessage(content="You are a value investment investor."),  # 역할 부여: 가치 투자자
+  HumanMessage(content="Broadcom price will be increased?")        # 사용자 질문
+]
+
+# invoke의 결과는 AIMessage 객체이다.
+# response.content 에 답변 텍스트가, response.response_metadata 에 토큰 사용량 등이 담긴다.
+response = model.invoke(messages)
+print(response)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 System은 "말투와 관점"을 바꾼다</strong>
+      같은 질문 "브로드컴 오를까?"라도 System을 <strong>가치투자자</strong>로 두면 기업 펀더멘털 관점으로,
+      <strong>단타 트레이더</strong>로 두면 차트·모멘텀 관점으로 답이 달라집니다. System은 배우에게 주는 <strong>배역</strong>이니까요.
+    </div>
+
+    <p>
+      결과인 <code>AIMessage</code>에서 답변 텍스트는 <code>response.content</code>로, 토큰 사용량 같은 부가 정보는
+      <code>response.response_metadata</code>로 꺼낼 수 있습니다.
+    </p>
+
+    <hr />
+
+    <!-- ── memory ── -->
+    <h2 id="memory">2. 메시지 리스트 = 메모리</h2>
+
+    <p>
+      여기가 이 장의 <strong>핵심</strong>입니다. LLM에 진짜 "메모리"는 없습니다. 대신
+      <strong>이전 대화를 메시지 리스트로 함께 보내주면</strong>, 모델은 그걸 전부 읽고 마치 기억하는 것처럼 답합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 새 직원에게 회의록 통째로 건네기</strong>
+      회의 중간에 새 직원이 투입됐다고 해봅시다. 그는 앞 내용을 하나도 모릅니다(stateless).
+      하지만 <strong>지금까지의 회의록 전체를 손에 쥐여주면</strong>, 그는 그걸 쭉 읽고
+      "아까 파란색을 좋아한다고 하셨죠"라고 <strong>마치 처음부터 있었던 것처럼</strong> 답할 수 있습니다.
+      LLM에게 매번 보내는 <code>messages</code> 리스트가 바로 이 <strong>회의록</strong>입니다.
+      기억하는 게 아니라, <strong>매번 전체를 다시 읽는</strong> 거예요.
+    </div>
+
+    <p>아래 예시는 4개의 발화를 <strong>하나의 리스트</strong>에 모두 담아 <strong>한 번에</strong> 보냅니다.</p>
+
+    <div class="chat">
+      <div class="msg"><div class="role role-system">System</div><div class="bubble">가치투자자 역할을 해줘 <span class="tag">← 감독 지시</span></div></div>
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">브로드컴 가격이 오를까? <span class="tag">← 첫 질문</span></div></div>
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">내가 좋아하는 색은 파란색이야</div></div>
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">내가 어떤 색을 좋아한다고 했지?</div></div>
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">내가 처음에 한 질문이 뭐였지? <span class="tag">← 앞을 참조해야 답 가능</span></div></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 여러 개의 HumanMessage를 누적해 보낸다.
+# 모델은 리스트 전체를 "이전 대화"로 보고 마지막 질문에 답한다.
+messages = [
+  SystemMessage(content="You are a value investment investor."),
+  HumanMessage(content="Broadcom price will be increased?"),
+
+  HumanMessage(content="My favorite color is blue."),
+  HumanMessage(content="What color did I say is my favorite?"),
+  HumanMessage(content="Remind me what my first question was.")
+]
+
+# 마지막 질문은 "내가 처음에 한 질문이 뭐였지?" → 모델이 messages[1]을 참조해 답변한다.
+response = model.invoke(messages)
+print(response)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요 (예상 출력)</div>
+<pre class="result-block">Your favorite color is blue, and your first question was whether Broadcom's
+price will increase.
+(모델이 리스트 앞쪽 메시지를 참조해 "파란색" · "브로드컴 질문"을 정확히 회상)</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 그래서 메모리란…</strong>
+      결국 <strong>"메시지를 어떻게 쌓고(누적) 관리할 것인가"</strong>의 문제입니다.
+      대화가 길어질수록 이 리스트는 <strong>눈덩이처럼 커지고</strong>, 그만큼 매번 더 많은 내용을 다시 보내게 됩니다.
+      (그래서 실전에서는 오래된 메시지를 요약하거나 잘라내는 전략이 필요해집니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── dict ── -->
+    <h2 id="dict">3. 딕셔너리 포맷 (OpenAI 스타일)</h2>
+
+    <p>
+      LangChain의 메시지 클래스(<code>SystemMessage</code> 등) 대신, <strong>OpenAI API와 똑같은 딕셔너리 형식</strong>으로도
+      메시지를 전달할 수 있습니다. <code>role</code>과 <code>content</code> 두 칸을 가진 딕셔너리를 쓰는 거죠.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 같은 요리, 다른 그릇</strong>
+      똑같은 김치찌개를 <strong>도자기 그릇</strong>에 담든 <strong>양은냄비</strong>에 담든, 안의 음식은 같습니다.
+      메시지 <strong>클래스 방식</strong>과 <strong>딕셔너리 방식</strong>도 마찬가지예요 — 담는 그릇만 다를 뿐,
+      LangChain 내부에서 <strong>같은 메시지 객체로 변환</strong>되어 결과가 같습니다.
+      덕분에 기존 OpenAI 코드를 LangChain으로 옮길 때 <strong>거의 손대지 않고</strong> 가져올 수 있습니다.
+    </div>
+
+    <h3>Role 매핑</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>LangChain 클래스</th><th>딕셔너리 role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>SystemMessage</code></td><td><code>"system"</code></td></tr>
+          <tr><td><code>HumanMessage</code></td><td><code>"user"</code> 또는 <code>"human"</code></td></tr>
+          <tr><td><code>AIMessage</code></td><td><code>"assistant"</code> 또는 <code>"ai"</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 메시지를 딕셔너리(role + content) 형태로 정의 — OpenAI API와 동일한 포맷
+# 위 셀의 SystemMessage / HumanMessage 예시와 동일한 의미를 갖는다.
+messages_data = [
+  {"role": "system", "content": "You are a value investment investor."},
+  {"role": "human",  "content": "Broadcom price will be increased?"},
+  {"role": "human",  "content": "My favorite color is blue."},
+  {"role": "human",  "content": "What color did I say is my favorite?"},
+  {"role": "human",  "content": "Remind me what my first question was."}
+]
+
+# 결과는 위 셀과 동일하게 첫 질문(Broadcom 관련)을 회상하는 답변이 나온다.
+response = model.invoke(messages_data)
+print(response)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 어느 표기를 써도 결과는 같다</strong>
+      클래스든 딕셔너리든 LangChain이 내부에서 동일하게 변환하므로 답은 같아야 합니다.
+      팀 컨벤션·기존 코드에 맞춰 편한 쪽을 고르면 됩니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      LLM의 메모리는 마법이 아니다. <strong>"지금까지의 대화(메시지 리스트)를 매번 다시 보내는 것"</strong>이 곧 메모리다.
+    </div>
+
+    <ul>
+      <li><strong>LLM은 stateless</strong> — 대화를 스스로 기억하지 못한다(기억상실 상담사).</li>
+      <li><strong>메시지 3형제</strong> — 감독(System) · 관객(Human) · 배우(AI).</li>
+      <li><strong>메모리 = 메시지 리스트 누적</strong> — 이전 대화를 회의록처럼 통째로 함께 보내면 기억하는 것처럼 답한다.</li>
+      <li><strong>두 가지 표기</strong> — 클래스 방식과 딕셔너리 방식은 <em>같은 요리, 다른 그릇</em>. 서로 호환되고 결과가 같다.</li>
+      <li><strong>진짜 멀티턴이 되려면</strong> — 모델의 답변(<code>AIMessage</code>)도 다시 리스트에 쌓아 다음 <code>invoke</code>에 함께 보내야 한다.</li>
+    </ul>
+
+    <div class="callout callout-warn" id="next">
+      <strong>➡️ 다음 이야기</strong>
+      대화가 길어질수록 이 "메시지 쌓기"를 손으로 관리하기는 번거롭습니다.
+      다음 노트북부터는 <strong>LangGraph</strong>로 이 누적 과정을 자동화해 본격적인 <strong>Agent</strong>를 만들어봅니다.
+    </div>
+
+    <div class="pager">
+      <a href="./01.html">
+        <small>← 이전 노트북</small>
+        01. Model — 텍스트 생성과 구조화된 답변
+      </a>
+      <span></span>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

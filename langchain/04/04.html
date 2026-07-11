@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>04. 캐시 임베더 (CacheBackedEmbeddings)</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">04. 캐시 임베더 목차</div>
+    <a href="#overview">개요 · 왜 임베딩을 캐싱할까</a>
+    <a href="#embed">1. 임베딩 복습 — 텍스트를 숫자로</a>
+    <a href="#setup">2. 캐시 임베더 만들기</a>
+    <a href="#test">3. 캐시가 진짜 통할까 — 속도 실험</a>
+    <a href="#docs">4. 실전 — 문서 쪼개서 임베딩 + 캐싱</a>
+    <a href="#modify">5. 일부만 바뀌면? 똑똑한 재사용</a>
+    <a href="#search">6. 검색으로 마무리 — 이게 RAG</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북 (04 · RAG)</div>
+      <a href="./01.html">01. RAG Load: PDFPlumber</a>
+      <a href="./02.html">02. RAG Load: PyMuPDF</a>
+      <a href="./03.html">03. RAG Split: 청크 분할</a>
+      <a href="#" style="font-weight:700; color:var(--text);">04. 캐시 임베더 (현재)</a>
+      <a href="./05.html">05. RAG Store: Chroma DB</a>
+      <a href="./06.html">06. RAG Retrieve: 검색기 생성</a>
+      <a href="./07.html">07. RAG: 캐시 임베더로 저장·검색</a>
+      <a href="./08.html">08. RAG 응용: Hybrid Search</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>04. 캐시 임베더 (CacheBackedEmbeddings)</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>04.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/04.rag.md">docs/04.rag.md</a> 2.3 Embed
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+      &nbsp;·&nbsp; 선행: <a href="./03.html">03. RAG Split</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>04.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      RAG를 만들다 보면 <strong>같은 문서를 몇 번이고 다시 임베딩</strong>하게 됩니다. 그런데 임베딩은 API 호출마다
+      <strong>돈</strong>이 나가고 <strong>시간</strong>이 걸리죠. 이 장에서는 "한 번 계산한 임베딩 결과를 하드디스크에
+      저장해두고 재사용"하는 <strong>캐시 임베더(<code>CacheBackedEmbeddings</code>)</strong>를 비유와 실험으로 익힙니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 유료 번역가 vs 내 번역 공책</strong>
+      "How are you?"를 한국어로 바꿔야 할 때, 매번 <strong>유료 번역가(OpenAI 임베딩 API)</strong>에게 돈을 내고 맡길 수도 있습니다.
+      하지만 똑똑한 사람은 <strong>한 번 번역한 문장을 공책에 적어둡니다.</strong> 다음에 똑같은 "How are you?"가 오면
+      번역가를 부르지 않고 <strong>공책을 펼쳐 즉시 답을 베낍니다.</strong> 돈도 안 들고 훨씬 빠르죠.
+      캐시 임베더가 바로 이 <strong>번역 공책</strong>입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      임베딩 자체는 이미 앞에서 다뤘습니다. 여기서는 <strong>"임베딩 과정의 중복을 없애 비용·시간을 아끼는 법"</strong>에 집중합니다.
+      핵심은 딱 하나 — <strong>이미 계산한 텍스트는 다시 계산하지 않고 파일에서 꺼내 쓴다</strong>는 것입니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>캐시 없음</th><th>캐시 있음 (CacheBackedEmbeddings)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>같은 문장 100번 임베딩</td><td>OpenAI에 100번 요청 (돈 100번)</td><td>1번만 요청, 나머지 99번은 파일에서 로드 (돈 1번)</td></tr>
+          <tr><td>코드 재실행 (문서 그대로)</td><td>전부 다시 임베딩</td><td>전부 캐시에서 즉시 로드 (API 호출 0)</td></tr>
+          <tr><td>속도</td><td>매번 네트워크 왕복</td><td>내 컴퓨터 파일 읽기 (훨씬 빠름)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실행 전 준비</strong>
+      직접 돌려보려면 <code>.env</code>에 <code>OPENAI_API_KEY</code>가 있어야 하고,
+      같은 폴더에 <code>pdf-file.pdf</code>가 필요합니다. 임베딩 결과 파일은 <code>./cache/</code> 폴더에 쌓입니다.
+      이 교재만 읽을 때는 필요 없습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1. embed recap ── -->
+    <h2 id="embed">1. 임베딩 복습 — 텍스트를 숫자로 바꾸기</h2>
+
+    <p>
+      캐싱 이야기를 하기 전에, <strong>임베딩</strong>이 뭐였는지 한 번만 짚고 갑니다.
+      임베딩은 <strong>"인공지능" 같은 텍스트를 컴퓨터가 계산할 수 있는 숫자 배열(벡터)로 바꾸는</strong> 작업입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 의미 지도 위의 GPS 좌표</strong>
+      거대한 <strong>의미 지도</strong>가 있다고 상상해보세요. 이 지도 위에서 뜻이 비슷한 단어들은 서로 <strong>가까이</strong> 모여 있습니다.
+      "강아지"와 "개"는 바로 옆 동네, "자동차"는 저 멀리 다른 구역에 있죠. 임베딩은 어떤 텍스트가 이 지도의
+      <strong>어디쯤에 있는지를 나타내는 GPS 좌표(숫자 목록)</strong>를 찍어주는 일입니다.
+      좌표가 가까우면 의미가 비슷하다 — 이것이 나중에 "유사한 문서 검색"의 원리가 됩니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import OpenAIEmbeddings
+
+# 임베딩 모델 객체 생성 (가성비가 좋은 small 모델 사용)
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# 텍스트 임베딩 수행
+query_result = embeddings.embed_query('인공지능')
+
+print(f"벡터의 길이(차원 수): {len(query_result)}")
+print(f"변환된 벡터의 앞부분 5개 값: {query_result[:5]}")</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">벡터의 길이(차원 수): 1536
+변환된 벡터의 앞부분 5개 값: [-0.01385547686368227, 0.0200613122433424, 0.007972599007189274, 0.007269692607223988, -0.01721169427037239]</pre>
+
+    <p>
+      "인공지능"이라는 짧은 단어 하나가 <strong>1536개의 숫자</strong>로 변환됐습니다.
+      이 1536개의 숫자가 곧 의미 지도 위의 좌표입니다. 사람 눈에는 의미 없는 소수점 나열이지만,
+      컴퓨터는 이 좌표들 사이의 거리를 계산해 "누가 누구와 비슷한지"를 판단합니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>embed_query</code> vs <code>embed_documents</code></strong>
+      <code>embed_query</code>는 <strong>문장 하나</strong>를 벡터로 바꾸고, <code>embed_documents</code>는
+      <strong>여러 문장(리스트)</strong>을 한 번에 벡터로 바꿉니다. RAG에서 문서 청크 수백 개를 처리할 때는
+      뒤에 나올 <code>embed_documents</code>를 씁니다. 바로 여기에 캐싱이 큰 힘을 발휘하죠.
+    </div>
+
+    <hr />
+
+    <!-- ── 2. setup cache embedder ── -->
+    <h2 id="setup">2. 캐시 임베더 만들기 — <code>from_bytes_store</code></h2>
+
+    <p>
+      이제 본론입니다. 방금 만든 임베딩 모델을 <strong>그대로 쓰지 않고, "캐시 껍데기(Wrapper)"로 한 번 감싸</strong>줍니다.
+      감싸는 데 필요한 재료는 딱 두 가지 — <strong>실제 계산을 할 임베딩 모델</strong>과, <strong>결과를 저장할 창고</strong>입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 번역가 앞에 앉은 비서</strong>
+      캐시 임베더는 번역가(OpenAI) 앞에 <strong>비서 한 명</strong>을 앉혀두는 것과 같습니다.
+      문장이 들어오면 비서가 먼저 <strong>서랍(<code>./cache/</code>)</strong>을 뒤져 "이거 예전에 번역한 적 있나?" 확인합니다.
+      있으면 서랍에서 꺼내 바로 주고, 없을 때만 번역가에게 넘깁니다. 그리고 번역가가 새로 준 결과도
+      <strong>서랍에 차곡차곡 보관</strong>해둡니다. 우리는 이 비서(<code>cached_embedder</code>)하고만 대화하면 되고,
+      비서가 알아서 돈을 아껴줍니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+
+underlying_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+store = LocalFileStore("./cache/")
+
+# 시를 사용할 **준비(설정)**만 마친 상태이기 때문에,
+# 실제로 임베딩 작업을 수행하는 명령을 내리기 전까지는
+# ./cache/ 폴더에 아무런 파일도 생성되지 않습니다.
+
+cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+    underlying_embeddings,
+    store,
+    namespace=underlying_embeddings.model
+)</code></pre>
+
+    <p>세 개의 주인공을 순서대로 뜯어봅니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>underlying_embeddings</strong><p>실제 계산을 담당하는 진짜 임베딩 모델 (OpenAI). 비서 뒤의 "번역가".</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>store</strong><p>결과를 저장하고 꺼내올 창고. <code>LocalFileStore("./cache/")</code> = 내 컴퓨터의 폴더.</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>namespace</strong><p>모델별로 결과를 구분하는 이름표. 데이터가 섞이지 않게 하는 서랍 라벨.</p></div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — <code>namespace</code>는 서랍에 붙이는 이름표</strong>
+      같은 문장이라도 <strong>어떤 임베딩 모델로 계산했느냐</strong>에 따라 결과 숫자가 완전히 달라집니다.
+      <code>text-embedding-3-small</code>이 매긴 좌표와 <code>text-embedding-3-large</code>가 매긴 좌표는 서로 딴 세상이죠.
+      그래서 <code>namespace</code>로 <strong>"이 칸은 small 전용", "저 칸은 large 전용"</strong>이라고 이름표를 붙여
+      엉뚱한 결과를 꺼내 쓰는 사고를 막습니다. 여기서는 모델 이름(<code>underlying_embeddings.model</code>)을
+      그대로 이름표로 씁니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 아직은 "설정"만 끝난 상태</strong>
+      이 셀을 실행해도 <code>./cache/</code> 폴더에는 <strong>아무 파일도 생기지 않습니다.</strong>
+      비서를 고용하고 서랍을 준비했을 뿐, 아직 <strong>번역 주문(임베딩 실행)</strong>을 넣지 않았기 때문이죠.
+      실제 파일은 뒤에서 <code>embed_documents</code>나 벡터 스토어 저장을 실행하는 순간부터 만들어집니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 3. speed test ── -->
+    <h2 id="test">3. 캐시가 진짜 통할까 — 속도 실험</h2>
+
+    <p>
+      말로만 "빨라진다"고 하면 믿기 어렵죠. 똑같은 텍스트 10개를 <strong>두 번 연속</strong> 임베딩해보고,
+      각각 걸린 시간을 재봅니다. 1차는 캐시가 만들어지는 시점, 2차는 그 캐시를 꺼내 쓰는 시점입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>import time
+
+# 테스트할 텍스트 리스트
+test_texts = ["안녕하세요 " + str(i) for i in range(10)]
+
+# --- 1. 첫 번째 실행 (캐시가 생성되는 시점) ---
+print("1차 실행 시작 (OpenAI 호출 예상)...")
+start_time = time.time()
+
+# 임베딩 수행
+cached_embedder.embed_documents(test_texts)
+
+end_time = time.time()
+print(f"1차 실행 소요 시간: {end_time - start_time:.4f}초")
+print("-" * 30)
+
+# --- 2. 두 번째 실행 (캐시를 사용하는 시점) ---
+print("2차 실행 시작 (로컬 캐시 사용 예상)...")
+start_time = time.time()
+
+# 똑같은 텍스트로 다시 임베딩 수행
+cached_embedder.embed_documents(test_texts)
+
+end_time = time.time()
+print(f"2차 실행 소요 시간: {end_time - start_time:.4f}초")</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">1차 실행 시작 (OpenAI 호출 예상)...
+1차 실행 소요 시간: 0.0107초
+------------------------------
+2차 실행 시작 (로컬 캐시 사용 예상)...
+2차 실행 소요 시간: 0.0043초</pre>
+
+    <p>
+      두 번째 실행이 <strong>첫 번째의 절반 이하</strong> 시간으로 끝났습니다. 똑같은 문장을 다시 임베딩했는데
+      번역가(OpenAI)에게 가지 않고 <strong>서랍(캐시)에서 바로 꺼내왔기</strong> 때문입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 "1차도 0.01초밖에 안 걸렸는데요?"</strong>
+      맞습니다. 이 실험에서는 1차마저 매우 빨랐죠. 이 노트북은 예전에 이미 같은 텍스트를 임베딩한 적이 있어서
+      <strong>1차 실행 때 이미 캐시가 데워져 있던(warm) 상태</strong>였기 때문입니다. 정말로 캐시가 텅 빈
+      <strong>진짜 첫 실행(cold start)</strong>이라면 1차는 네트워크 왕복 때문에 수백 밀리초~수 초까지 걸립니다.
+      그때 2차와의 격차는 훨씬 극적으로 벌어집니다. 핵심은 숫자의 절대값이 아니라 <strong>"2차가 언제나 더 빠르다"</strong>는 사실입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 4. real docs ── -->
+    <h2 id="docs">4. 실전 — PDF를 쪼개서 임베딩 + 캐싱</h2>
+
+    <p>
+      장난감 텍스트 말고 <strong>진짜 문서</strong>로 가봅니다. 앞 장(<a href="./03.html">03. RAG Split</a>)에서 배운 대로
+      PDF를 불러와 작은 <strong>청크(Chunk)</strong>로 쪼갠 뒤, 그 청크들을 벡터 스토어에 담습니다.
+      이때 임베딩 모델 자리에 <strong>방금 만든 <code>cached_embedder</code>를 그대로 끼워넣는 것</strong>이 전부입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_community.document_loaders import PDFPlumberLoader
+
+
+loader = PDFPlumberLoader("./pdf-file.pdf")
+
+docs = loader.load()
+
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=0)
+
+recursive_docs = text_splitter.split_documents(docs)
+
+vectorstore = InMemoryVectorStore.from_documents(
+    documents=recursive_docs,
+    embedding=cached_embedder
+)
+
+# cache 폴더를 보면 파일이 생성된 것 확인할 수 있다
+# 해당 파일은 임베딩 결과를 저장하는 파일로, recursive_docs의 page_content를 임베딩 한 결과를 저장하는 파일이다
+# 파일 이름은 임베딩 모델의 이름과 page_content의 해시값으로 구성된다
+# 띠리사 page_content와 똑같은 입력이 들어오면, 해싱을 한 다음
+# 동일한 파일이 있는지 찾고, 만약 같은게 있다면 임베딩 모델에 입력이 전달되는 것이 아니라
+# 찾은 폴더의 파일을 읽어서 임베딩 결과를 반환하는 것이다</code></pre>
+
+    <p>
+      이 셀을 실행하는 순간, 드디어 <code>./cache/</code> 폴더에 <strong>파일들이 우르르 생겨납니다.</strong>
+      청크 하나당 파일 하나씩, 그 청크의 임베딩 결과가 저장되는 것이죠. 그런데 파일 이름이 어떻게 정해질까요?
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 문장마다 찍히는 지문(Hash)</strong>
+      사람마다 지문이 다르듯, 캐시 임베더는 각 청크의 <strong>전체 텍스트를 해시(Hash)라는 고유한 지문 문자열</strong>로 바꿉니다.
+      글자가 <strong>하나라도 다르면 지문이 완전히 달라지고</strong>, 100% 똑같아야만 지문도 똑같습니다.
+      파일 이름 = <strong>이름표(모델명) + 지문(해시값)</strong>. 새 청크가 오면 먼저 지문을 찍어보고,
+      같은 지문의 파일이 서랍에 있으면 <strong>번역가를 부르지 않고 그 파일을 읽어</strong> 결과를 돌려줍니다.
+    </div>
+
+    <h3>캐싱의 단위는 "단어"가 아니라 "청크 덩어리"</h3>
+    <p>
+      한 가지 꼭 짚을 점 — 캐시는 <strong>단어 단위가 아니라 청크(조각) 전체 텍스트</strong>를 기준으로 작동합니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>상황</th><th>청크 A</th><th>청크 B</th><th>캐시 판단</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>내용이 완전히 동일</td><td>"제1장 개요"</td><td>"제1장 개요"</td><td>✅ 같은 지문 → B는 캐시에서 로드</td></tr>
+          <tr><td>단어 일부만 겹침</td><td>"사과는 맛있다."</td><td>"사과는 빨갛다."</td><td>❌ 다른 지문 → 둘 다 각각 임베딩</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      "사과는"이라는 단어가 둘 다 들어있어도, <strong>전체 텍스트가 다르면 완전히 다른 데이터</strong>로 취급합니다.
+      즉 캐시가 통하려면 <strong>청크 덩어리 전체가 100% 일치</strong>해야 합니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 진짜 위력은 "코드를 다시 실행할 때"</strong>
+      개발 중에는 검색 로직을 고치느라 코드를 <strong>수십 번 재실행</strong>합니다. 캐시가 없으면 그때마다 청크 수백 개를
+      전부 다시 임베딩해야 하죠(매번 API 비용 발생). 캐시가 있으면 PDF 내용이 그대로인 한
+      <strong>모든 청크를 서랍에서 즉시 로드</strong>합니다 — API 호출 0번, 비용 0원. 이것이 RAG 개발에서 캐시 임베더를
+      거의 <strong>필수 최적화</strong>로 쓰는 이유입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 5. partial modify ── -->
+    <h2 id="modify">5. 일부만 바뀌면? — 똑똑한 부분 재사용</h2>
+
+    <p>
+      "그럼 PDF를 조금 수정하면 전부 다시 임베딩해야 하나요?" 아닙니다. 여기가 캐시 임베더의 가장 영리한 부분입니다.
+      <strong>바뀐 조각만 새로 계산하고, 안 바뀐 나머지는 그대로 캐시에서 꺼내옵니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 책 한 페이지만 새로 번역하기</strong>
+      100쪽짜리 책을 통째로 번역해 공책에 정리해뒀다고 합시다. 나중에 <strong>5쪽의 오타 한 글자</strong>만 고쳤다면,
+      멀쩡한 나머지 99쪽까지 처음부터 다시 번역할 이유가 없죠. <strong>고쳐진 5쪽 부분만 새로 번역</strong>하고
+      나머지는 공책에서 그대로 씁니다. 청크마다 지문(해시)이 독립적이라, 한 조각이 바뀌어도 다른 조각의 지문은 그대로거든요.
+    </div>
+
+    <p>PDF 10쪽 → 청크 100개로 쪼갠 경우를 예로 들면 이렇게 흘러갑니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>첫 실행</strong><p>청크 100개 전부 임베딩해서 <code>./cache/</code>에 저장.</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>5쪽 오타 수정</strong><p>PDF에서 한 글자만 고침.</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>안 바뀐 90개</strong><p>지문 동일 → 캐시에서 즉시 로드 (비용 0).</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>바뀐 10개</strong><p>지문 변경 → OpenAI 호출해 새로 임베딩 (비용 발생).</p></div>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 함정 — 청크가 "밀려나면" 캐시가 깨질 수 있다</strong>
+      주의할 게 하나 있습니다. PDF <strong>앞부분에 내용을 추가</strong>하면 뒤쪽 텍스트가 통째로 밀리면서
+      쪼개지는 지점이 달라질 수 있습니다. 예전엔 <code>"A / B"</code>로 갈리던 게 이번엔 <code>"AB /"</code>로 갈리면
+      <strong>텍스트 내용 자체가 달라진 것</strong>이라 지문도 바뀌고, 결국 다시 임베딩하게 됩니다.
+      다행히 <code>RecursiveCharacterTextSplitter</code>는 최대한 의미 단위로 쪼개려 하므로, 운이 좋으면 뒤쪽 청크가
+      이전과 똑같이 갈려 캐시를 계속 활용할 수 있습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 6. search ── -->
+    <h2 id="search">6. 검색으로 마무리 — 이게 바로 RAG</h2>
+
+    <p>
+      임베딩과 캐싱까지 끝냈으니, 이제 실제로 <strong>질문을 던져 비슷한 문서를 찾아봅니다.</strong>
+      벡터 스토어에 <code>similarity_search</code>로 질문을 넣으면, 질문을 임베딩한 좌표와 가장 가까운 청크를
+      <strong>유사도 높은 순서</strong>로 돌려줍니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도서관 사서에게 "이런 느낌의 책"을 묻기</strong>
+      벡터 스토어는 청크들을 <strong>의미 지도 위 좌표대로 정리해둔 특수 도서관</strong>입니다.
+      "테슬라 투자 비중?"이라고 물으면, 사서는 그 질문도 좌표로 바꾼 뒤 <strong>가장 가까운 자리에 꽂힌 책(청크)</strong>을
+      순식간에 집어옵니다. 키워드가 정확히 일치하지 않아도 <strong>"의미가 비슷한"</strong> 문서를 찾아준다는 게 핵심이에요.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>query = "Tesla 투자 비중이 얼마나 되나요?"
+results = vectorstore.similarity_search(query)
+# 벡터스토어에 있는 문서와 유사도를 계산하고, 유사도가 높은 순서대로 검색 결과를 반환한다
+
+print(f"검색된 문서 내용:\n{results[0].page_content}")
+# 가장 유사한 문서의 내용을 반환한다
+# 이 내용을 LLM에게 전달해서 답변을 생성할 수 있다
+# 이것이 RAG </code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">검색된 문서 내용:
+Holdings Data - ARKK
+As of 11/26/2025
+ARKK
+ARK Innovation ETF
+Company Ticker CUSIP Shares Market Value ($) Weight (%)
+1 TESLA INC TSLA 88160R101 2,204,438 $924,541,297.20 12.26%
+2 TEMPUS AI INC TEM 88023B103 5,465,331 $419,956,034.04 5.57%
+3 ROKU INC ROKU 77543R102 4,347,025 $412,445,732.00 5.47%</pre>
+
+    <p>
+      질문에 "12.26%"라는 숫자를 한 글자도 넣지 않았는데, 테슬라 비중이 12.26%라고 적힌
+      <strong>정확히 그 청크</strong>가 검색됐습니다. 이제 이 청크를 LLM에게 "이 내용을 참고해서 답해줘"라고 건네면,
+      LLM은 문서에 근거한 정확한 답을 만들어냅니다. <strong>검색(Retrieve) + 생성(Generation)</strong> —
+      이 조합이 바로 <strong>RAG</strong>입니다.
+    </p>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 캐시 임베더와 벡터 스토어, 역할이 다릅니다</div>
+      <p>
+        둘 다 "빠르게·저렴하게"를 돕지만 담당 구역이 다릅니다. 헷갈리기 쉬우니 한 번 정리하고 갑니다.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>구분</th><th>캐시 임베더</th><th>벡터 스토어</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>담당</td><td>임베딩 <strong>계산 과정</strong>의 중복 제거</td><td>임베딩된 <strong>데이터 사이의 검색</strong></td></tr>
+            <tr><td>아끼는 것</td><td>💰 <strong>비용</strong> (API 재호출 방지)</td><td>⚡ <strong>속도</strong> (수만 개 중 빠른 검색)</td></tr>
+            <tr><td>비유</td><td>번역 공책</td><td>의미 지도로 정리된 특수 도서관</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-bottom:0;">
+        이 둘이 합쳐져야 <strong>수많은 문서 속에서도 빠르고 저렴하게 답을 찾는 RAG</strong>가 완성됩니다.
+        벡터 스토어를 파일로 영구 저장하는 방법(Chroma DB)은 바로 다음 장에서 이어집니다.
+      </p>
+    </div>
+
+    <h3>전체 RAG 파이프라인 한눈에 보기</h3>
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>로드 &amp; 쪼개기</strong><p>두꺼운 문서를 청크 단위로 찢어 준비.</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>임베딩 &amp; 캐싱</strong><p>각 청크를 숫자로 변환. 이미 한 건 캐시에서 재사용해 <strong>돈·시간 절약</strong>.</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>벡터 스토어 저장</strong><p>숫자들을 특수 도서관에 꽂아둠.</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>검색</strong><p>질문과 가장 가까운 청크를 빛의 속도로 찾아 답변에 활용.</p></div>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      캐시 임베더는 <strong>"한 번 계산한 임베딩은 하드디스크에 저장해두고, 똑같은 텍스트가 오면 다시 계산하지 않고 꺼내 쓰는"</strong>
+      비용·시간 절약 장치다. RAG 개발의 사실상 필수 최적화.
+    </div>
+
+    <ul>
+      <li><strong>왜 쓰나</strong> — 임베딩 API는 호출마다 <strong>돈</strong>이 나가고 <strong>시간</strong>이 걸린다. 중복 계산을 없애 둘 다 아낀다.</li>
+      <li><strong>만드는 법</strong> — <code>CacheBackedEmbeddings.from_bytes_store(모델, 저장소, namespace=...)</code>로 기존 임베딩 모델을 감싼다.</li>
+      <li><strong>namespace</strong> — 서랍 이름표. 모델별로 결과를 분리해 엉뚱한 캐시를 꺼내 쓰는 사고를 막는다.</li>
+      <li><strong>캐싱 단위</strong> — 단어가 아니라 <strong>청크 전체 텍스트</strong>. 지문(해시)이 100% 일치할 때만 재사용.</li>
+      <li><strong>부분 수정</strong> — 바뀐 청크만 새로 계산하고 나머지는 캐시 재사용. 단, 청크가 밀려 재분할되면 캐시가 깨질 수 있다.</li>
+      <li><strong>캐시 임베더 vs 벡터 스토어</strong> — 전자는 <em>계산 비용</em>, 후자는 <em>검색 속도</em>를 담당. 둘이 합쳐져 RAG가 된다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./03.html">
+        <small>← 이전 노트북</small>
+        03. RAG Split — 청크 분할
+      </a>
+      <a class="next" href="./05.html">
+        <small>다음 노트북 →</small>
+        05. RAG Store — Chroma DB
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>05. RAG Store: Chroma DB</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">05. RAG Store 목차</div>
+    <a href="#overview">개요 · Store는 어디쯤일까</a>
+    <a href="#prep1">1. 재료 준비 — 캐시 임베더</a>
+    <a href="#prep2">2. 문서 로드 · 분할</a>
+    <a href="#store">3. Chroma DB에 저장하기</a>
+    <a href="#search">4. similarity_search로 검색</a>
+    <a href="#query-chunk">5. 질문은 왜 안 쪼갤까</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. RAG Load: PDFPlumber</a>
+      <a href="./02.html">02. RAG Load: PyMuPDF</a>
+      <a href="./03.html">03. RAG Split: 청크 분할</a>
+      <a href="./04.html">04. 캐시 임베더</a>
+      <strong style="display:block; padding:5px 8px; color:var(--text);">05. RAG Store: Chroma DB</strong>
+      <a href="./06.html">06. RAG Retrieve: 검색기 생성</a>
+      <a href="./07.html">07. RAG: 캐시 임베더로 저장·검색</a>
+      <a href="./08.html">08. RAG 응용: Hybrid Search</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>05. RAG Store: Chroma DB</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>05.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/04.rag.md">docs/04.rag.md</a> 2.4 Store
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+      &nbsp;·&nbsp; 선행: <a href="./04.html">04. 캐시 임베더</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>05.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      RAG 파이프라인의 네 번째 단계 <strong>Store</strong> — 임베딩한 벡터를 <strong>Vector DB에 파일로 영구 저장</strong>하는 단계를 다룹니다.
+      오늘의 주인공은 <strong>Chroma DB</strong>입니다. 문서를 저장하고, 질문 하나로 <strong>가장 비슷한 조각을 꺼내오는</strong>
+      RAG의 핵심 흐름까지 비유와 함께 천천히 짚어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      RAG는 <strong>Load → Split → Embed → Store → Retrieve</strong> 다섯 단계로 흐릅니다.
+      앞 장(04)에서 문서를 숫자(벡터)로 바꾸는 <strong>Embed</strong>까지 왔습니다.
+      이번 장은 그 벡터를 <strong>어딘가에 잘 보관(Store)</strong>하고, 나중에 질문으로 <strong>찾아 꺼내는(Retrieve의 맛보기)</strong> 방법입니다.
+    </div>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Load</strong><p>PDF 등 원문 불러오기</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Split</strong><p>긴 문서를 조각(청크)으로 분할</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>Embed</strong><p>각 조각을 벡터(숫자)로 변환</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>Store</strong><p>벡터를 Vector DB에 저장 ← 오늘</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>Retrieve</strong><p>질문과 비슷한 조각 검색</p></div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 정리 안 된 책 더미 vs 도서관</strong>
+      임베딩만 끝낸 상태는 <strong>바닥에 쌓인 책 더미</strong>와 같습니다. 분명 있긴 한데, 필요한 책을 찾으려면 하나하나 뒤져야 하죠.
+      <strong>Store</strong>는 이 책들을 <strong>도서관 서고에 분류해 꽂아 두는 일</strong>입니다.
+      한 번 잘 꽂아 두면, 나중에 "테슬라 이야기 나온 책"이라고 말만 해도 <strong>사서(similarity_search)</strong>가 곧바로 찾아줍니다.
+      그리고 이 서고는 <strong>파일</strong>이라, 도서관 문을 닫았다 다시 열어도(프로그램 재시작) 책이 그대로 남아 있습니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실행 전 준비</strong>
+      임베딩 단계에서 OpenAI를 호출하므로, 직접 돌려보려면 프로젝트 루트에 <code>.env</code> 파일과 그 안의
+      <code>OPENAI_API_KEY</code>가 필요합니다. 또 예제는 같은 폴더에 <code>pdf-file.pdf</code>가 있다고 가정합니다.
+      이 교재만 읽을 때는 필요 없습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1. 캐시 임베더 ── -->
+    <h2 id="prep1">1. 재료 준비 — 캐시 임베더 만들기</h2>
+
+    <p>
+      벡터를 저장하려면 먼저 <strong>"문서를 벡터로 바꿔 줄 임베딩 모델"</strong>이 있어야 합니다.
+      04장에서 배운 <strong>캐시 임베더(CacheBackedEmbeddings)</strong>를 그대로 씁니다.
+      한 번 계산한 벡터를 <code>./cache/</code> 폴더에 기억해 두었다가, 같은 문장이 또 오면 API를 다시 부르지 않고 재사용하는 <strong>알뜰한 임베더</strong>죠.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 계산 결과를 적어 두는 계산기</strong>
+      매번 똑같은 문장을 임베딩(계산)하면 <strong>돈과 시간</strong>이 듭니다. 캐시 임베더는
+      한 번 계산한 답을 노트에 적어 두었다가, 같은 문제가 또 나오면 <strong>노트만 펼쳐 보는</strong> 계산기입니다.
+      Store 실습에서도 문서 임베딩 비용을 아끼려고 이 임베더를 재료로 씁니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+
+underlying_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+store = LocalFileStore("./cache/")
+
+cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+    underlying_embeddings,
+    store,
+    namespace=underlying_embeddings.model
+)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 이름이 겹쳐도 괜찮아요</strong>
+      여기서 만든 <code>store</code>는 <strong>임베딩 결과를 캐싱하는 저장소</strong>(<code>LocalFileStore</code>)입니다.
+      이번 장 제목의 "Store"(Vector DB)와는 <strong>다른 개념</strong>이에요. 하나는 <em>계산 결과 캐시</em>, 하나는 <em>검색용 벡터 창고</em>입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 2. 로드/분할 ── -->
+    <h2 id="prep2">2. 문서 로드 · 분할하기</h2>
+
+    <p>
+      저장할 <strong>내용물</strong>을 준비할 차례입니다. PDF를 불러와서(Load), 300자 단위 조각으로 쪼갭니다(Split).
+      이렇게 만들어진 조각 리스트 <code>recursive_docs</code>가 곧 <strong>Vector DB에 넣을 재료</strong>가 됩니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_community.document_loaders import PDFPlumberLoader
+
+
+loader = PDFPlumberLoader("./pdf-file.pdf")
+
+docs = loader.load()
+
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=0)
+
+recursive_docs = text_splitter.split_documents(docs)
+
+vectorstore = InMemoryVectorStore.from_documents(
+    documents=recursive_docs,
+    embedding=cached_embedder
+)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 화이트보드 vs 노트</strong>
+      마지막 줄의 <code>InMemoryVectorStore</code>는 <strong>화이트보드</strong>입니다 — 지금은 편하게 쓸 수 있지만,
+      프로그램을 끄면(교실을 나가면) <strong>싹 지워집니다.</strong> 메모리(RAM) 위에만 있으니까요.
+      다음 단계에서 만날 <strong>Chroma는 노트</strong>입니다 — 파일로 남아서 나중에 다시 펼쳐 볼 수 있습니다.
+      이 셀은 "메모리 방식도 있다"를 보여 주는 대조군이고, <strong>진짜 저장은 다음 단계의 Chroma</strong>가 담당합니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 300자로 쪼갤까</strong>
+      문서가 너무 길면 검색 정확도도, LLM에 넣을 때의 효율도 떨어집니다. 그래서 의미 단위로 잘게 나눠 두는 것이죠.
+      <code>chunk_overlap=0</code>은 조각끼리 겹치는 부분을 두지 않는다는 뜻입니다. (분할의 상세는 03장 참고)
+    </div>
+
+    <hr />
+
+    <!-- ── 3. Chroma ── -->
+    <h2 id="store">3. Chroma DB에 저장하기</h2>
+
+    <p>
+      드디어 오늘의 핵심입니다. <code>Chroma.from_documents(...)</code> 한 번이면
+      <strong>"조각들을 임베딩해서 → Vector DB에 저장"</strong>까지 한꺼번에 처리됩니다.
+      게다가 Chroma는 그 결과를 <code>./chroma_db</code> 폴더에 <strong>파일로 남기기</strong> 때문에,
+      프로그램을 재시작해도 데이터가 사라지지 않습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 창고에 라벨 붙여 넣기</strong>
+      <code>from_documents</code>는 이삿짐센터 직원과 같습니다. 상자(문서 조각)를 받아
+      <strong>내용을 스캔(임베딩)</strong>하고, <strong>창고(persist_directory)</strong>의 <strong>지정된 선반(collection_name)</strong>에
+      차곡차곡 넣어 둡니다. 한 번 넣어 두면, 나중에 창고 주소만 알려 줘도 그대로 다시 꺼내 볼 수 있죠.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_chroma import Chroma
+
+# 1. DB 경로 설정
+CHROMA_PATH = "./chroma_db"
+
+# 2. Store 생성
+db = Chroma.from_documents(
+    documents=recursive_docs,
+    embedding=cached_embedder,
+    persist_directory=CHROMA_PATH,
+    collection_name="rag_collection")</code></pre>
+
+    <h3>핵심 파라미터 4가지</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>파라미터</th><th>뜻</th><th>비유</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>documents</code></td><td>저장할 문서 조각 리스트 (신규 저장 시에만 사용)</td><td>창고에 넣을 상자들</td></tr>
+          <tr><td><code>embedding</code></td><td>조각을 벡터로 바꿔 줄 임베딩 모델</td><td>내용을 읽어 주는 스캐너</td></tr>
+          <tr><td><code>persist_directory</code></td><td>DB를 파일로 저장할 폴더 경로</td><td>창고 주소</td></tr>
+          <tr><td><code>collection_name</code></td><td>DB 안의 테이블(선반) 이름 (선택)</td><td>창고 속 선반 이름표</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>collection_name</code>이 왜 필요할까</strong>
+      하나의 Chroma DB 안에 여러 "컬렉션"을 둘 수 있습니다. 관계형 DB의 <strong>테이블</strong>처럼요.
+      예를 들어 <code>"news_2024"</code>, <code>"reports_2025"</code>처럼 주제별로 선반을 나눠 두면
+      나중에 원하는 선반만 골라 검색할 수 있어 관리가 편해집니다.
+    </div>
+
+    <!-- ── 기존 DB 불러오기 보충 ── -->
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 이미 만들어 둔 Chroma DB 다시 불러오기</div>
+
+      <p>
+        Chroma는 파일로 저장되므로, 한 번 만든 뒤에는 <strong>다시 임베딩할 필요 없이</strong> 경로만 알려 주고 불러올 수 있습니다.
+        이때는 <code>documents=</code>를 넘기지 않고, <code>from_documents</code> 대신 <strong><code>Chroma(...)</code> 생성자</strong>를 씁니다.
+      </p>
+
+      <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 기존 DB 불러오기 (새 문서 추가 없이 검색만)
+db = Chroma(
+    collection_name="rag_collection",
+    embedding_function=cached_embedder,
+    persist_directory=CHROMA_PATH,
+)</code></pre>
+
+      <div class="callout callout-warn" style="margin-bottom: 0;">
+        <strong>⚠️ 인자 이름이 살짝 달라요</strong>
+        저장할 때는 <code>embedding=</code>이지만, 기존 DB를 <strong>불러올 때</strong>는 <code>embedding_function=</code>입니다.
+        불러온 뒤에도 <em>질문</em>을 벡터로 바꿔야 검색이 되기 때문에, 임베딩 모델을 다시 알려 주는 거예요.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── 4. 검색 ── -->
+    <h2 id="search">4. <code>similarity_search</code>로 검색해 보기</h2>
+
+    <p>
+      저장했으니 이제 꺼내 볼 차례입니다. <code>db.similarity_search(query, k=1)</code>는
+      질문과 <strong>가장 비슷한 문서 조각</strong>을 <code>k</code>개 찾아 줍니다. 여기서는 <code>k=1</code>이라 딱 1개만 가져옵니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 사서에게 물어보기</strong>
+      도서관 사서에게 "테슬라 투자 비중이 궁금해요"라고 말하면, 사서는 서고를 훑어
+      <strong>가장 관련 깊은 책 한 권</strong>을 뽑아 건네줍니다. <code>similarity_search</code>가 바로 이 사서예요.
+      정확히 같은 단어가 아니어도, <strong>의미가 가까운</strong> 조각을 벡터 거리(유사도)로 찾아냅니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>query = "Tesla 투자 비중이 얼마나 되나요?"
+results = db.similarity_search(query, k=1)
+# 벡터스토어에 있는 문서와 유사도를 계산하고, 유사도가 높은 순서대로 검색 결과를 반환한다
+
+print(len(results))
+
+print(f"검색된 문서 내용:\n{results[0].page_content}")
+# 가장 유사한 문서의 내용을 반환한다
+# 이 내용을 LLM에게 전달해서 답변을 생성할 수 있다
+# 이것이 RAG </code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">1
+검색된 문서 내용:
+Holdings Data - ARKK
+As of 11/26/2025
+ARKK
+ARK Innovation ETF
+Company Ticker CUSIP Shares Market Value ($) Weight (%)
+1 TESLA INC TSLA 88160R101 2,204,438 $924,541,297.20 12.26%
+2 TEMPUS AI INC TEM 88023B103 5,465,331 $419,956,034.04 5.57%
+3 ROKU INC ROKU 77543R102 4,347,025 $412,445,732.00 5.47%</pre>
+
+    <p>
+      질문에는 "Tesla 투자 비중"이라는 <strong>의도</strong>만 담겨 있는데, 정확히 그 정보가 들어 있는 표 조각이 튀어나왔습니다.
+      <code>results[0].page_content</code>에 담긴 이 텍스트를 <strong>LLM 프롬프트에 붙여 주면</strong>,
+      모델은 이 근거를 읽고 "테슬라 비중은 12.26%입니다"처럼 답할 수 있습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 바로 이 흐름이 RAG의 심장</strong>
+      <strong>질문 → 유사한 문서 검색 → 그 내용을 프롬프트에 얹어 LLM에게 전달.</strong>
+      모델이 스스로 아는 지식이 아니라 <strong>우리가 찾아 준 근거</strong>로 답하게 만드는 것 — 이것이 RAG(검색 증강 생성)입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 5. 질문 청킹 ── -->
+    <h2 id="query-chunk">5. 질문(Query)은 왜 쪼개지 않을까?</h2>
+
+    <p>
+      여기서 자연스러운 궁금증이 생깁니다. "문서는 300자로 잘게 쪼갰는데, <strong>질문도 쪼개야 하나?</strong>"
+      정답은 <strong>아니오</strong>입니다. 질문은 <strong>통째로 임베딩</strong>합니다. 그 이유를 단계별로 짚어 볼게요.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 완성된 한 문장의 뜻</strong>
+      "테슬라 투자 비중이 / 얼마나 되나요?"처럼 질문을 반토막 내면, 각 조각은 원래의 <strong>의도를 잃어버립니다.</strong>
+      "얼마나 되나요?"만 떼어 놓으면 무엇을 묻는지 알 수 없죠. 질문은 그 자체로 <strong>하나의 완성된 뜻</strong>이라,
+      쪼개지 않고 <strong>통째로</strong> 숫자로 바꿔야 의미가 온전히 보존됩니다.
+    </div>
+
+    <h3>① 질문 처리 과정</h3>
+    <p><code>db.similarity_search(query, k=1)</code> 한 줄 뒤에서는 이런 일이 벌어집니다.</p>
+    <ol>
+      <li><strong>임베딩 (청킹 X):</strong> "Tesla 투자 비중이 얼마나 되나요?"라는 문장 <strong>전체를 통째로</strong> 벡터로 변환합니다. 질문은 보통 짧아서 쪼갤 필요가 없습니다.</li>
+      <li><strong>유사도 비교:</strong> 질문 벡터와, 이미 저장돼 있는 <strong>수많은 문서 조각들의 벡터</strong>를 수학적으로 비교합니다.</li>
+      <li><strong>결과 추출 (k=1):</strong> 질문과 <strong>가장 비슷하게 생긴 조각 1개</strong>를 골라냅니다.</li>
+    </ol>
+
+    <h3>② 문서와 질문의 차이</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>대상</th><th>쪼개나?</th><th>이유</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>문서(Documents)</strong></td><td>✅ 쪼갠다</td><td>너무 길어서 LLM이 한 번에 못 읽음 → 잘게 나눠 저장</td></tr>
+          <tr><td><strong>질문(Query)</strong></td><td>❌ 통째로</td><td>질문 자체가 하나의 완성된 의도 → 쪼개면 뜻이 깨짐</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>③ "자동으로" 일어나는 일들</h3>
+    <p>사용자가 <code>db.similarity_search</code> 한 줄만 썼을 때, LangChain이 배후에서 알아서 해 주는 일입니다.</p>
+    <ul>
+      <li><code>query</code>를 임베딩 모델(OpenAI 등)로 보내 벡터로 변환</li>
+      <li>받아온 벡터를 벡터 스토어의 데이터와 비교</li>
+      <li>가장 유사한 순서대로 정렬해 상위 <code>k</code>개를 반환</li>
+    </ul>
+
+    <div class="callout callout-info">
+      <strong>💡 요약</strong>
+      <strong>질문</strong>은 쪼개지 않고 통째로 임베딩 · <strong>비교</strong>는 질문 벡터 vs 저장된 청크 벡터들 ·
+      <strong>결과</strong>는 유사도 최상위 <code>k</code>개. 이것이 RAG의 첫 단계인 <strong>검색(Retrieval)</strong>의 실체입니다.
+      (검색기를 더 세밀하게 다루는 법은 다음 06장에서 이어집니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <strong>Store = 임베딩한 벡터를 Vector DB에 파일로 저장하는 단계.</strong>
+      Chroma에 저장해 두면 프로그램을 껐다 켜도 남고, <code>similarity_search</code> 한 줄로 질문에 가장 가까운 조각을 꺼낼 수 있다.
+    </div>
+
+    <ul>
+      <li><strong>Store의 위치</strong> — RAG 5단계(Load → Split → Embed → <strong>Store</strong> → Retrieve) 중 네 번째, "벡터를 서고에 꽂는" 단계.</li>
+      <li><strong>Chroma DB</strong> — 벡터를 <code>./chroma_db</code> 폴더에 <strong>파일로 영구 저장</strong>. 재시작해도 데이터가 유지된다(노트, 화이트보드 아님).</li>
+      <li><strong><code>Chroma.from_documents(...)</code></strong> — 조각 임베딩 + 저장을 한 번에. 핵심 인자는 <code>documents · embedding · persist_directory · collection_name</code>.</li>
+      <li><strong>다시 불러오기</strong> — <code>documents</code> 없이 <code>Chroma(...)</code> 생성자로 경로만 지정. 이때 임베딩은 <code>embedding_function=</code>.</li>
+      <li><strong><code>similarity_search(query, k)</code></strong> — 질문과 가장 비슷한 조각 <code>k</code>개 반환. 이 내용을 프롬프트에 얹는 게 <strong>RAG의 심장</strong>.</li>
+      <li><strong>질문은 통째로</strong> — 문서는 쪼개 저장하지만, 질문은 완성된 의도라 쪼개지 않고 통째로 임베딩한다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./04.html">
+        <small>← 이전 노트북</small>
+        04. 캐시 임베더 (CacheBackedEmbeddings)
+      </a>
+      <a class="next" href="./06.html">
+        <small>다음 노트북 →</small>
+        06. RAG Retrieve — 검색기 생성
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

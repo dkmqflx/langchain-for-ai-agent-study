@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>04. Custom Middleware — 멤버십 기반 모델 선택</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">04. 멤버십 모델 선택 목차</div>
+    <a href="#overview">개요 · 이 노트북에서 배우는 것</a>
+    <a href="#setup">0. 환경 준비 — 기본 모델 만들기</a>
+    <a href="#context">1. Context 정의 — 회원 카드 만들기</a>
+    <a href="#selector">2. membership_model_selector 미들웨어</a>
+    <a href="#compare">03 vs 04 — 무엇이 달라졌나</a>
+
+    <div class="nav-section">
+      <div class="nav-title">보충 · 마무리</div>
+      <a href="#wire">Agent에 실제로 연결하기</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style</a>
+      <a href="./03.html">03. Wrap-style 동적 모델 선택</a>
+      <strong style="display:block; padding:5px 8px; color:var(--text);">04. 멤버십 기반 모델 선택</strong>
+      <a href="./05.html">05. 메시지 객체와 .type</a>
+      <a href="./06.html">06. Guardrails: After Agent 출력 필터</a>
+      <a href="./07.html">07. Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: 메모리 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>04. Custom Middleware — 멤버십 기반 모델 선택</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>04.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a> 1.5 Wrap-style
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./03.html">03. 동적 모델 선택</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>04.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      이번 노트북의 목표는 딱 하나 — <strong>로그인한 사용자의 멤버십 등급(<code>is_premium</code>)에 따라
+      서로 다른 모델을 제공하는 Agent</strong>를 만드는 것입니다.
+      프리미엄 회원에게는 강력한 <code>gpt-5</code>를, 일반 회원에게는 가볍고 저렴한 <code>gpt-5-nano</code>를
+      자동으로 골라주는 <strong>Wrap-style 미들웨어</strong>를 비유와 함께 천천히 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 항공사 좌석 등급</strong>
+      같은 비행기(같은 서비스)를 타더라도 <strong>이코노미 승객</strong>과 <strong>퍼스트클래스 승객</strong>은 대접이 다릅니다.
+      항공사는 손님이 탑승하기 직전에 <strong>항공권(멤버십 등급)</strong>을 확인하고 그에 맞는 좌석으로 안내하죠.
+      이 노트북에서 만들 Agent도 똑같습니다. 사용자가 말을 거는 순간 그 사람의 <strong>회원 카드(<code>is_premium</code>)</strong>를 확인하고,
+      VIP라면 <strong>강력한 모델</strong>을, 일반 회원이라면 <strong>가벼운 모델</strong>을 배정합니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 노트북에서 배우는 것</strong>
+      "사용자마다 다른 모델을 쓴다"를 코드로 옮기려면 두 가지가 필요합니다.
+      ① 그 사용자가 누구이고 어떤 등급인지 알려주는 <strong>Context(회원 카드)</strong>,
+      ② 모델 호출 직전에 그 카드를 확인해 모델을 바꿔치기하는 <strong>미들웨어(도어맨)</strong>.
+      이 둘을 조립하는 법을 배웁니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th><code>is_premium</code></th><th>선택되는 모델</th><th>의미</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>True</code></td><td><code>gpt-5</code></td><td>강력한 모델 (프리미엄 회원 대접)</td></tr>
+          <tr><td><code>False</code></td><td><code>gpt-5-nano</code></td><td>기본 모델 (비용 절약)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 03과 헷갈리지 마세요</strong>
+      바로 앞 노트북(<a href="./03.html">03. 동적 모델 선택</a>)은 <strong>사용자 메시지의 길이</strong>를 보고 모델을 골랐습니다.
+      이번 04는 <strong>외부에서 주입된 회원 정보(<code>is_premium</code>)</strong>를 보고 모델을 고릅니다.
+      "무엇을 근거로 모델을 바꾸느냐"가 다른 것이지, 미들웨어를 만드는 뼈대는 똑같습니다.
+      (자세한 비교는 <a href="#compare">아래 표</a>에서 다룹니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 환경 준비 — 기본 모델 만들기</h2>
+
+    <p>
+      먼저 필요한 도구들을 가져오고 <code>.env</code>에서 API 키를 불러온 뒤, <strong>기본 모델</strong>을 하나 만듭니다.
+      여기서 만든 <code>model</code>은 말하자면 <strong>"기본값"</strong>일 뿐, 실제로 어떤 모델이 쓰일지는
+      뒤에서 만들 미들웨어가 상황에 따라 <strong>다시 결정</strong>합니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 import는 왜 미리 다 해둘까</strong>
+      <code>tool</code>과 <code>create_agent</code>는 이 셀에서 당장 쓰이진 않습니다.
+      이후 미들웨어를 실제 Agent에 <strong>조립할 때</strong> 필요하기 때문에 미리 불러두는 것뿐이에요.
+      (조립하는 모습은 <a href="#wire">아래 보충</a>에서 확인합니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── context ── -->
+    <h2 id="context">1. Context 정의 — 회원 카드 만들기</h2>
+
+    <p>
+      <strong>Context</strong>는 대화가 시작될 때 Agent에게 <strong>딱 한 번 건네주는 "회원 카드"</strong>입니다.
+      이 카드에는 사용자가 누구인지(<code>user_id</code>)와 프리미엄 회원인지(<code>is_premium</code>)가 적혀 있습니다.
+      Agent가 실행되는 동안 <strong>이 정보는 변하지 않습니다</strong> — 그래서 "사용자 ID나 권한 같은 고정 정보"를 담기에 딱 맞습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 입장할 때 내미는 회원 카드</strong>
+      헬스장이나 라운지에 들어갈 때 우리는 입구에서 <strong>회원 카드</strong>를 한 번 내밉니다.
+      카드에는 "이 사람은 누구", "VIP인지 아닌지"가 적혀 있죠. 일단 들어가고 나면
+      운동하는 내내 그 카드 내용이 바뀌지 않습니다. <code>Context</code>가 바로 그 회원 카드입니다.
+      대화(입장) 시작 시 한 번 건네지고, 대화가 끝날 때까지 <strong>고정된 신원 정보</strong>로 계속 참조됩니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 예시 코드
+from dataclasses import dataclass
+
+@dataclass
+class Context:
+    user_id: str
+    is_premium: bool = False  # 프리미엄 여부 (기본값 False)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>@dataclass</code>가 하는 일</strong>
+      <code>@dataclass</code>는 <code>__init__</code>(생성자) 같은 반복 코드를 자동으로 만들어 주는 데코레이터입니다.
+      덕분에 <code>Context(user_id="user_001", is_premium=True)</code>처럼 <strong>바로 값을 채워 카드를 발급</strong>할 수 있습니다.
+      <code>is_premium=False</code>는 <strong>기본값</strong>이라 생략하면 자동으로 "일반 회원"으로 취급됩니다.
+    </div>
+
+    <hr />
+
+    <!-- ── selector ── -->
+    <h2 id="selector">2. <code>membership_model_selector</code> — 회원 등급을 확인하는 미들웨어</h2>
+
+    <p>
+      이제 이 노트북의 <strong>핵심</strong>입니다. <code>@wrap_model_call</code>로 미들웨어를 만들면,
+      모델이 호출되기 <strong>직전에 요청을 가로채서(intercept)</strong> 원하는 대로 손볼 수 있습니다.
+      우리는 이 지점에서 회원 카드를 꺼내 보고, 등급에 맞는 모델로 <strong>바꿔치기</strong>할 겁니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 클럽 입구의 도어맨</strong>
+      <code>@wrap_model_call</code> 미들웨어는 모델로 들어가는 문 앞에 선 <strong>도어맨</strong>입니다.
+      손님(요청)이 안으로 들어가기 직전에 도어맨이 잠깐 멈춰 세우고 <strong>회원 카드(<code>is_premium</code>)를 확인</strong>합니다.
+      VIP면 "VIP룸(<code>gpt-5</code>)으로 안내", 일반이면 "일반석(<code>gpt-5-nano</code>)으로 안내"라고
+      <strong>행선지 표를 바꿔 붙인 뒤</strong> 손님을 통과시키죠. 도어맨은 손님을 막는 게 아니라,
+      <strong>맞는 방으로 다시 안내</strong>하는 역할입니다.
+    </div>
+
+    <p>미들웨어 안에서 벌어지는 일은 정확히 5단계입니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>카드 확인</strong><p><code>request.runtime.context.is_premium</code>으로 등급을 읽는다</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>모델 결정</strong><p>등급에 따라 <code>gpt-5</code> / <code>gpt-5-nano</code> 이름을 고른다</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>모델 생성</strong><p><code>init_chat_model</code>로 새 모델 객체를 만든다</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>요청 수정</strong><p><code>request.override(model=...)</code>로 모델 칸만 바꾼 사본을 만든다</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>넘기기</strong><p><code>handler(new_request)</code>로 수정된 요청을 실행 단계로 넘긴다</p></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import wrap_model_call
+# 예시 코드
+@wrap_model_call
+def membership_model_selector(request, handler):
+    # 1. 런타임 컨텍스트에서 멤버십 정보 확인
+    is_premium = request.runtime.context.is_premium
+
+    # 2. 조건에 따른 모델 이름 결정
+    if is_premium:
+        model_name = "gpt-5"
+    else:
+        model_name = "gpt-5-nano"
+
+    # 3. 새로운 모델 객체 생성
+    new_model = init_chat_model(model_name)
+
+    # 4. 기존 요청의 모델을 새로운 모델로 덮어쓰기 (override)
+    new_request = request.override(model=new_model)
+
+    # 5. 수정된 요청으로 실행 계속 진행
+    return handler(new_request)</code></pre>
+
+    <h3>한 줄씩 뜯어보기</h3>
+
+    <p>
+      <strong>① <code>request.runtime.context.is_premium</code></strong> — 회원 카드를 꺼내 보는 대목입니다.
+      <code>request</code>는 "이 모델로 이 메시지를 처리해줘"라는 <strong>주문서</strong>이고,
+      그 안의 <code>runtime.context</code>가 바로 <strong>우리가 1단계에서 정의한 회원 카드(<code>Context</code>)</strong>입니다.
+      여기서 <code>.is_premium</code>을 읽어 등급을 확인합니다.
+    </p>
+
+    <p>
+      <strong>② ~ ③ 모델 이름을 정하고 만들기</strong> — <code>is_premium</code>이 <code>True</code>면 <code>"gpt-5"</code>,
+      아니면 <code>"gpt-5-nano"</code>. 정해진 이름으로 <code>init_chat_model</code>을 호출해 실제 모델 객체를 새로 만듭니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 주문서의 한 칸만 고쳐 넘기기</strong>
+      <code>request.override(model=new_model)</code>는 주문서를 통째로 새로 쓰는 게 아니라,
+      원본 주문서를 복사한 뒤 <strong>"모델" 칸 하나만 새 값으로 고친 사본</strong>을 만드는 것입니다
+      (메시지·도구·설정 등 나머지 칸은 그대로 유지). 그리고 <code>handler(new_request)</code>는
+      그 <strong>고쳐진 주문서를 실제 요리사(모델 호출 담당)에게 넘기는</strong> 행동이에요.
+      도어맨이 행선지만 바꿔 손님을 들여보내는 것과 똑같습니다.
+    </div>
+
+    <p>
+      <strong>④ ~ ⑤ <code>handler</code>가 진짜 실행자</strong> — <code>handler</code>는 "이 요청으로 모델을 실제 호출하는 다음 단계"입니다.
+      미들웨어는 요청을 <strong>손보기만</strong> 하고, 진짜 실행은 <code>handler</code>에게 맡깁니다.
+      그래서 <code>return handler(new_request)</code>로 <strong>바꿔치기한 요청</strong>을 넘기면,
+      그 사용자에게 맞는 모델로 답변이 생성됩니다.
+    </p>
+
+    <div class="io-label">▶ 이렇게 동작해요 (예상 동작)</div>
+<pre class="result-block"># is_premium=True 인 사용자가 말을 걸면
+#   → membership_model_selector가 "gpt-5" 로 교체 → 강력한 모델이 답변
+
+# is_premium=False (또는 생략) 인 사용자가 말을 걸면
+#   → membership_model_selector가 "gpt-5-nano" 로 교체 → 가벼운 모델이 답변</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>override</code>는 원본을 바꾸지 않습니다</strong>
+      <code>request.override(...)</code>는 원본 <code>request</code>를 직접 수정하지 않고 <strong>새 사본</strong>을 돌려줍니다.
+      그래서 반드시 <code>new_request = request.override(...)</code>처럼 <strong>결과를 받아서</strong> 그걸 <code>handler</code>에 넘겨야 합니다.
+      <code>request.override(...)</code>만 호출하고 결과를 안 받으면 모델이 바뀌지 않아요.
+    </div>
+
+    <hr />
+
+    <!-- ── compare ── -->
+    <h2 id="compare">03 vs 04 — 무엇이 달라졌나</h2>
+
+    <p>
+      두 노트북 모두 <code>@wrap_model_call</code>로 <strong>모델을 동적으로 바꾸는</strong> 미들웨어입니다.
+      뼈대(요청 가로채기 → 모델 결정 → <code>override</code> → <code>handler</code>)는 완전히 같습니다.
+      <strong>다른 건 딱 하나 — "무엇을 근거로 모델을 고르느냐"</strong>입니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>03 <code>dynamic_model_selector</code></th><th>04 <code>membership_model_selector</code></th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>판단 기준</strong></td><td>사용자 메시지의 <strong>길이</strong></td><td>사용자의 <strong>멤버십 등급</strong>(<code>is_premium</code>)</td></tr>
+          <tr><td><strong>정보 출처</strong></td><td><code>request.messages</code><br />(요청 <em>안에</em> 이미 있는 정보)</td><td><code>request.runtime.context</code><br />(외부에서 <em>주입한</em> Context 정보)</td></tr>
+          <tr><td><strong>비유</strong></td><td>손님이 주문한 <strong>'양'</strong>을 보고 결정</td><td>손님의 <strong>'회원 등급'</strong>을 보고 결정</td></tr>
+          <tr><td><strong>공통점</strong></td><td colspan="2"><code>request.override(model=...)</code>로 모델을 갈아끼운 뒤 <code>handler</code>로 넘긴다</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>runtime.context</code>는 "바깥세상과 이어진 통로"</strong>
+      메시지 길이는 요청 안에 이미 들어 있어 곧바로 잴 수 있습니다. 하지만 <strong>회원 등급은 요청 안에 없습니다</strong> —
+      그건 로그인 시스템이나 DB가 알고 있는 정보죠. 그래서 우리가 <strong>바깥에서 <code>Context</code>에 담아 주입</strong>하고,
+      미들웨어는 <code>request.runtime.context</code>라는 통로를 통해 그 정보를 읽습니다.
+      이것이 "외부 정보로 Agent 동작을 바꾸는" 컨텍스트 엔지니어링의 기본기입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── wire (supplement) ── -->
+    <h2 id="wire">Agent에 실제로 연결하기 <span class="badge badge-yellow">보충</span></h2>
+
+    <p>
+      노트북에는 미들웨어를 <strong>정의</strong>하는 부분까지만 나옵니다.
+      그렇다면 이 도어맨을 실제 문 앞에 세우고, 회원 카드는 어떻게 건네줄까요?
+      <code>create_agent</code>에 <strong>미들웨어와 Context 스키마를 등록</strong>하고,
+      <code>invoke</code>할 때 <strong>실제 회원 카드(<code>Context</code> 인스턴스)를 함께 넘겨</strong> 주면 됩니다.
+    </p>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 미들웨어를 Agent에 조립하는 전체 흐름 (노트북 이후 단계)</div>
+
+      <p>아래 코드는 노트북 셀에는 없지만, 앞에서 만든 조각들이 <strong>실제로 어떻게 맞물리는지</strong> 보여주는 예시입니다.</p>
+
+      <div class="io-label">📥 코드 (예시)</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+# 1) 미들웨어와 Context 스키마를 Agent에 등록
+agent = create_agent(
+    model="gpt-4o-mini",                   # 기본 모델 (미들웨어가 상황에 맞게 교체함)
+    tools=[],
+    middleware=[membership_model_selector],
+    context_schema=Context,                # 회원 카드 양식 등록
+)
+
+# 2) 프리미엄 회원 → 미들웨어가 gpt-5 로 교체
+agent.invoke(
+    {"messages": [{"role": "user", "content": "안녕하세요"}]},
+    context=Context(user_id="user_001", is_premium=True),
+)
+
+# 3) 일반 회원 → 미들웨어가 gpt-5-nano 로 교체
+agent.invoke(
+    {"messages": [{"role": "user", "content": "안녕하세요"}]},
+    context=Context(user_id="user_002", is_premium=False),
+)</code></pre>
+
+      <div class="callout callout-analogy" style="margin-top: 4px;">
+        <strong>🔍 비유 — 문·도어맨·회원 카드의 조립</strong>
+        <code>context_schema=Context</code>는 "우리 가게는 <strong>이런 양식의 회원 카드</strong>를 받습니다"라고 문에 붙여두는 것,
+        <code>middleware=[membership_model_selector]</code>는 <strong>도어맨을 문 앞에 세우는</strong> 것,
+        그리고 <code>invoke(..., context=Context(...))</code>는 손님이 입장하며 <strong>실제 회원 카드를 내미는</strong> 순간입니다.
+        이 셋이 맞물려야 도어맨이 카드를 확인하고 방을 배정할 수 있습니다.
+      </div>
+
+      <div class="callout callout-info" style="margin-bottom: 0;">
+        <strong>실전에서는</strong>
+        <code>is_premium=True</code>를 코드에 직접 쓰는 대신,
+        <code>Context(user_id="...", is_premium=DB에서_조회한_결과)</code>처럼
+        <strong>로그인·결제 DB에서 조회한 값</strong>을 넣습니다. 코드 로직은 그대로 두고 <strong>카드 내용만 사용자마다 달라지는</strong> 셈이죠.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <strong>외부에서 주입한 회원 정보(<code>Context.is_premium</code>)</strong>를 미들웨어가 <code>request.runtime.context</code>로 읽어
+      <strong>사용자 등급에 맞는 모델로 갈아끼운다.</strong> 프리미엄은 <code>gpt-5</code>, 일반은 <code>gpt-5-nano</code>.
+    </div>
+
+    <ul>
+      <li><strong>Context = 회원 카드</strong> — <code>@dataclass</code>로 <code>user_id</code>·<code>is_premium</code> 같은 <strong>고정 신원 정보</strong>를 담는다.</li>
+      <li><strong><code>@wrap_model_call</code> = 도어맨</strong> — 모델 호출 직전에 요청을 가로채 원하는 대로 손볼 수 있다.</li>
+      <li><strong>5단계 흐름</strong> — 카드 확인 → 모델 결정 → 모델 생성 → <code>override(model=...)</code> → <code>handler</code>로 넘기기.</li>
+      <li><strong><code>override</code>는 사본을 만든다</strong> — 원본을 바꾸지 않으니 <code>new_request = request.override(...)</code>로 <strong>결과를 받아</strong> <code>handler</code>에 넘겨야 한다.</li>
+      <li><strong>03과의 차이</strong> — 판단 근거가 <em>메시지 길이(요청 내부)</em>가 아니라 <em>멤버십(외부 주입 Context)</em>이라는 점뿐. 미들웨어 뼈대는 동일.</li>
+      <li><strong>조립</strong> — <code>create_agent(middleware=[...], context_schema=Context)</code>로 세팅하고, <code>invoke(..., context=Context(...))</code>로 실제 카드를 건넨다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./03.html">
+        <small>← 이전 노트북</small>
+        03. Custom Middleware: Wrap-style 동적 모델 선택
+      </a>
+      <a class="next" href="./05.html">
+        <small>다음 노트북 →</small>
+        05. 메시지 객체와 <code>.type</code> 속성 이해하기
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

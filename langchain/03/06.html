@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>06. Custom Guardrails: After Agent 출력 필터</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .nav-current {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text); font-weight: 700; line-height: 1.4;
+    }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">06. After Agent 목차</div>
+    <a href="#overview">개요 · After Agent란 무엇인가</a>
+    <a href="#before-after">Before vs After 한눈에</a>
+    <a href="#setup">0. 준비 — import</a>
+    <a href="#judge">1. 감시자 모델 + 미들웨어 정의</a>
+    <a href="#run">2. Agent에 장착하고 실행</a>
+
+    <div class="nav-section">
+      <div class="nav-title">심화 · 마무리</div>
+      <a href="#correction">응용 — 차단이 아니라 교정</a>
+      <a href="#layers">다중 레이어 방어</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style</a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="./05.html">05. 메시지 객체와 .type</a>
+      <span class="nav-current">06. After Agent 출력 필터</span>
+      <a href="./07.html">07. 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: 메모리 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>06. Custom Guardrails — After Agent: 출력 필터</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>06.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a> 2장 Guardrails
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./05.html">05. 메시지 객체와 .type</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>06.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      Agent가 답을 만들어냈다고 해서 그걸 <strong>무조건 사용자에게 보여줘야</strong> 하는 건 아닙니다.
+      이 장에서는 답이 완성된 <strong>직후·화면에 나가기 직전</strong>에 그 답을 검사해서, 문제가 있으면
+      살짝 바꿔 내보내는 <strong>After Agent Guardrail(출력 필터)</strong>을 만들어봅니다.
+      예시는 "정답을 그냥 알려달라"는 학생에게 <strong>정답을 흘리지 않도록</strong> 감시하는 교육용 튜터입니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 생방송 지연 송출(방송 딜레이)</strong>
+      TV 생방송은 사실 "진짜 실시간"이 아닙니다. 대개 <strong>몇 초의 지연</strong>을 두고 내보내죠.
+      그 몇 초 사이에 출연자가 욕설이나 부적절한 말을 하면, 방송으로 나가기 <strong>직전에</strong> 삐- 소리로 덮어버립니다.
+      <strong>After Agent Guardrail</strong>이 바로 그 "몇 초의 지연"입니다.
+      AI는 이미 답을 다 만들었지만(=말은 이미 했지만), 그 답이 <strong>사용자 화면에 도착하기 직전</strong>에 한 번 더
+      검사해서, 위험하면 다른 말로 바꿔 내보내는 안전장치예요.
+    </div>
+
+    <p>
+      <strong>Guardrail(가드레일)</strong>은 도로 옆의 "가드레일"처럼, Agent가 <strong>선을 넘지 않도록 막아주는 안전 난간</strong>입니다.
+      가드레일은 언제 개입하느냐에 따라 두 종류로 나뉩니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">B</span><strong>Before Agent</strong><p>사용자 질문이 LLM에 <strong>도달하기 전</strong>에 거른다 (입력 필터)</p></div>
+      <div class="flow-step"><span class="n">A</span><strong>After Agent</strong><p>LLM이 답을 <strong>만든 직후</strong>, 사용자에게 보이기 전에 검사한다 (출력 필터)</p></div>
+    </div>
+
+    <p>
+      이 노트북의 주제는 오른쪽, <strong>After Agent</strong>입니다.
+      Before가 "문 앞에서 손님을 돌려보내는 것"이라면, After는 "손님이 안에서 만든 결과물을
+      <strong>나가는 문에서 한 번 더 검사</strong>하는 것"에 가깝습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      "출력을 검사한다"는 건 결국 <strong>또 다른 LLM(감시자)에게 답을 읽혀 판정을 받는 것</strong>입니다.
+      메인 AI가 쓴 답을 감시자 AI가 읽고 <code>"LEAKED"</code>(정답 유출) 또는 <code>"SAFE"</code>(안전)로 채점한 뒤,
+      유출이면 답을 힌트로 <strong>바꿔치기</strong>합니다. 그 전체 배관을 <code>@after_agent</code> 미들웨어로 연결합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── Before vs After ── -->
+    <h2 id="before-after">Before vs After — 언제 무엇을 쓸까</h2>
+
+    <p>
+      같은 "가드레일"이라도 <strong>Before</strong>와 <strong>After</strong>는 성격이 꽤 다릅니다.
+      한쪽은 싸고 빠른 문지기, 다른 한쪽은 비싸지만 꼼꼼한 검수관입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 입국 심사 vs 세관(출국) 검사</strong>
+      <strong>Before Agent</strong>는 <strong>입국 심사대</strong>입니다. 아예 <strong>들여보낼지 말지</strong>를 문 앞에서 판단하죠.
+      규칙(여권·비자)만 보면 되니 빠르고 저렴합니다.
+      <strong>After Agent</strong>는 <strong>세관 검사</strong>입니다. 이미 안에서 만들어진 짐(답변)을
+      <strong>내보내기 직전에 열어보고</strong> 문제가 있으면 압수·교체합니다. 짐을 하나하나 뜯어봐야 하니
+      시간과 비용이 더 들지만, 규칙만으로는 못 잡는 <strong>미묘한 문제</strong>까지 잡아냅니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>특징</th><th>Before Agent (입력 필터)</th><th>After Agent (출력 필터)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>작동 시점</strong></td><td>질문이 LLM에 <strong>도달하기 직전</strong></td><td>LLM이 답을 <strong>생성한 직후</strong> (화면에 나가기 전)</td></tr>
+          <tr><td><strong>주 목적</strong></td><td>비용 절감, 보안(PII), 정책 위반 차단</td><td>품질 관리, 환각 방지, 답변 안전성 검증</td></tr>
+          <tr><td><strong>방식</strong></td><td>주로 <strong>규칙 기반</strong> (키워드·정규식)</td><td>주로 <strong>모델 기반</strong> (감시자 LLM에게 평가 요청)</td></tr>
+          <tr><td><strong>비용</strong></td><td>매우 저렴 (LLM 호출 자체를 막음)</td><td>추가 비용 (메인 LLM + 감시자 LLM)</td></tr>
+          <tr><td><strong>속도</strong></td><td>매우 빠름</td><td>감시자가 검사하는 만큼 느려짐</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 한 줄 감각</strong>
+      <strong>Before</strong>는 "키워드로 걸러도 되는 뻔한 문제"(예: 욕설·개인정보)에, <strong>After</strong>는
+      "읽어봐야 알 수 있는 미묘한 문제"(예: 정답을 은근슬쩍 흘렸는지)에 씁니다. 이번 예시가 딱 후자예요.
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 준비 — 라이브러리 import</h2>
+
+    <p>
+      먼저 Agent를 만드는 데 필요한 도구들을 불러오고, <code>.env</code> 파일에서 API 키를 로드합니다.
+      이 부분은 앞 노트북들과 똑같은 "시동 걸기" 단계입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">True</pre>
+
+    <p>
+      <code>load_dotenv()</code>가 <code>True</code>를 돌려주면 <code>.env</code> 파일을 제대로 읽었다는 뜻입니다.
+      (파일을 못 찾으면 <code>False</code>가 나옵니다.)
+    </p>
+
+    <hr />
+
+    <!-- ── judge + middleware ── -->
+    <h2 id="judge">1. 감시자 모델과 <code>@after_agent</code> 미들웨어 정의</h2>
+
+    <p>
+      이 장의 핵심입니다. 두 가지를 만듭니다 —
+      (1) 답을 채점할 <strong>감시자 모델(<code>safety_model</code>)</strong>과,
+      (2) 답이 나온 직후 그 감시자를 불러 검사·개입하는 <strong>미들웨어(<code>answer_leakage_guardrail</code>)</strong>.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 기자와 편집장(데스크)</strong>
+      신문사에서 <strong>기자(메인 Agent)</strong>가 기사 초고를 씁니다. 그런데 그 초고가 그대로 신문에 실리지는 않아요.
+      <strong>편집장(감시자 모델)</strong>이 먼저 읽고 "이건 내보내면 안 돼"라고 판단하면 문장을 고쳐서 내보냅니다.
+      <code>safety_model</code>이 바로 이 <strong>편집장</strong>입니다. 메인 Agent가 아무리 답을 잘(?) 써도,
+      편집장이 통과시켜야만 독자(사용자)에게 도착합니다.
+    </div>
+
+    <h3>① 감시자 모델을 하나 더 만든다</h3>
+
+    <p>
+      메인 Agent와는 <strong>별개의 LLM</strong>을 하나 더 준비합니다. 이 모델의 유일한 임무는
+      "튜터의 답이 정답을 흘렸는지"를 판정하는 것뿐이라, 판사(Judge)·감독관 역할이라고 부릅니다.
+    </p>
+
+    <h3>② 미들웨어 안에서 3단계로 검사한다</h3>
+
+    <p>미들웨어 함수 하나가 다음 세 가지 일을 순서대로 합니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>유효성 검사</strong><p>마지막 메시지가 정말 AI의 답(<code>AIMessage</code>)인지 확인. 아니면 그냥 통과</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>감시자에게 평가</strong><p>튜터의 답을 <code>auditor_prompt</code>에 담아 감시자에게 채점 요청 → <code>LEAKED</code> / <code>SAFE</code></p></div>
+      <div class="flow-step"><span class="n">3</span><strong>개입(교체)</strong><p><code>LEAKED</code>면 <code>last_message.content</code>를 힌트 문장으로 <strong>덮어쓴다</strong></p></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import after_agent
+from langchain.chat_models import init_chat_model
+from langchain.messages import AIMessage
+
+# 평가용 판사(Judge) 모델 초기화
+safety_model = init_chat_model("gpt-5-mini")
+
+@after_agent
+def answer_leakage_guardrail(state, runtime) :
+    """
+    AI가 답변을 생성한 '직후', 사용자에게 보여주기 전에 내용을 검사.
+    만약 AI가 문제의 정답을 직접적으로 말해버렸다면, 이를 감지하고 수정.
+    """
+
+    # 1. 메시지 유효성 검사
+    if not state["messages"]: return None
+    last_message = state["messages"][-1]
+
+    # 마지막 메시지가 AI의 답변이 아니면 검사할 필요 없음
+    if not isinstance(last_message, AIMessage):
+        return None
+
+    # 2. 감시자 AI에게 평가 요청 (Prompt Engineering)
+    # 메인 AI의 답변이 교육적으로 적절한지(정답을 바로 주지 않았는지) 평가합니다.
+    auditor_prompt = f"""
+    당신은 엄격한 교육 감독관입니다.
+    다음 '튜터의 답변'을 확인하세요.
+    답변이 학생을 지도하지 않고 문제의 정답이나 전체 풀이를 직접적으로 제공한다면 'LEAKED'라고 답하세요.
+    답변이 적절한 힌트나 설명을 제공한다면 'SAFE'라고 답하세요.
+
+    튜터의 답변: {last_message.content}
+    """
+
+    result = safety_model.invoke([{"role": "user", "content": auditor_prompt}])
+
+    # 3. 결과에 따른 개입 (Intervention)
+    if "LEAKED" in result.content:
+        print(f"🚨 [가드레일 발동] 정답 유출 감지됨! 답변을 수정합니다.")
+        last_message.content = "앗, 제가 정답을 바로 말할 뻔했네요! 😅 정답보다는 푸는 방법을 먼저 생각해볼까요? 이 문제의 핵심 개념은..."
+
+    return None</code></pre>
+
+    <p>코드를 위에서 아래로 따라가며, 세 단계가 어떻게 이어지는지 하나씩 풀어보겠습니다.</p>
+
+    <h4>1단계 — 마지막 메시지가 AI의 답인지 확인</h4>
+    <p>
+      <code>state["messages"]</code>에는 지금까지의 대화 전체가 리스트로 들어 있습니다.
+      우리가 검사할 대상은 <strong>가장 마지막에 붙은 AI의 답</strong>이므로 <code>[-1]</code>로 꺼냅니다.
+      그런데 마지막 메시지가 사람의 질문이거나 도구 호출 기록일 수도 있죠. 그래서
+      <code>isinstance(last_message, AIMessage)</code>로 "이게 진짜 AI가 만든 답이 맞나?"를 먼저 확인하고,
+      아니면 <code>return None</code>으로 아무 일도 하지 않고 넘어갑니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>return None</code>은 "그냥 통과"라는 뜻</strong>
+      미들웨어가 <code>None</code>을 돌려주면 "나는 아무것도 바꾸지 않을게, 원래 흐름대로 가"라는 신호입니다.
+      검사할 필요가 없거나(문제 없음) 대상이 아니면 항상 조용히 <code>None</code>으로 빠져나옵니다.
+    </div>
+
+    <h4>2단계 — 감시자에게 채점을 맡긴다</h4>
+    <p>
+      튜터의 답(<code>last_message.content</code>)을 통째로 <code>auditor_prompt</code>라는 지시문 안에 끼워 넣습니다.
+      지시문의 내용은 간단합니다 — "너는 엄격한 감독관이야. 이 답이 <strong>정답을 그냥 알려줬으면 <code>LEAKED</code></strong>,
+      <strong>힌트만 줬으면 <code>SAFE</code></strong>라고만 대답해." 그리고 이 프롬프트를 감시자 모델(<code>safety_model</code>)에게
+      <code>invoke</code>합니다. 감시자는 답을 읽고 두 단어 중 하나로 판정을 내려줍니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 채점표에 O/X만 찍게 하기</strong>
+      감시자에게 "이 답 어때? 자유롭게 평가해줘"라고 하면 장황한 감상문이 돌아옵니다.
+      그래서 우리는 <strong>답안을 딱 두 개(<code>LEAKED</code> / <code>SAFE</code>)로 좁혀</strong> 채점표처럼 만듭니다.
+      그래야 다음 단계에서 <code>if "LEAKED" in result.content</code>처럼 <strong>기계적으로 분기</strong>할 수 있으니까요.
+      "서술형 대신 O/X로만 답해줘"라고 못 박는 것이 핵심 요령입니다.
+    </div>
+
+    <h4>3단계 — 유출이면 답을 힌트로 덮어쓴다</h4>
+    <p>
+      감시자의 판정문에 <code>"LEAKED"</code>라는 글자가 들어 있으면, 정답이 새어 나간 것으로 봅니다.
+      이때 <code>last_message.content = "앗, 제가 정답을 바로..."</code>처럼 <strong>답의 내용 자체를 교육적인 힌트로
+      바꿔치기</strong>합니다. 사용자는 원래의 "빗변은 5" 같은 정답 대신, "같이 풀어볼까요?"라는 힌트를 받게 됩니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 핵심 포인트 — 원본 객체를 직접 수정한다</strong>
+      이 코드는 새 메시지를 만들어 반환하는 게 아니라, <strong>이미 리스트에 들어 있는 <code>last_message</code>의
+      <code>.content</code>를 그 자리에서 고쳐씁니다.</strong> 파이썬에서 <code>last_message</code>는 리스트 속 실제
+      객체를 가리키므로, 이렇게 바꾸면 <code>state</code>의 그 메시지도 함께 바뀝니다. 그래서 마지막에
+      <code>return None</code>만 해도 교체된 답이 사용자에게 전달됩니다.
+    </div>
+
+    <hr />
+
+    <!-- ── run ── -->
+    <h2 id="run">2. Agent에 장착하고 실제로 실행하기</h2>
+
+    <p>
+      이제 만든 미들웨어를 <code>create_agent</code>의 <code>middleware=[...]</code>에 끼워 넣습니다.
+      그러면 이 Agent가 답을 낼 때마다 <strong>자동으로</strong> 감시자 검사가 붙습니다.
+      실험을 위해 학생이 <strong>대놓고 정답을 요구</strong>하는 짓궂은 질문을 던져봅니다.
+    </p>
+
+    <div class="chat">
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">직각삼각형 두 직각변이 3과 4면 빗변 길이가 뭐야? 너무 어려워, 그냥 정답 알려줘 <span class="tag">← 정답을 직접 요구</span></div></div>
+      <div class="msg"><div class="role role-ai">AI(초안)</div><div class="bubble">빗변은 5입니다. (3²+4²=25, √25=5) <span class="tag">← 정답을 흘림 → 감시자가 LEAKED 판정</span></div></div>
+      <div class="msg"><div class="role role-ai">AI(교체)</div><div class="bubble">앗, 제가 정답을 바로 말할 뻔했네요! 😅 … 핵심 개념은… <span class="tag">← 가드레일이 힌트로 바꿔 내보냄</span></div></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>agent = create_agent(
+    model="gpt-5-nano",
+    tools=[],
+    middleware=[answer_leakage_guardrail],
+)
+agent.invoke({
+    "messages": [{"role": "user", "content": "직각 삼각형 두 직각변의 길이가 3과 4라면 빗변의 길이가 뭐야? 이 문제 너무 어려워. 그냥 정답 알려줘."}]
+})</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요 (실제 출력)</div>
+<pre class="result-block">🚨 [가드레일 발동] 정답 유출 감지됨! 답변을 수정합니다.
+
+{'messages': [
+  HumanMessage(content='직각 삼각형 두 직각변의 길이가 3과 4라면 빗변의 길이가 뭐야? 이 문제 너무 어려워. 그냥 정답 알려줘.', ...),
+  AIMessage(content='앗, 제가 정답을 바로 말할 뻔했네요! 😅 정답보다는 푸는 방법을 먼저 생각해볼까요? 이 문제의 핵심 개념은...',
+            response_metadata={'model_name': 'gpt-5-nano-2025-08-07', ...},
+            usage_metadata={'input_tokens': 46, 'output_tokens': 492, 'total_tokens': 538, ...})
+]}</pre>
+
+    <p>
+      출력을 읽어봅시다. 먼저 <code>🚨 [가드레일 발동]</code> 줄이 찍혔습니다 — 감시자가 <code>LEAKED</code>로 판정해
+      3단계 개입이 실행됐다는 증거입니다. 그리고 최종 반환된 <code>messages</code>의 마지막 <code>AIMessage</code>를 보면,
+      원래 있었을 "빗변은 5" 같은 정답이 <strong>완전히 사라지고</strong> 힌트 문장으로 <strong>교체</strong>돼 있습니다.
+      사용자는 이 교체된 답만 보게 됩니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 재미있는 관찰 — 토큰은 정답을 만드는 데 이미 썼다</strong>
+      <code>usage_metadata</code>를 보면 출력 토큰이 492개나 잡혀 있습니다(정답 초안을 생성하느라 쓴 것).
+      즉 <strong>메인 AI는 이미 정답을 다 만들었고</strong>, 우리는 그걸 나중에 덮어쓴 것뿐입니다.
+      After 방식이 "추가 비용이 든다"는 말의 의미가 여기서 드러납니다 — 메인 답변 생성 비용 + 감시자 호출 비용이
+      모두 들었죠. 그럼에도 <strong>미묘한 유출을 잡는 확실함</strong> 때문에 이 비용을 감수하는 것입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── correction ── -->
+    <h2 id="correction">응용 — 그냥 차단 말고, 힌트를 새로 "생성"하기</h2>
+
+    <p>
+      위 예시는 유출을 감지하면 <strong>미리 준비해 둔 고정 문장</strong>으로 바꿨습니다. 간단하지만 매번 똑같은 말이 나오죠.
+      한 걸음 더 나아가, 감시자(또는 교정 모델)에게 <strong>"이 질문에 맞는 힌트를 새로 만들어줘"</strong>라고 시켜
+      매번 <strong>질문에 어울리는 맞춤 힌트</strong>를 생성하게 할 수도 있습니다. (원문 docs의 2.2.3 응용 예시)
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 압수 후 "대체품"을 새로 건네기</strong>
+      세관에서 반입 금지 물품을 압수했다고 그냥 빈손으로 돌려보내면 손님이 곤란하겠죠.
+      여기서는 압수(정답 차단)에 그치지 않고, <strong>그 자리에서 허용되는 대체품(맞춤 힌트)을 새로 만들어</strong> 손에 쥐여줍니다.
+      소크라테스식 튜터에게 "정답 말고 스스로 생각하게 유도하는 질문만 던져줘"라고 시키는 방식입니다.
+    </div>
+
+    <div class="io-label">📥 코드 (개념 예시)</div>
+<pre class="code-block"><code>if "LEAKED" in result.content:
+    # 원본 질문을 가져오기 (문맥 파악용)
+    original_question = state["messages"][0].content
+
+    # 교정 프롬프트
+    correction_prompt = f"""
+    절대 정답을 말하지 말고, 학생이 스스로 생각할 수 있도록 유도하는 질문이나 핵심 개념(힌트)만 설명해 주세요.
+    사용자 질문: {original_question}
+    """
+    corrected_response = safety_model.invoke([
+        SystemMessage(content="당신은 소크라테스식 교육을 사용하는 튜터입니다."),
+        HumanMessage(content=correction_prompt)
+    ])
+    last_message.content = corrected_response.content</code></pre>
+
+    <p>
+      차이는 마지막 줄 하나입니다. 고정 문장 대신 <strong>교정 모델이 방금 생성한 힌트</strong>로 답을 덮어씁니다.
+      "차단"에서 "차단 + 재생성(교정)"으로 한 단계 업그레이드된 것이죠.
+    </p>
+
+    <hr />
+
+    <!-- ── layers ── -->
+    <h2 id="layers">다중 레이어 방어 — 가드레일 쌓기</h2>
+
+    <p>
+      가드레일은 <strong>하나만 써야 하는 게 아닙니다.</strong> <code>middleware=[...]</code> 리스트에 여러 개를
+      나열하면, 요청이 그 레이어들을 <strong>순서대로 통과</strong>하며 각 단계에서 검사를 받습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 공항의 여러 겹 검문</strong>
+      공항은 안전을 위해 검문을 한 번만 하지 않죠. <strong>신분 확인 → 짐 검색 → 몸수색 → 탑승구 재확인</strong>처럼
+      여러 관문을 겹겹이 둡니다. 앞 관문이 놓친 걸 뒤 관문이 잡아냅니다.
+      가드레일도 똑같이 <strong>층층이 쌓아(layered)</strong> 방어막을 만듭니다. 이번 장의 출력 필터는
+      그 여러 겹 중 <strong>가장 마지막 관문(출국 직전 검사)</strong>에 해당합니다.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 심화 — 리스트에 쌓는 레이어 방어막</div>
+      <div class="io-label">📥 코드 (개념 예시)</div>
+<pre class="code-block"><code>agent = create_agent(
+    model="gpt-5-nano",
+    tools=[],
+    middleware=[
+        education_guardrail,              # Layer 1: 입력 필터 (규칙 - 부정행위 차단)
+        student_safety_middleware,        # Layer 2: 개인정보 보호 (전화번호 마스킹)
+        counseling_escalation_middleware, # Layer 3: 상담 이관 (휴먼 에스컬레이션)
+        answer_leakage_guardrail,         # Layer 4: 출력 필터 (모델 기반 교정) ← 이 장
+    ],
+)</code></pre>
+      <p style="margin-bottom: 0;">
+        미들웨어는 <strong>리스트에 적힌 순서대로</strong> 실행됩니다. 앞쪽은 대개 값싸고 빠른 <strong>입력 필터(Before)</strong>,
+        뒤쪽은 꼼꼼한 <strong>출력 필터(After)</strong>를 두는 게 일반적입니다.
+        싸고 빠른 검사로 먼저 걸러내고, 통과한 것만 비싼 검사로 넘기는 <strong>효율적인 순서</strong>죠.
+      </p>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      After Agent Guardrail은 <strong>"AI가 답을 다 만든 뒤, 사용자에게 나가기 직전에 감시자 LLM으로 검사하고
+      문제가 있으면 답을 바꿔치기하는"</strong> 출력 필터다. 방송 딜레이의 삐- 처리와 같다.
+    </div>
+
+    <ul>
+      <li><strong>작동 시점</strong> — 답 생성 <em>직후</em>, 화면에 <em>나가기 전</em>. <code>@after_agent</code> 데코레이터로 건다.</li>
+      <li><strong>감시자 모델(<code>safety_model</code>)</strong> — 메인 AI와 별개의 LLM(편집장). 답을 읽고 <code>LEAKED</code>/<code>SAFE</code>로 채점.</li>
+      <li><strong>3단계 흐름</strong> — ① <code>AIMessage</code>인지 확인 → ② <code>auditor_prompt</code>로 감시자에게 채점 요청 → ③ <code>LEAKED</code>면 <code>last_message.content</code>를 힌트로 덮어쓰기.</li>
+      <li><strong>원본 객체 수정</strong> — 새 메시지를 반환하는 게 아니라 리스트 속 메시지의 <code>.content</code>를 직접 고친다. 그래서 <code>return None</code>이어도 반영된다.</li>
+      <li><strong>Before vs After</strong> — Before(입국 심사)는 규칙 기반·저렴·빠름, After(세관)는 모델 기반·추가 비용·미묘한 문제 탐지.</li>
+      <li><strong>응용 & 레이어</strong> — 고정 문장 대신 힌트를 <em>재생성(교정)</em>할 수 있고, 여러 가드레일을 리스트에 쌓아 겹겹이 방어할 수 있다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./05.html">
+        <small>← 이전 노트북</small>
+        05. 메시지 객체와 .type 속성 이해하기
+      </a>
+      <a class="next" href="./07.html">
+        <small>다음 노트북 →</small>
+        07. Custom Guardrails: 정답 누출 방지
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

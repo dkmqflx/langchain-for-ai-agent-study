@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>08. RAG 응용: Hybrid Search (BM25 + 벡터)</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">08. Hybrid Search 목차</div>
+    <a href="#overview">개요 · Hybrid Search란?</a>
+    <a href="#bm25">BM25 vs 벡터 검색</a>
+    <a href="#basic">1. BM25Retriever 첫걸음</a>
+    <a href="#docs">2. Document로 검색 · 한국어의 벽</a>
+    <a href="#kiwi">3. Kiwi 형태소 분석기</a>
+    <a href="#inject">4. 형태소 분석기 주입</a>
+
+    <div class="nav-section">
+      <div class="nav-title">한 걸음 더</div>
+      <a href="#hybrid">5. 진짜 Hybrid — 두 검색기 결합</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. RAG Load: PDFPlumber</a>
+      <a href="./02.html">02. RAG Load: PyMuPDF</a>
+      <a href="./03.html">03. RAG Split: 청크 분할</a>
+      <a href="./04.html">04. 캐시 임베더</a>
+      <a href="./05.html">05. RAG Store: Chroma DB</a>
+      <a href="./06.html">06. RAG Retrieve: 검색기 생성</a>
+      <a href="./07.html">07. 캐시 임베더로 저장·검색</a>
+      <a href="#" style="font-weight:700; color:var(--text);">08. Hybrid Search (현재)</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>08. RAG 응용: Hybrid Search (BM25 + 벡터)</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>08.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/04.rag.md">docs/04.rag.md</a> 3장 RAG 응용
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./07.html">07. 캐시 임베더로 저장·검색</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>08.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      지금까지 우리는 문서를 <strong>벡터(의미)</strong>로 바꿔 검색했습니다. 그런데 벡터 검색이 의외로 약한 구석이 있어요 —
+      바로 <strong>"정확한 단어"</strong>를 찾는 일입니다. 이 장에서는 옛날부터 검색엔진이 써 온 <strong>BM25(키워드 검색)</strong>를
+      벡터 검색과 <strong>한 팀으로 묶는</strong> Hybrid Search를 배웁니다. 그리고 한국어에서 꼭 필요한
+      <strong>형태소 분석(kiwipiepy)</strong>까지 함께 다룹니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 도서관의 두 사서</strong>
+      큰 도서관에 성격이 다른 사서 두 명이 있다고 해봅시다.
+      한 명은 <strong>색인 카드 사서</strong>입니다. "혈압"이라고 말하면 제목·본문에 <strong>정확히 그 단어가 든 책</strong>을
+      번개같이 찾아줍니다. 대신 "고혈압 관리법"을 물으면 "관리"라는 글자가 없는 좋은 책은 놓치죠.
+      다른 한 명은 <strong>주제 전문 사서</strong>입니다. 단어가 달라도 <strong>뜻이 통하면</strong> "혈압 조절", "심혈관 건강" 책까지
+      척척 골라줍니다. 대신 "BM25 논문"처럼 <strong>정확한 고유명사</strong>는 가끔 엉뚱한 걸 집어옵니다.
+      <strong>Hybrid Search</strong>는 이 두 사서를 <strong>동시에</strong> 부르는 것입니다. 색인 카드 사서(BM25)와
+      주제 전문 사서(벡터 검색)의 추천을 합치면, 어느 한쪽만 쓸 때보다 훨씬 든든하죠.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      "검색"에는 두 갈래가 있습니다 — <strong>단어를 그대로 맞추는 키워드 검색(BM25)</strong>과
+      <strong>뜻으로 맞추는 의미 검색(벡터)</strong>. 이 장은 그중 <strong>BM25</strong>를 LangChain에서 다루는 법과,
+      한국어에서 BM25가 제대로 작동하도록 <strong>형태소 분석기</strong>를 끼우는 법, 그리고 둘을 <strong>Hybrid</strong>로
+      합치는 큰 그림을 배웁니다.
+    </div>
+
+    <hr />
+
+    <!-- ── BM25 ── -->
+    <h2 id="bm25">BM25 vs 벡터 검색 — 무엇이 다른가</h2>
+
+    <p>
+      <strong>BM25(Best Matching 25)</strong>는 <strong>단어의 빈도</strong>를 세어 점수를 매기는 전통적인 키워드 검색 알고리즘입니다.
+      ElasticSearch·Lucene 같은 검색엔진의 <strong>기본 알고리즘</strong>으로 수십 년간 검증된 방식이죠.
+      핵심 아이디어는 딱 두 가지입니다.
+    </p>
+
+    <ul>
+      <li><strong>TF(Term Frequency, 단어 빈도)</strong> — 찾는 단어가 그 문서에 <strong>자주 나올수록</strong> 관련성이 높다.</li>
+      <li><strong>IDF(Inverse Document Frequency, 역문서 빈도)</strong> — 그 단어가 <strong>온 문서에 흔하면</strong>(예: "그리고") 점수를 깎고,
+        <strong>희귀할수록</strong> 점수를 올린다. 즉 흔한 단어보다 <strong>특이한 단어</strong>의 매칭을 더 값지게 본다.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 형광펜으로 밑줄 긋기</strong>
+      BM25는 문서를 읽으며 <strong>내가 찾는 단어에 형광펜을 긋는</strong> 사람과 같습니다.
+      밑줄이 <strong>많이</strong> 그어진 문서일수록 점수가 높죠(TF). 다만 "은/는/이/가"처럼 <strong>아무 데나 나오는 흔한 단어</strong>는
+      형광펜을 그어봐야 의미가 없으니 무시하고(IDF), <strong>"브로드컴", "형태소"처럼 특이한 단어</strong>가 겹칠 때 크게 반응합니다.
+      뜻은 전혀 이해하지 않고 <strong>오직 글자만</strong> 본다는 게 벡터 검색과의 결정적 차이예요.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>방식</th><th>기준</th><th>장점</th><th>단점</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>BM25</strong></td><td>키워드 빈도 기반</td><td>정확한 단어 매칭에 강함, 빠름, 학습 불필요</td><td>의미(문맥) 이해 불가</td></tr>
+          <tr><td><strong>Vector Search</strong></td><td>의미(Semantic) 기반</td><td>문맥·의미적 유사성 파악</td><td>고유명사·정확한 키워드 매칭에 약할 수 있음</td></tr>
+          <tr><td><strong>Hybrid</strong></td><td>BM25 + Vector 결합</td><td>두 방식의 장점을 모두 활용</td><td>구성 복잡도가 올라감</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 굳이 둘을 합칠까?</strong>
+      벡터 검색은 <strong>"저혈압 대처"</strong> 같은 의미 질문에 강하지만, <strong>제품 코드 "GPT-4o-mini", 사람 이름</strong> 같은
+      정확한 문자열은 종종 놓칩니다. 반대로 BM25는 그런 <strong>정확한 단어</strong>는 귀신같이 잡지만 <strong>뜻</strong>은 못 봅니다.
+      서로의 약점을 정확히 메워주기 때문에 실무 RAG에서 Hybrid가 강력한 겁니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1. basic ── -->
+    <h2 id="basic">1. <code>BM25Retriever</code> 첫걸음 — 문자열로 만들어 보기</h2>
+
+    <p>
+      LangChain에는 BM25를 바로 쓸 수 있는 <code>BM25Retriever</code>가 있습니다.
+      <code>langchain_community</code> 패키지에 들어 있어요.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_community.retrievers import BM25Retriever</code></pre>
+
+    <p>
+      가장 간단한 시작은 <strong>문자열 리스트</strong>를 그대로 검색 대상으로 넘기는 것입니다.
+      <code>from_texts()</code>는 평범한 문자열 리스트를 <strong>BM25가 검색할 수 있는 데이터셋</strong>으로 바꿔줍니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 색인 카드 만들기</strong>
+      <code>from_texts()</code>는 도서관 사서가 책마다 <strong>색인 카드를 한 장씩 만들어</strong> 서랍에 정리해 두는 일과 같습니다.
+      이 정리(인덱싱)를 미리 해 두었기 때문에, 나중에 <code>invoke("foo")</code>라고 물으면 서랍을 순식간에 뒤져
+      <strong>"foo"가 든 카드</strong>부터 순서대로 꺼내줄 수 있는 거예요.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># LangChain의 BM25Retriever를 사용하여 텍스트 데이터에서 관련성 높은 문서를 검색하는 간단한 예제
+
+# 텍스트 리스트 준비
+retriever = BM25Retriever.from_texts(["foo", "bar", "world", "hello", "foo bar"])
+# BM25Retriever.from_texts(): 단순 문자열 리스트를 검색 가능한 데이터셋으로 변환합니다.
+
+# 'foo'와 가장 연관성 높은 문서 검색
+result = retriever.invoke("foo")
+# retriever.invoke("foo"): "foo"라는 쿼리와 가장 유사한(BM25 알고리즘 기준) 문서를 찾아 반환합니다.
+
+print(result)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">[Document(metadata={}, page_content='foo'), Document(metadata={}, page_content='foo bar'), Document(metadata={}, page_content='hello'), Document(metadata={}, page_content='world')]</pre>
+
+    <p>
+      결과를 읽어봅시다. <code>"foo"</code>를 물었더니 <strong>"foo"</strong>와 <strong>"foo bar"</strong>가 맨 앞에 왔습니다 —
+      찾는 단어가 들어 있으니 당연하죠. 반면 단어가 전혀 겹치지 않는 <code>"bar"</code>는 결과에 아예 빠지고,
+      <code>"hello"</code>·<code>"world"</code>는 관련성이 낮아 뒤로 밀렸습니다. 반환 타입이 그냥 문자열이 아니라
+      <code>Document</code> 객체 리스트라는 점도 눈여겨보세요 — 앞 장에서 다룬 그 표준 데이터 단위 그대로입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 순위(랭킹)가 핵심</strong>
+      BM25 검색기는 단순히 "포함 여부"만 알려주는 게 아니라 <strong>점수순으로 정렬</strong>해서 돌려줍니다.
+      그래서 결과 리스트의 <strong>맨 앞이 가장 관련성 높은 문서</strong>입니다. RAG에서는 보통 이 상위 몇 개만 LLM에게 넘깁니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 2. docs / korean wall ── -->
+    <h2 id="docs">2. <code>Document</code>로 검색 — 그리고 한국어의 벽</h2>
+
+    <p>
+      문자열 대신 LangChain의 표준 데이터 단위인 <code>Document</code> 객체로도 검색기를 만들 수 있습니다.
+      <code>from_documents()</code>를 쓰면 됩니다. 여기서 <strong>한국어의 함정</strong>이 하나 드러납니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_core.documents import Document
+
+# LangChain의 표준 데이터 단위인 Document 객체를 사용하여 검색기를 만듭니다.
+retriever = BM25Retriever.from_documents([
+    Document(page_content="사과는"),
+    Document(page_content="사과합니다."),
+    Document(page_content="사과 팝니다."),
+])
+
+result = retriever.invoke("사과드립니다.")
+
+print(result)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">[Document(metadata={}, page_content='사과 팝니다.'), Document(metadata={}, page_content='사과합니다.'), Document(metadata={}, page_content='사과는')]</pre>
+
+    <p>
+      우리가 물은 것은 <strong>"사과드립니다."</strong>(사과=apology의 의미)입니다. 사람이라면 뜻이 가장 가까운
+      <strong>"사과합니다."</strong>를 1등으로 꼽겠죠. 그런데 결과 1등은 엉뚱하게도 <strong>"사과 팝니다."</strong>(사과=fruit)가 나왔습니다.
+      왜 이런 일이 벌어질까요?
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ BM25는 "글자 덩어리"를 통째로 본다</strong>
+      BM25는 기본적으로 <strong>공백 단위</strong>로 단어를 쪼갭니다. 그래서 이 문서들을 이렇게 인식해요 —
+      <code>"사과는"</code>, <code>"사과합니다."</code>, <code>"사과 팝니다."</code>. 마지막 문서만 <strong>"사과"</strong>라는
+      <strong>독립된 토큰</strong>을 가지고 있고, 나머지는 <strong>"사과는" / "사과합니다."</strong>처럼 조사·어미가 딱 붙은
+      <strong>다른 단어</strong>로 취급됩니다. 질문의 <code>"사과드립니다."</code> 역시 통째로 하나의 낯선 단어라,
+      정확히 <strong>"사과"</strong> 토큰을 가진 "사과 팝니다."가 어부지리로 1등이 된 겁니다.
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 띄어쓰기만 아는 외국인</strong>
+      한국어를 <strong>띄어쓰기로만</strong> 배운 외국인을 떠올려 보세요. 그에게 "사과는", "사과합니다", "사과 팝니다"는
+      전부 <strong>완전히 다른 단어</strong>로 들립니다. "사과"라는 공통 뿌리가 있다는 걸 모르니까요.
+      한국어는 <strong>교착어</strong> — 하나의 어근에 <strong>조사·어미가 끝없이 달라붙는</strong> 언어라서,
+      단순 띄어쓰기 분리로는 검색이 헛돌 수밖에 없습니다. 해결책은 단어를 <strong>뿌리와 꼬리로 제대로 쪼개주는</strong>
+      전문가, 바로 <strong>형태소 분석기</strong>입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 3. kiwi ── -->
+    <h2 id="kiwi">3. Kiwi 형태소 분석기로 한국어 쪼개기</h2>
+
+    <p>
+      <strong>형태소(morpheme)</strong>는 <strong>뜻을 가진 가장 작은 말의 단위</strong>입니다. "사과드립니다"를 형태소로 쪼개면
+      <strong>사과 + 드리 + ㅂ니다</strong>가 되죠. <code>kiwipiepy</code>는 이 작업을 아주 빠르게 해주는 한국어 형태소 분석기입니다.
+      BM25에 이걸 물려주면, 검색기가 드디어 <strong>"사과"라는 뿌리</strong>를 알아보게 됩니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from kiwipiepy import Kiwi
+
+
+# 1. Kiwi 형태소 분석기 준비
+kiwi = Kiwi()
+
+# 전처리 함수 정의 (명사, 동사, 형용사 등 의미 있는 품사만 추출하거나 전체를 추출)
+def korean_tokenizer(text):
+    # kiwi.tokenize()는 토큰 정보를 반환하므로, 거기서 단어 형태(form)만 추출
+    return [token.form for token in kiwi.tokenize(text)]
+
+
+print(korean_tokenizer("사과드립니다."))</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">Quantization is not supported for ArchType::neon. Fall back to non-quantized model.
+
+['사과', '드리', 'ᆸ니다', '.']</pre>
+
+    <p>
+      드디어 <strong>"사과드립니다."</strong>가 <code>['사과', '드리', 'ᆸ니다', '.']</code>로 잘게 쪼개졌습니다.
+      맨 앞에 <strong>"사과"</strong>라는 독립 토큰이 생긴 게 보이죠? 이제 이 토크나이저를 검색기에 끼우면,
+      질문이든 문서든 똑같은 방식으로 <strong>"사과"</strong> 조각을 뽑아내 서로 매칭할 수 있게 됩니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 코드 뜯어보기 — <code>token.form</code></strong>
+      <code>kiwi.tokenize()</code>는 각 토큰마다 <strong>표면형(form)·품사(tag)·위치</strong> 등 풍부한 정보를 담은 객체를 돌려줍니다.
+      우리는 검색용 단어만 필요하므로 <code>token.form</code>(실제 글자 형태)만 뽑아 리스트로 만들었습니다.
+      주석에 적혀 있듯, 필요하면 여기서 <strong>명사·동사 같은 특정 품사만 골라</strong> 노이즈를 더 줄일 수도 있습니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 저 빨간 경고 메시지는 에러가 아닙니다</strong>
+      <code>Quantization is not supported for ArchType::neon...</code>는 Kiwi가 <strong>ARM(애플 실리콘) 환경</strong>에서
+      최적화(양자화) 모델 대신 <strong>일반 모델로 대체해 돌아간다</strong>는 <strong>안내</strong>일 뿐입니다.
+      결과에는 아무 영향이 없으니 그냥 무시해도 됩니다.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — <code>'ᆸ니다'</code>는 왜 이렇게 생겼나요?</div>
+      <p>
+        결과의 세 번째 조각 <code>'ᆸ니다'</code>는 앞에 자음 <strong>ㅂ</strong>이 홀로 붙은 낯선 모양입니다.
+        이는 "드리 + ㅂ니다"에서 어미 <strong>"-ㅂ니다"</strong>의 첫 자음이 <strong>받침(종성)</strong>으로 결합하는
+        한국어 특성을 형태소 분석기가 <strong>낱개 자모(옛한글 자모 영역의 종성 ㅂ)</strong>로 분리해 표기한 결과입니다.
+      </p>
+      <p style="margin-bottom:0;">
+        검색 관점에서 중요한 건 이런 어미 조각이 아니라 맨 앞의 <strong>"사과"</strong>라는 <strong>내용 단어</strong>입니다.
+        어미·조사는 여러 문서에 흔하게 나타나 <strong>IDF가 낮으므로</strong>(2번 문단 참고) 점수에 거의 영향을 주지 않아요.
+      </p>
+    </div>
+
+    <hr />
+
+    <!-- ── 4. inject ── -->
+    <h2 id="inject">4. 형태소 분석기를 BM25에 주입 — <code>preprocess_func</code></h2>
+
+    <p>
+      이제 만든 <code>korean_tokenizer</code>를 <code>BM25Retriever</code>에 끼워봅시다.
+      방법은 간단합니다 — <code>from_documents()</code>의 <code>preprocess_func</code> 인자에 함수를 넘기면 됩니다.
+      그러면 검색기는 <strong>문서를 인덱싱할 때도, 질문을 받을 때도</strong> 이 함수로 먼저 단어를 쪼갠 뒤 매칭합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 통역사를 붙여 주기</strong>
+      <code>preprocess_func</code>는 검색기에게 <strong>전담 통역사</strong>를 붙여 주는 것과 같습니다.
+      문서가 들어오든 질문이 들어오든, 통역사(형태소 분석기)가 먼저 <strong>"사과", "형태소", "분석"</strong>처럼
+      <strong>알맹이 단어로 번역</strong>해 준 다음에 BM25에게 넘깁니다. 양쪽을 <strong>같은 언어(같은 토큰 규칙)</strong>로
+      맞춰 주기 때문에 비로소 제대로 된 매칭이 됩니다.
+    </div>
+
+    <p>먼저 검색 대상이 될 한국어 문서 4개를 준비합니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 2. 문서 데이터
+docs = [
+    Document(page_content="RAG 시스템을 구축할 때는 검색기의 성능이 매우 중요합니다."),
+    Document(page_content="한국어는 교착어이므로 형태소 분석이 필수적입니다."),
+    Document(page_content="BM25는 키워드 기반의 희소 검색(Sparse Retrieval) 알고리즘입니다."),
+    Document(page_content="벡터 검색은 문맥을 잘 파악하지만 고유명사 검색에 약할 수 있습니다."),
+]</code></pre>
+
+    <p>이제 <code>preprocess_func</code>에 토크나이저를 주입해 검색기를 만들고, 질문을 던져 봅니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 3. BM25 검색기 생성 (preprocess_func에 한국어 토크나이저 주입)
+retriever2 = BM25Retriever.from_documents(
+    docs,
+    preprocess_func=korean_tokenizer
+)
+
+result3 = retriever2.invoke("형태소 분석은 왜 해야하나요?")
+print(f"검색 결과: {result3[0].page_content}")</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">검색 결과: 한국어는 교착어이므로 형태소 분석이 필수적입니다.</pre>
+
+    <p>
+      성공입니다! 질문 <strong>"형태소 분석은 왜 해야하나요?"</strong>가 <code>['형태소', '분석', ...]</code>로 쪼개지고,
+      문서 <strong>"한국어는 교착어이므로 형태소 분석이 필수적입니다."</strong> 역시 같은 방식으로 쪼개졌기 때문에
+      <strong>"형태소", "분석"</strong> 토큰이 정확히 겹쳐 <strong>1등</strong>으로 뽑혔습니다.
+      2번에서 형태소 분석 없이 헛돌던 것과 비교하면, <strong>토크나이저 한 줄</strong>이 만든 차이가 극적이죠.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 핵심 한 줄</strong>
+      한국어에서 BM25를 쓸 때 <strong>가장 중요한 준비물</strong>이 바로 이 <code>preprocess_func</code>입니다.
+      이걸 빼먹으면 검색기가 조사·어미에 발이 걸려 엉뚱한 답을 내놓습니다. <strong>"한국어 BM25 = 형태소 분석 필수"</strong>로 외워두세요.
+    </div>
+
+    <hr />
+
+    <!-- ── 5. hybrid ── -->
+    <h2 id="hybrid">5. 진짜 Hybrid로 — 두 검색기를 한 팀으로</h2>
+
+    <p>
+      여기까지 우리는 Hybrid의 <strong>절반</strong>, 즉 <strong>BM25 검색기</strong>를 완성했습니다.
+      나머지 절반인 <strong>벡터 검색기</strong>는 이미 06·07장에서 만들어 봤죠(<code>Chroma</code>의 <code>as_retriever()</code>).
+      <strong>Hybrid Search</strong>는 이 둘을 나란히 세워 <strong>결과를 합치는</strong> 것입니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>키워드 팀</strong><p>BM25Retriever — 정확한 단어 매칭 담당</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>의미 팀</strong><p>벡터 Retriever — 문맥·뜻 매칭 담당</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>결과 합치기</strong><p>두 결과를 가중치로 섞어 최종 순위 산출</p></div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 두 심사위원의 합산 점수</strong>
+      오디션에 심사위원이 두 명 있습니다. 한 명은 <strong>가사 정확도(BM25)</strong>를, 다른 한 명은 <strong>감정 전달(벡터)</strong>을
+      봅니다. 최종 순위는 <strong>두 점수를 가중치로 합산</strong>해 정하죠. 어느 한 심사위원만 믿으면 편향되지만,
+      둘의 점수를 합치면 <strong>더 공정하고 튼튼한 순위</strong>가 나옵니다. Hybrid Search가 바로 이 <strong>합산 채점</strong>입니다.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 결합은 보통 <code>EnsembleRetriever</code>로 (다음 단계 개념)</div>
+      <p>
+        LangChain에서는 여러 검색기를 묶어주는 <code>EnsembleRetriever</code>가 있습니다.
+        아래는 <strong>이 노트북에는 없지만</strong>, 위에서 만든 BM25 검색기를 벡터 검색기와 합쳐
+        진짜 Hybrid로 확장할 때 쓰는 <strong>대표 패턴</strong>입니다(개념 예시).
+      </p>
+      <div class="io-label">📥 코드 (개념 예시 — 노트북 외 확장)</div>
+<pre class="code-block"><code>from langchain.retrievers import EnsembleRetriever
+
+# bm25_retriever : preprocess_func로 만든 BM25 검색기 (위 4번)
+# vector_retriever: Chroma 등에서 만든 벡터 검색기 (06·07장)
+hybrid_retriever = EnsembleRetriever(
+    retrievers=[bm25_retriever, vector_retriever],
+    weights=[0.5, 0.5],   # 두 검색기 결과를 어떤 비중으로 섞을지
+)
+
+result = hybrid_retriever.invoke("형태소 분석은 왜 해야하나요?")</code></pre>
+      <p style="margin-bottom:0;">
+        <code>weights</code>로 <strong>키워드 vs 의미</strong>의 비중을 조절합니다. 고유명사·코드가 많은 데이터라면 BM25 비중을,
+        자연어 질의가 많다면 벡터 비중을 높이는 식으로 <strong>도메인에 맞춰 튜닝</strong>합니다.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 위 5번 코드는 이 노트북에 없는 "다음 단계" 예시입니다</strong>
+      <code>08.ipynb</code>가 실제로 실행하는 것은 <strong>BM25 검색기(1~4번)까지</strong>입니다.
+      <code>EnsembleRetriever</code> 부분은 배운 조각을 어떻게 이어붙이는지 <strong>큰 그림</strong>을 보여주려 덧붙인 개념 코드예요.
+      실행하려면 <code>bm25_retriever</code>·<code>vector_retriever</code>를 실제로 준비해야 합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      검색은 <strong>"단어를 맞추는 것(BM25)"</strong>과 <strong>"뜻을 맞추는 것(벡터)"</strong> 두 갈래가 있고,
+      <strong>Hybrid Search</strong>는 이 둘을 한 팀으로 묶어 서로의 약점을 메운다. 그리고 한국어에서는
+      <strong>형태소 분석기</strong>가 있어야 BM25가 비로소 제대로 작동한다.
+    </div>
+
+    <ul>
+      <li><strong>BM25</strong> — 단어 <strong>빈도(TF)</strong>와 <strong>희귀도(IDF)</strong>로 점수를 매기는 전통 키워드 검색. 뜻은 모르고 <strong>글자만</strong> 본다.</li>
+      <li><strong><code>BM25Retriever</code></strong> — <code>from_texts()</code>·<code>from_documents()</code>로 만들고 <code>invoke()</code>로 <strong>점수순 정렬</strong> 결과를 받는다.</li>
+      <li><strong>한국어의 벽</strong> — 기본 BM25는 공백으로만 쪼개서 "사과합니다/사과 팝니다"를 헷갈린다(교착어 문제).</li>
+      <li><strong>Kiwi 형태소 분석</strong> — <code>kiwi.tokenize()</code> + <code>token.form</code>으로 <strong>"사과"</strong>라는 뿌리를 뽑아낸다.</li>
+      <li><strong><code>preprocess_func</code> 주입</strong> — 문서와 질문을 <strong>같은 토큰 규칙</strong>으로 맞춰, 한국어 검색을 극적으로 개선한다.</li>
+      <li><strong>Hybrid 완성</strong> — <code>EnsembleRetriever</code>로 BM25 + 벡터를 <strong>가중치로 결합</strong>하면 키워드와 의미를 모두 잡는다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./07.html">
+        <small>← 이전 노트북</small>
+        07. RAG: 캐시 임베더로 저장·검색
+      </a>
+      <span></span>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

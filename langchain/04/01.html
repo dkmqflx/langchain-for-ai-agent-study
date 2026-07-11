@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>01. RAG Load: PDFPlumber</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">01. RAG Load 목차</div>
+    <a href="#overview">개요 · RAG란 무엇인가</a>
+    <a href="#pipeline">RAG 5단계 파이프라인</a>
+    <a href="#load">1. Load — 문서 불러오기</a>
+    <a href="#document">2. Document 객체 — 내용물 + 송장</a>
+    <a href="#pdfplumber">3. PDFPlumber로 PDF 읽기</a>
+    <a href="#run">4. 코드 한 줄씩 실행해보기</a>
+    <a href="#metadata">5. metadata 들여다보기</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html"><strong>01. RAG Load: PDFPlumber</strong></a>
+      <a href="./02.html">02. RAG Load: PyMuPDF →</a>
+      <a href="./03.html">03. RAG Split: 청크 분할</a>
+      <a href="./04.html">04. 캐시 임베더 (CacheBackedEmbeddings)</a>
+      <a href="./05.html">05. RAG Store: Chroma DB</a>
+      <a href="./06.html">06. RAG Retrieve: 검색기 생성</a>
+      <a href="./07.html">07. RAG: 캐시 임베더로 저장·검색</a>
+      <a href="./08.html">08. RAG 응용: Hybrid Search</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>01. RAG Load: PDFPlumber</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>04/01.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/04.rag.md">docs/04.rag.md</a> 2장 Load
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>04/01.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      이번 장부터 <strong>RAG(검색 증강 생성)</strong> 파이프라인을 한 단계씩 만들어 갑니다. 그 첫걸음이
+      <strong>Load</strong> — PDF 같은 원본 문서를 LangChain이 다룰 수 있는 <strong>Document 객체</strong>로 바꾸는 일입니다.
+      오늘은 빠르고 간단한 로더 <strong>PDFPlumber</strong>로 실제 PDF를 읽어 보고, 그 결과가 어떤 모양인지 뜯어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 폐쇄형 시험 vs 오픈북 시험</strong>
+      LLM에게 그냥 질문하는 것은 <strong>아무 자료 없이 순수 암기력으로 치르는 시험</strong>과 같습니다.
+      모델은 학습이 끝난 시점까지 외운 것만 알고, 그 뒤에 나온 정보나 우리 회사 내부 문서는 알지 못하죠.
+      <strong>RAG</strong>는 이 시험을 <strong>오픈북 시험</strong>으로 바꿔 줍니다 — 질문이 들어오면 먼저
+      <strong>관련 자료를 책에서 찾아 펼쳐 놓고(검색)</strong>, 그 내용을 보면서 답을 쓰게(생성) 하는 것이죠.
+      그래서 이름이 <strong>Retrieval(검색)-Augmented(증강) Generation(생성)</strong>입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      RAG는 LLM의 두 가지 약점을 보완합니다. ① <strong>한 번에 넣을 수 있는 글자 수가 제한</strong>되어 있다는 점,
+      ② <strong>지식이 특정 시점에 멈춰 있다</strong>는 점(Knowledge Cutoff). 외부 문서를 그때그때 검색해 참고시키면
+      최신·전용 정보로도 정확히 답하게 만들 수 있습니다. 그 재료가 되는 문서를 시스템 안으로 <strong>들여오는(Load)</strong>
+      단계가 오늘의 주제입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── pipeline ── -->
+    <h2 id="pipeline">RAG 5단계 파이프라인 — 지금 어디에 있나</h2>
+
+    <p>
+      RAG 시스템은 <strong>미리 문서를 정리해 두는 과정(인덱싱)</strong>과 <strong>질문이 들어왔을 때 검색·답변하는 과정(런타임)</strong>으로
+      나뉩니다. 우리가 이번 폴더에서 하나씩 만들 단계는 아래 다섯 개입니다. 오늘은 <strong>맨 앞의 Load</strong>에 있습니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Load</strong><p>PDF·CSV 등을 Document 객체로 변환 (← 오늘)</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Split</strong><p>Document를 작은 청크로 분할</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>Embed</strong><p>각 청크를 숫자 벡터로 변환</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>Store</strong><p>벡터를 Vector DB에 저장</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>Retrieve</strong><p>질문과 유사한 문서를 검색</p></div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도서관을 새로 여는 준비</strong>
+      RAG를 하나의 <strong>도서관</strong>이라고 생각해 보세요. 손님(질문)이 오기 전에 사서가 할 일이 있습니다.
+      책을 <strong>들여오고(Load)</strong>, 두꺼운 책을 챕터로 <strong>나누고(Split)</strong>, 내용에 따라 <strong>분류 번호를 붙이고(Embed)</strong>,
+      <strong>서가에 꽂아(Store)</strong> 둡니다. 그래야 나중에 손님이 오면 딱 맞는 책을 <strong>빠르게 찾아(Retrieve)</strong> 건넬 수 있죠.
+      오늘 배우는 Load는 <strong>바깥 세상의 책을 도서관 안으로 실어 오는 첫 작업</strong>입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── Load ── -->
+    <h2 id="load">1. Load — 문서 불러오기</h2>
+
+    <p>
+      <strong>Load</strong>는 RAG 파이프라인의 <strong>첫 번째 단계</strong>입니다. 우리가 가진 자료는 PDF, CSV, 웹페이지,
+      Google Drive 문서 등 형태가 제각각입니다. 이 다양한 소스를 LangChain이 일관되게 다룰 수 있는 하나의 규격 —
+      <strong>Document 객체</strong> — 로 변환하는 일이 바로 Load입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 식자재 손질</strong>
+      시장에서 사 온 재료는 흙 묻은 당근, 껍질째의 양파, 통마늘처럼 <strong>제각각의 원래 모습</strong>입니다.
+      요리(LLM)에 바로 넣을 수는 없죠. 먼저 씻고 다듬어 <strong>손질된 재료</strong>로 만들어야 합니다.
+      Load가 이 손질 과정입니다 — PDF라는 원재료를 받아, 뒤 단계(Split·Embed…)가 곧바로 요리할 수 있는
+      <strong>표준 재료(Document)</strong>로 다듬어 내는 것이죠.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 핵심 규칙 — 페이지 1개당 Document 1개</strong>
+      PDF를 로드하면 보통 <strong>페이지 하나가 Document 객체 하나</strong>로 만들어집니다.
+      그래서 3페이지짜리 PDF를 읽으면 결과는 <strong>3개의 Document가 담긴 리스트</strong>가 됩니다.
+      이 1:1 대응만 기억해 두면 뒤에 나오는 출력이 훨씬 잘 읽힙니다.
+    </div>
+
+    <hr />
+
+    <!-- ── Document ── -->
+    <h2 id="document">2. Document 객체 — 내용물 + 송장</h2>
+
+    <p>
+      Load가 만들어 내는 <code>Document</code> 객체는 딱 두 가지 핵심 속성을 가집니다.
+      하나는 실제 글자이고, 다른 하나는 그 글자에 대한 부가 정보입니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>속성</th><th>담기는 것</th><th>예시</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>page_content</code></td><td>페이지의 <strong>실제 텍스트</strong></td><td>"Holdings Data - ARKK …"</td></tr>
+          <tr><td><code>metadata</code></td><td>소스 경로·페이지 번호·생성일 등 <strong>부가 정보</strong></td><td><code>{'page': 0, 'total_pages': 3, ...}</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 택배 상자와 송장 라벨</strong>
+      Document 객체는 <strong>택배 상자</strong> 하나와 같습니다.
+      상자를 열면 나오는 <strong>내용물</strong>이 <code>page_content</code>(실제 글자)이고,
+      상자 겉면에 붙은 <strong>송장 라벨</strong>이 <code>metadata</code>입니다.
+      송장에는 "어디서 왔는지(source·file_path)", "몇 번째 상자인지(page)", "전체 몇 개인지(total_pages)",
+      "언제 포장됐는지(CreationDate)"가 적혀 있죠. 나중에 검색해서 "이 답변은 3페이지에서 나왔어요"라고
+      <strong>출처를 밝힐 수 있는 것</strong>도 바로 이 송장 덕분입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── PDFPlumber ── -->
+    <h2 id="pdfplumber">3. PDFPlumber로 PDF 읽기</h2>
+
+    <p>
+      PDF를 Document로 바꿔 주는 도구를 <strong>로더(Loader)</strong>라고 부릅니다. LangChain에는 여러 PDF 로더가 있는데,
+      오늘 쓰는 <strong>PDFPlumberLoader</strong>는 그중 <strong>빠르고 단순한</strong> 축에 속합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 고속 문서 스캐너</strong>
+      PDFPlumber는 <strong>사무실의 고속 스캐너</strong> 같습니다. 종이를 넣으면 <em>드르륵</em> 하고
+      <strong>글자만 빠르게 쭉 긁어</strong> 텍스트로 뽑아 줍니다. 내부가 <strong>C 언어 기반</strong>이라 처리 속도가 아주 빠르죠.
+      대신 표의 칸을 정교하게 구분하거나 복잡한 레이아웃을 살리는 <strong>정밀 작업에는 덜 특화</strong>되어 있습니다.
+      그래서 <strong>대량 문서에서 단순 텍스트만 빠르게</strong> 뽑을 때 특히 잘 어울립니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 어떤 로더를 고를까</strong>
+      빠른 처리·단순 텍스트가 목적이면 <strong>PDFPlumber</strong>(오늘),
+      표가 많거나 정밀 추출·풍부한 메타데이터가 필요하면 <strong>PyMuPDF</strong>(다음 노트북)를 선택합니다.
+      목적에 맞는 스캐너를 고르는 것과 같습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── run ── -->
+    <h2 id="run">4. 코드 한 줄씩 실행해보기</h2>
+
+    <p>
+      실제 노트북의 코드는 아래 한 셀이 전부입니다. PDF를 로드하고, 몇 개의 Document가 나왔는지 세어 보고,
+      전체를 찍어 본 다음, 첫 페이지의 텍스트만 따로 꺼내 봅니다. 먼저 <strong>코드 전체</strong>를 보고,
+      그 아래에서 <strong>부분별로 결과</strong>를 확인하겠습니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_community.document_loaders import PDFPlumberLoader
+
+# ① 로더 객체 생성 — 읽어올 PDF 파일 경로를 지정한다.
+loader = PDFPlumberLoader("./pdf-file.pdf")
+
+# ② load() 호출 — PDF를 읽어 Document 객체 리스트로 반환한다.
+docs = loader.load()
+
+# ③ 몇 개의 Document가 만들어졌는지 확인 (= 페이지 수)
+print(len(docs))
+
+# ④ Document 리스트 전체를 출력
+print(docs) # 업로드한 파일이 총 3개의 페이지가 있기 때문에 총 3개의 Document 객체가 생성됨
+
+# ⑤ 첫 번째 페이지의 실제 텍스트만 꺼내 출력
+print(docs[0].page_content)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 딱 두 줄이 핵심</strong>
+      <code>PDFPlumberLoader("경로")</code>로 <strong>로더를 만들고</strong>, <code>loader.load()</code>로 <strong>실제로 읽어 들입니다.</strong>
+      이 두 줄이면 PDF가 곧바로 <strong>Document 리스트</strong>로 바뀝니다. 나머지 <code>print</code>는 그 결과를 눈으로 확인하는 용도예요.
+    </div>
+
+    <h3>③ <code>print(len(docs))</code> — 몇 개가 나왔나?</h3>
+    <p>업로드한 PDF가 3페이지짜리이므로, Document는 <strong>3개</strong>가 만들어졌습니다. (페이지 1개 = Document 1개)</p>
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">3</pre>
+
+    <h3>④ <code>print(docs)</code> — 리스트 전체 모양</h3>
+    <p>
+      리스트 안에는 <code>Document(metadata=..., page_content=...)</code> 형태의 객체가 <strong>페이지 수만큼</strong> 들어 있습니다.
+      각 Document가 <strong>송장(metadata)</strong>과 <strong>내용물(page_content)</strong>을 함께 들고 있는 게 보입니다.
+      (전체 출력이 길어 첫 페이지는 그대로, 뒤 두 페이지는 요약해 표시했습니다.)
+    </p>
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">[Document(metadata={'source': './pdf-file.pdf', 'file_path': './pdf-file.pdf', 'page': 0, 'total_pages': 3, 'Keywords': 'HD:2025-11-26', 'CreationDate': "D:20251126070539+00'00'", 'ModDate': "D:20251126070539+00'00'"}, page_content='Holdings Data - ARKK\nAs of 11/26/2025\nARKK\nARK Innovation ETF\nCompany Ticker CUSIP Shares Market Value ($) Weight (%)\n1 TESLA INC TSLA 88160R101 2,204,438 $924,541,297.20 12.26%\n... (중략) ...\n26 PAGERDUTY INC PD 69553P100 6,335,304 $96,169,914.72 1.28%\n1\n'),
+ Document(metadata={..., 'page': 1, 'total_pages': 3, ...}, page_content='Holdings Data - ARKK\nAs of 11/26/2025\n... 27~49번 종목 + 투자 유의사항 안내문 ...\n2\n'),
+ Document(metadata={..., 'page': 2, 'total_pages': 3, ...}, page_content='Holdings Data - ARKK\nAs of 11/26/2025\n... 저작권·배포 안내문 ...\n3\n')]</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 페이지마다 <code>'page'</code> 번호가 다릅니다</strong>
+      첫 번째 Document의 송장에는 <code>'page': 0</code>, 두 번째는 <code>'page': 1</code>, 세 번째는 <code>'page': 2</code>가 찍혀 있습니다.
+      페이지 번호가 <strong>0부터 시작</strong>한다는 점만 기억해 두세요. 반면 <code>'total_pages': 3</code>은 세 Document 모두에서 똑같습니다(전체 3장).
+    </div>
+
+    <h3>⑤ <code>print(docs[0].page_content)</code> — 첫 페이지 텍스트</h3>
+    <p>
+      <code>docs[0]</code>은 첫 번째 Document(0번 페이지), 거기에 <code>.page_content</code>를 붙이면 <strong>송장을 뗀 알맹이 텍스트</strong>만
+      나옵니다. PDF에 있던 ARKK ETF 보유 종목 표가 줄글 텍스트로 추출된 모습입니다.
+    </p>
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">Holdings Data - ARKK
+As of 11/26/2025
+ARKK
+ARK Innovation ETF
+Company Ticker CUSIP Shares Market Value ($) Weight (%)
+1 TESLA INC TSLA 88160R101 2,204,438 $924,541,297.20 12.26%
+2 TEMPUS AI INC TEM 88023B103 5,465,331 $419,956,034.04 5.57%
+3 ROKU INC ROKU 77543R102 4,347,025 $412,445,732.00 5.47%
+4 CRISPR THERAPEUTICS AG CRSP H17182108 7,625,349 $408,489,945.93 5.42%
+5 COINBASE GLOBAL INC -CLASS A COIN 19260Q107 1,542,644 $392,016,693.28 5.20%
+6 SHOPIFY INC - CLASS A SHOP 82509L107 2,415,270 $380,091,039.90 5.04%
+7 ROBINHOOD MARKETS INC - A HOOD 770700102 2,751,983 $318,046,675.31 4.22%
+8 ROBLOX CORP -CLASS A RBLX 771049103 3,142,157 $286,156,237.99 3.79%
+9 PALANTIR TECHNOLOGIES INC-A PLTR 69608A108 1,610,266 $263,359,004.30 3.49%
+10 ADVANCED MICRO DEVICES AMD 007903107 1,225,457 $252,603,451.41 3.35%
+... (11~25번 종목 생략) ...
+26 PAGERDUTY INC PD 69553P100 6,335,304 $96,169,914.72 1.28%
+1</pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 표를 한 줄로 풀어 읽어 준 스캐너</strong>
+      원본 PDF에서는 종목들이 <strong>깔끔한 표</strong>로 정렬돼 있었지만, PDFPlumber는 속도를 위해
+      그 표를 <strong>왼쪽에서 오른쪽, 위에서 아래로 훑어 한 줄씩 텍스트로 풀어</strong> 놓았습니다.
+      마치 표를 소리 내어 <strong>줄줄 읽어 준 것</strong>과 같죠. 칸 구조가 완벽히 보존되진 않지만,
+      RAG에서 <strong>의미를 검색</strong>하는 데는 이 정도 텍스트로도 충분한 경우가 많습니다.
+      (표 구조를 더 살리고 싶다면 다음 노트북의 PyMuPDF가 답입니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── metadata ── -->
+    <h2 id="metadata">5. metadata 들여다보기</h2>
+
+    <p>
+      송장(<code>metadata</code>)만 따로 꺼내 보면 이 Document가 <strong>어떤 파일의 몇 번째 페이지</strong>에서 왔는지 한눈에 보입니다.
+      아래처럼 <code>.metadata</code>를 찍어 확인할 수 있습니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 첫 번째 Document의 송장(metadata)만 확인
+print(docs[0].metadata)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">{'source': './pdf-file.pdf',
+ 'file_path': './pdf-file.pdf',
+ 'page': 0,
+ 'total_pages': 3,
+ 'Keywords': 'HD:2025-11-26',
+ 'CreationDate': "D:20251126070539+00'00'",
+ 'ModDate': "D:20251126070539+00'00'"}</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>키</th><th>의미</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>source</code> / <code>file_path</code></td><td>이 텍스트가 어느 파일에서 왔는지 (원본 경로)</td></tr>
+          <tr><td><code>page</code></td><td>몇 번째 페이지인지 (0부터 시작)</td></tr>
+          <tr><td><code>total_pages</code></td><td>원본 PDF의 전체 페이지 수</td></tr>
+          <tr><td><code>CreationDate</code> / <code>ModDate</code></td><td>파일이 만들어지고 수정된 시각</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 metadata는 나중에 빛을 발합니다</strong>
+      지금은 그냥 부가 정보처럼 보이지만, RAG의 <strong>Retrieve(검색)</strong> 단계에 가면
+      "이 답변의 근거는 <code>pdf-file.pdf</code>의 1페이지"처럼 <strong>출처를 붙이거나</strong>,
+      특정 페이지·특정 파일로 <strong>검색 범위를 좁히는</strong> 필터로 쓰입니다. 송장을 잘 챙겨 두는 이유죠.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <strong>Load</strong>는 바깥 세상의 문서(PDF)를 RAG가 다룰 수 있는 <strong>Document 객체 리스트</strong>로 들여오는
+      첫 단계다. <strong>PDFPlumber</strong>는 그 일을 <strong>빠르고 단순하게</strong> 해내는 로더다.
+    </div>
+
+    <ul>
+      <li><strong>RAG</strong> — LLM을 <em>오픈북 시험</em>으로 바꾸는 기술. 외부 문서를 검색해 최신·전용 정보로 답하게 한다.</li>
+      <li><strong>파이프라인</strong> — Load → Split → Embed → Store → Retrieve. 오늘은 맨 앞 <strong>Load</strong>.</li>
+      <li><strong>Load</strong> — 다양한 소스를 표준 규격인 <strong>Document 객체</strong>로 변환하는 <em>식자재 손질</em> 단계.</li>
+      <li><strong>Document = 상자 + 송장</strong> — <code>page_content</code>(실제 텍스트) + <code>metadata</code>(출처·페이지 등 부가 정보).</li>
+      <li><strong>페이지 1개 = Document 1개</strong> — 3페이지 PDF → 3개 리스트, <code>'page'</code>는 0부터 센다.</li>
+      <li><strong>PDFPlumber</strong> — C 기반 <em>고속 스캐너</em>. 대량 문서의 <strong>단순 텍스트 추출</strong>에 강하다. 딱 두 줄:
+        <code>PDFPlumberLoader("경로")</code> → <code>.load()</code>.</li>
+    </ul>
+
+    <div class="pager">
+      <span></span>
+      <a class="next" href="./02.html">
+        <small>다음 노트북 →</small>
+        02. RAG Load: PyMuPDF
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

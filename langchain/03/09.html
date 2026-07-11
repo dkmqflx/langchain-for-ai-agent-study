@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>09. Long-term Memory: Store 기본 CRUD</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">09. Store CRUD 목차</div>
+    <a href="#overview">개요 · Short-term vs Long-term</a>
+    <a href="#concept">namespace · key 개념</a>
+    <a href="#setup">0. 환경 준비</a>
+    <a href="#create">1. Store 만들기 · namespace</a>
+    <a href="#put">2. store.put — 저장 (C)</a>
+    <a href="#read">3. get · search — 조회 (R)</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북 (03 · Agent 심화)</div>
+      <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html">02. Custom Middleware: Node-style</a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="./05.html">05. 메시지 객체와 .type 속성</a>
+      <a href="./06.html">06. Custom Guardrails: After Agent</a>
+      <a href="./07.html">07. Custom Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <strong style="display:block;padding:5px 8px;color:var(--text);">09. Store 기본 CRUD (현재)</strong>
+      <a href="./10.html">10. Agent 메모리 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>09. Long-term Memory: Store 기본 CRUD</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>09.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a> 3장 Memory
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟡 중급</span>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>09.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      앞에서 배운 메모리(메시지 리스트)는 <strong>대화방 하나가 닫히면 사라졌습니다.</strong>
+      이번 장에서는 대화방이 바뀌어도, 앱을 껐다 켜도 유지되는 <strong>Long-term Memory(장기 기억)</strong> —
+      즉 <strong>Store</strong>라는 저장 공간에 데이터를 <strong>넣고(put) · 꺼내고(get) · 훑어보는(search)</strong>
+      가장 기본적인 CRUD를 비유와 함께 익힙니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 매번 새로 만나는 상담사 vs 나를 기억하는 단골 카페</strong>
+      지난 장의 "메시지 리스트 메모리"는 <strong>한 상담실 안에서만 유효한 기억</strong>입니다.
+      상담이 끝나 방을 나가면 그 대화는 통째로 사라지죠(이게 <strong>Short-term</strong>).
+      반면 <strong>단골 카페</strong>의 직원은 어제 앉았던 자리가 아니어도, 다른 지점에서 만나도
+      "오늘도 아이스 아메리카노 연하게 드릴까요?"라고 <strong>당신을 기억</strong>합니다.
+      이렇게 <strong>대화방(스레드)을 넘나들며 유지되는 기억</strong>이 바로 <strong>Long-term Memory = Store</strong>입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      LangGraph의 <code>InMemoryStore</code>를 만들어, 사용자 정보를 <strong>namespace(폴더) + key(파일명)</strong> 구조로
+      저장(<code>put</code>)하고, 특정 항목을 꺼내오고(<code>get</code>), 폴더 전체를 훑어봅니다(<code>search</code>).
+      여기서 만든 Store는 <strong>다음 노트북에서 Agent(모델)에게 통째로 주입</strong>되어 개인화 답변의 재료가 됩니다.
+    </div>
+
+    <h3>Short-term vs Long-term — 두 기억을 구분하기</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>저장 도구</th><th>유지 범위</th><th>비유</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Short-term</strong></td>
+            <td>Checkpointer</td>
+            <td>한 대화 스레드(<code>thread_id</code>) 안에서만</td>
+            <td>상담실 하나 안에서만 통하는 기억</td>
+          </tr>
+          <tr>
+            <td><strong>Long-term</strong></td>
+            <td><strong>Store</strong></td>
+            <td>여러 대화방 공통 (<code>user_id</code>/<code>namespace</code> 기반)</td>
+            <td>어느 지점에서 만나도 나를 아는 단골 카페</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      예를 들어 <em>"이 사용자는 짧은 응답을 선호한다"</em>, <em>"이전에 자기 이름이 Jay라고 말했다"</em> 같은,
+      <strong>대화 하나로 끝나면 아까운 정보</strong>를 Store에 담아두면 다음에 다시 만났을 때도 써먹을 수 있습니다.
+    </p>
+
+    <hr />
+
+    <!-- ── concept ── -->
+    <h2 id="concept">Store의 두 축 — namespace(폴더)와 key(파일명)</h2>
+
+    <p>
+      Store에 데이터를 넣을 때는 항상 <strong>어디에(namespace)</strong> · <strong>무슨 이름으로(key)</strong> · <strong>어떤 내용을(value)</strong>
+      이 세 가지를 함께 정해줍니다. 가장 직관적인 비유는 <strong>컴퓨터의 파일 시스템</strong>입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 폴더와 파일</strong>
+      <strong>namespace</strong>는 <strong>폴더 경로</strong>입니다. 예를 들어 <code>사용자_001 / 개인비서</code>처럼요.
+      그 폴더 안에 <strong>key</strong>라는 <strong>파일 이름</strong>으로 실제 내용(<strong>value</strong>)을 저장합니다.
+      <code>memory_001.txt</code> 같은 파일을 폴더에 넣는 셈이죠.
+      폴더 경로를 <strong>튜플</strong>(<code>("user_001", "personal_assistant")</code>)로 만드는 이유는
+      여러 사용자·여러 앱의 데이터가 <strong>서로 섞이거나 충돌하지 않게</strong> 칸막이를 치기 위해서입니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>개념</th><th>설명</th><th>파일 시스템 비유</th><th>예시</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>namespace</strong></td>
+            <td>폴더 경로 (튜플로 구성 — 충돌 방지)</td>
+            <td>폴더 (디렉터리)</td>
+            <td><code>("user_001", "personal_assistant")</code></td>
+          </tr>
+          <tr>
+            <td><strong>key</strong></td>
+            <td>각 메모리 항목의 고유 식별자</td>
+            <td>파일 이름</td>
+            <td><code>"memory_001"</code></td>
+          </tr>
+          <tr>
+            <td><strong>value</strong></td>
+            <td>실제로 저장하는 내용 (딕셔너리)</td>
+            <td>파일 내용</td>
+            <td><code>{"facts": [...], "language": "Korean"}</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>이 장에서 다루는 3개의 메서드</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>메서드</th><th>하는 일</th><th>CRUD</th><th>파일 시스템 비유</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>store.put(namespace, key, value)</code></td><td>데이터 저장 (없으면 생성, 있으면 덮어쓰기)</td><td>Create / Update</td><td>폴더에 파일 저장하기</td></tr>
+          <tr><td><code>store.get(namespace, key)</code></td><td>특정 key 하나를 콕 집어 조회</td><td>Read</td><td>파일 하나 열어보기</td></tr>
+          <tr><td><code>store.search(namespace)</code></td><td>namespace 안의 모든 항목을 훑어보기</td><td>Read (전체)</td><td>폴더 열어 파일 목록 보기</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ InMemoryStore는 "임시" 저장소입니다</strong>
+      이름 그대로 <code>InMemoryStore</code>는 데이터를 <strong>메모리(RAM)에만</strong> 담아둡니다.
+      <strong>화이트보드</strong>와 같아서, 프로그램을 끄면 적어둔 내용이 전부 지워집니다.
+      실제 서비스에서는 이 자리를 <strong>PostgreSQL·Redis 같은 진짜 DB(영구 노트)</strong>로 바꿔 끼웁니다.
+      배우기엔 화이트보드가 편하고, 인터페이스(<code>put</code>/<code>get</code>/<code>search</code>)는 DB로 바꿔도 똑같습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 환경 준비</h2>
+
+    <p>
+      먼저 환경 변수를 불러오고 모델을 하나 선언합니다. 사실 이번 노트북에서 <strong>모델(<code>model</code>)은 아직 등장만 하고
+      직접 쓰이지는 않습니다.</strong> 이 장의 주인공은 모델이 아니라 <strong>Store</strong>이기 때문이에요.
+      모델과 Store가 실제로 <strong>손을 잡는 장면</strong>은 다음 노트북(10. 메모리 주입)에서 나옵니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 지금은 밑그림만</strong>
+      <code>tool</code>, <code>create_agent</code>도 함께 import 했지만 이번 장에선 쓰지 않습니다.
+      "장기 기억을 가진 Agent를 만든다"는 큰 그림의 <strong>부품을 미리 꺼내 둔 것</strong>으로 보면 됩니다.
+      여기서는 순수하게 <strong>Store에 데이터를 넣고 빼는 연습</strong>에만 집중하세요.
+    </div>
+
+    <hr />
+
+    <!-- ── create ── -->
+    <h2 id="create">1. Store 만들기 &amp; namespace 정의</h2>
+
+    <p>
+      가장 먼저 <strong>빈 저장소</strong>를 하나 만들고, 데이터를 담을 <strong>폴더 경로(namespace)</strong>를 정합니다.
+      아직 아무것도 넣지 않았으니, <strong>이름표만 붙인 빈 폴더</strong>를 준비하는 단계라고 생각하면 됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 새 서랍장과 라벨 붙이기</strong>
+      <code>InMemoryStore()</code>는 텅 빈 <strong>서랍장</strong>을 하나 새로 사는 것입니다.
+      그리고 <code>namespace = (user_id, application_context)</code>는 서랍 한 칸에
+      <strong>"user_001의 개인비서용"</strong>이라는 <strong>라벨</strong>을 붙이는 일이에요.
+      라벨을 <strong>두 단어(튜플)</strong>로 만든 덕분에, 나중에 <code>user_002</code>가 와도, 같은 사용자의 다른 앱이 와도
+      서랍이 <strong>또렷이 구분</strong>됩니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langgraph.store.memory import InMemoryStore
+
+# 1. Store 초기화
+store = InMemoryStore()
+
+user_id = "user_001"
+application_context = "personal_assistant"
+
+# 2. Namespace(폴더 경로) 설정
+namespace = (user_id, application_context)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 namespace는 왜 튜플일까?</strong>
+      <code>("user_001", "personal_assistant")</code>처럼 여러 조각을 튜플로 이으면
+      <strong>계층 구조(폴더/하위폴더)</strong>가 생깁니다. <code>user_001</code>이라는 큰 서랍 안의
+      <code>personal_assistant</code> 칸, 이런 식이죠. 사용자별·앱별로 메모리를 <strong>깔끔하게 격리</strong>할 수 있어
+      다른 사용자의 정보가 섞여 나올 걱정이 없습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── put ── -->
+    <h2 id="put">2. <code>store.put()</code> — 데이터 저장 (Create)</h2>
+
+    <p>
+      이제 준비한 폴더에 실제 메모리를 <strong>저장</strong>해봅니다. <code>put</code>은 인자 세 개를 받습니다 —
+      <strong>어디에(namespace)</strong>, <strong>무슨 이름으로(key)</strong>, <strong>어떤 내용을(value 딕셔너리)</strong>.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>namespace</strong><p>저장할 폴더 경로 (어느 서랍에)</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>key</strong><p>이 항목의 고유 이름 (어떤 파일명으로)</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>value</strong><p>실제 내용 딕셔너리 (무엇을)</p></div>
+    </div>
+
+    <h3>① 첫 번째 메모리 저장</h3>
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 3. 첫 번째 데이터 저장
+store.put(
+    namespace,
+    "memory_001",  # 이 데이터의 고유 식별자 (Key)
+    {
+        "facts": [
+            "사용자는 커피보다 차를 선호함",
+            "사용자는 매일 아침 6시에 일어남",
+        ],
+        "language": "Korean",
+    },
+)</code></pre>
+
+    <p>
+      <code>value</code>는 자유로운 <strong>딕셔너리</strong>입니다. 여기서는 사실 목록(<code>facts</code>)과
+      선호 언어(<code>language</code>)를 담았지만, 형식이 정해져 있지 않아 <strong>원하는 구조로 자유롭게</strong> 넣을 수 있습니다.
+    </p>
+
+    <h3>② 두 번째 메모리 저장 — key를 꼭 다르게</h3>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 같은 key로 저장하면 덮어쓰기(overwrite)</strong>
+      <code>put</code>은 <strong>같은 파일명에 다시 저장하면 기존 내용을 지우고 새로 씁니다.</strong>
+      그래서 새 정보는 반드시 <strong>새 key</strong>(<code>"memory_002"</code>)로 저장해야
+      앞서 넣은 <code>"memory_001"</code>이 사라지지 않습니다. 같은 이름의 파일을 저장하면
+      이전 파일이 사라지는 것과 똑같은 원리예요.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 4. 두 번째 데이터 저장
+store.put(
+    namespace,
+    "memory_002",  # 이전 데이터가 덮어씌워지지 않도록 새로운 Key 지정
+    {
+        "facts": [
+            "사용자는 그림 회화 작품을 좋아함",
+            "빈센트 반 고흐의 작품을 특히 좋아함",
+        ]
+    },
+)</code></pre>
+
+    <p>
+      이제 <code>("user_001", "personal_assistant")</code> 폴더 안에는 <code>memory_001</code>, <code>memory_002</code>
+      <strong>두 개의 파일</strong>이 나란히 놓였습니다. 참고로 두 번째 value에는 <code>language</code> 없이
+      <code>facts</code>만 넣었는데, 앞서 말했듯 <strong>value의 구조는 항목마다 달라도 상관없습니다.</strong>
+    </p>
+
+    <hr />
+
+    <!-- ── read ── -->
+    <h2 id="read">3. <code>store.get()</code> · <code>store.search()</code> — 조회 (Read)</h2>
+
+    <p>
+      저장했으니 이제 꺼내 볼 차례입니다. 꺼내는 방법은 두 가지입니다 —
+      <strong>파일 하나를 콕 집어 여는</strong> <code>get</code>과,
+      <strong>폴더를 통째로 열어 안의 파일을 전부 훑는</strong> <code>search</code>입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 파일명으로 열기 vs 폴더 통째로 열기</strong>
+      <code>get</code>은 파일명을 정확히 알 때 <strong>"그 파일 하나만 딱 열어줘"</strong>라고 말하는 것입니다
+      (namespace + key 둘 다 필요).
+      <code>search</code>는 파일명을 몰라도 <strong>"이 폴더 안에 뭐가 들어 있는지 전부 보여줘"</strong>라고 하는 것이죠
+      (namespace만 있으면 됨). 그래서 <code>get</code>은 항목 <strong>하나</strong>를, <code>search</code>는 <strong>목록(리스트)</strong>을 돌려줍니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 꺼낸 결과는 <code>Item</code> 객체 — 알맹이는 <code>.value</code></strong>
+      <code>get</code>/<code>search</code>가 돌려주는 것은 순수한 딕셔너리가 아니라 <code>Item</code>이라는 <strong>포장 상자</strong>입니다.
+      상자 겉면에는 <code>key</code>, <code>namespace</code>, 만든 시각(<code>created_at</code>), 수정 시각(<code>updated_at</code>) 같은
+      <strong>꼬리표(메타데이터)</strong>가 붙어 있고, 우리가 넣은 <strong>진짜 내용은 <code>item.value</code></strong> 안에 들어 있습니다.
+      그래서 아래 코드도 <code>item1.value</code>처럼 <code>.value</code>로 알맹이를 꺼냅니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 특정 Key 조회 (get)
+item1 = store.get(namespace, "memory_001")
+# print(item1)
+print("1번 메모리:", item1.value)
+
+item2 = store.get(namespace, "memory_002")
+print("2번 메모리:", item2.value)
+
+# Namespace 전체 검색 (search)
+print("\n--- 전체 검색 결과 ---")
+items = store.search(namespace)
+# print(items)
+for item in items:
+    print(f"Key: {item.key} | Value: {item.value}")</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">1번 메모리: {'facts': ['사용자는 커피보다 차를 선호함', '사용자는 매일 아침 6시에 일어남'], 'language': 'Korean'}
+2번 메모리: {'facts': ['사용자는 그림 회화 작품을 좋아함', '빈센트 반 고흐의 작품을 특히 좋아함']}
+
+--- 전체 검색 결과 ---
+[Item(namespace=['user_001', 'personal_assistant'], key='memory_001', value={'facts': ['사용자는 커피보다 차를 선호함', '사용자는 매일 아침 6시에 일어남'], 'language': 'Korean'}, created_at='2026-03-22T10:21:45.319340+00:00', updated_at='2026-03-22T10:21:45.319345+00:00', score=None), Item(namespace=['user_001', 'personal_assistant'], key='memory_002', value={'facts': ['사용자는 그림 회화 작품을 좋아함', '빈센트 반 고흐의 작품을 특히 좋아함']}, created_at='2026-03-22T10:21:51.395306+00:00', updated_at='2026-03-22T10:21:51.395309+00:00', score=None)]
+Key: memory_001 | Value: {'facts': ['사용자는 커피보다 차를 선호함', '사용자는 매일 아침 6시에 일어남'], 'language': 'Korean'}
+Key: memory_002 | Value: {'facts': ['사용자는 그림 회화 작품을 좋아함', '빈센트 반 고흐의 작품을 특히 좋아함']}</pre>
+
+    <p>
+      출력을 세 덩어리로 나눠 읽어봅시다.
+    </p>
+    <ul>
+      <li><strong>1번·2번 메모리</strong> — <code>get</code>으로 특정 key 하나씩 꺼내 <code>.value</code>(알맹이)만 깔끔하게 출력한 결과입니다.</li>
+      <li><strong>전체 검색 결과(리스트)</strong> — <code>search</code>가 돌려준 날것 그대로의 모습입니다.
+        <code>Item(...)</code> 두 개가 리스트에 담겨 있고, 각 상자에 <code>key</code>·<code>value</code>·<code>created_at</code> 같은 꼬리표가 다 보입니다.</li>
+      <li><strong>Key / Value 줄</strong> — 그 리스트를 <code>for</code>로 하나씩 돌며 필요한 <code>item.key</code>와 <code>item.value</code>만 뽑아
+        보기 좋게 정리한 것입니다. 실제 코드에서 메모리를 활용할 때 쓰는 전형적인 패턴이에요.</li>
+    </ul>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>created_at</code> · <code>updated_at</code> · <code>score</code>는?</strong>
+      <code>created_at</code>/<code>updated_at</code>은 항목을 <strong>언제 만들고 고쳤는지</strong> 자동으로 붙는 시각 도장입니다.
+      <code>score</code>는 <strong>의미 기반 검색(semantic search)</strong>을 했을 때의 유사도 점수 자리인데,
+      지금처럼 namespace 전체를 그냥 훑는 경우엔 관련 없어 <code>None</code>으로 나옵니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      Long-term Memory(Store)는 <strong>대화방을 넘나들며 유지되는 파일 시스템</strong>이다 —
+      <strong>namespace(폴더) + key(파일명)</strong>로 정리하고, <strong>put(저장) · get(조회) · search(전체 훑기)</strong>로 다룬다.
+    </div>
+
+    <ul>
+      <li><strong>Short-term vs Long-term</strong> — 스레드 안에서만 남는 Checkpointer vs 대화방을 넘나드는 <strong>Store</strong>(단골 카페의 기억).</li>
+      <li><strong>구조 = 폴더 + 파일</strong> — <code>namespace</code>(튜플, 충돌 방지)가 폴더, <code>key</code>가 파일명, <code>value</code>(딕셔너리)가 내용.</li>
+      <li><strong><code>put</code></strong> — 저장. 같은 key면 <strong>덮어쓰기</strong>되니 새 정보는 새 key로.</li>
+      <li><strong><code>get</code></strong> — namespace + key로 <strong>항목 하나</strong>를 콕 집어 조회. 알맹이는 <code>.value</code>.</li>
+      <li><strong><code>search</code></strong> — namespace만으로 폴더 안 <strong>전체 목록(Item 리스트)</strong>을 조회.</li>
+      <li><strong><code>InMemoryStore</code>는 임시(화이트보드)</strong> — 실서비스에선 PostgreSQL·Redis로 교체하되 인터페이스는 동일.</li>
+      <li><strong>다음 단계</strong> — 여기서 만든 Store를 Agent(모델)에게 주입하면, 모델이 이 기억을 참고해 <strong>개인화된 답변</strong>을 한다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./08.html">
+        <small>← 이전 노트북</small>
+        08. student_safety_middleware 원리
+      </a>
+      <a class="next" href="./10.html">
+        <small>다음 노트북 →</small>
+        10. Long-term Memory: Agent 메모리 주입
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

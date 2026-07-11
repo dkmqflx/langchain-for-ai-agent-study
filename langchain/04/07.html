@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>07. RAG: 캐시 임베더로 저장·검색</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">07. 저장·검색 목차</div>
+    <a href="#overview">개요 · 이 노트북이 하는 일</a>
+    <a href="#flow">전체 흐름 한눈에 보기</a>
+    <a href="#embedder">1. 캐시 임베더 다시 준비</a>
+    <a href="#load-db">2. Chroma DB 열기 (불러오기)</a>
+    <a href="#similarity">3. similarity_search — 바로 검색</a>
+    <a href="#threshold">4. score_threshold 검색기 (함정 주의)</a>
+    <a href="#mmr">5. MMR 검색기 — 다양성 확보</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#compare">세 가지 검색 방식 비교</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. RAG Load: PDFPlumber</a>
+      <a href="./02.html">02. RAG Load: PyMuPDF</a>
+      <a href="./03.html">03. RAG Split: 청크 분할</a>
+      <a href="./04.html">04. 캐시 임베더</a>
+      <a href="./05.html">05. RAG Store: Chroma DB</a>
+      <a href="./06.html">06. RAG Retrieve: 검색기 생성</a>
+      <strong style="display:block; padding:5px 8px; color:var(--text);">07. 저장·검색 (지금 여기)</strong>
+      <a href="./08.html">08. Hybrid Search (BM25+벡터)</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>07. RAG: 캐시 임베더로 저장·검색</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>07.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/04.rag.md">docs/04.rag.md</a> 2장 Store · Retrieve
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./06.html">06. Retrieve</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>07.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      앞선 04·05·06장에서 따로따로 배운 <strong>캐시 임베딩 · Chroma 저장 · 검색기</strong>를 이번에는 하나로 이어붙입니다.
+      <strong>이미 만들어 둔 Chroma 데이터베이스를 다시 열어</strong>, 실제 문서(ARKK ETF 보유 종목 PDF)를 대상으로
+      <strong>세 가지 방식(<code>similarity_search</code> · <code>score_threshold</code> · <code>MMR</code>)</strong>으로 검색해 봅니다.
+      특히 검색 결과가 <strong>0개로 나와 에러가 나는 함정</strong>도 직접 만나보고, 왜 그런지까지 파헤칩니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 노트북이 하는 일</strong>
+      RAG 파이프라인은 <strong>Load → Split → Embed → Store</strong>까지가 "재료 준비", 그다음 <strong>Retrieve</strong>가 "실제 요리"입니다.
+      이번 노트북은 재료 준비를 이미 끝냈다고 가정하고, <strong>저장된 재료(벡터 DB)를 다시 꺼내 검색만 집중적으로 연습</strong>합니다.
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 어제 정리해 둔 도서관에 다시 출근하기</strong>
+      어제 온종일 책을 분류하고 서가에 꽂아(=문서를 임베딩해서 Chroma에 저장) 도서관을 완성했다고 해봅시다.
+      오늘 아침에는 <strong>책을 새로 꽂을 필요 없이, 문만 열고 들어가</strong> 손님 질문에 맞는 책을 찾아주면 됩니다.
+      이 노트북이 딱 그 "둘째 날"입니다. 저장은 이미 끝났으니 <strong>DB를 열어 검색하는 일</strong>에만 집중하죠.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실행 전 준비</strong>
+      이 노트북이 제대로 동작하려면 <strong>같은 폴더에 <code>./chroma_db</code>(저장된 벡터 DB)와 <code>./cache</code>(임베딩 캐시)가 이미 존재</strong>해야 합니다.
+      보통 05장에서 <code>Chroma.from_documents(...)</code>로 PDF를 저장하며 만들어집니다. 또 임베딩 API를 부르므로 <code>.env</code>의
+      <code>OPENAI_API_KEY</code>도 필요합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── flow ── -->
+    <h2 id="flow">전체 흐름 한눈에 보기</h2>
+
+    <p>이번 노트북은 크게 세 걸음으로 진행됩니다. 먼저 <strong>질문을 숫자로 바꿀 임베더</strong>를 준비하고, <strong>저장된 DB를 열고</strong>, 마지막으로 <strong>검색</strong>합니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>캐시 임베더 준비</strong><p>질문도 문서와 똑같은 방식으로 숫자(벡터)로 바꿔야 비교가 된다</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Chroma DB 열기</strong><p><code>documents=</code> 없이 경로만 줘서 저장된 벡터를 그대로 불러온다</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>세 가지로 검색</strong><p><code>similarity_search</code> · <code>score_threshold</code> · <code>MMR</code>로 결과를 비교한다</p></div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 임베더가 검색에도 필요할까?</strong>
+      저장할 때 문서를 벡터로 바꾼 그 "자(척도)"와 <strong>똑같은 자</strong>로 질문도 벡터로 바꿔야 거리를 잴 수 있기 때문입니다.
+      질문은 cm 자로 재고 문서는 inch 자로 쟀다면 비교가 안 되겠죠. 그래서 검색 단계에서도 임베더를 다시 넘겨줍니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1. cached embedder ── -->
+    <h2 id="embedder">1. 캐시 임베더 다시 준비 — <code>CacheBackedEmbeddings</code></h2>
+
+    <p>
+      가장 먼저, 텍스트를 숫자 벡터로 바꿔 줄 <strong>임베딩 모델</strong>을 준비합니다.
+      그런데 그냥 <code>OpenAIEmbeddings</code>를 쓰는 대신, 그 위에 <strong>캐시(cache) 한 겹</strong>을 씌운
+      <code>CacheBackedEmbeddings</code>를 씁니다. 04장에서 배운 그 "임베딩 절약 장치"예요.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 번역가 옆에 놓인 '번역 노트'</strong>
+      <code>OpenAIEmbeddings</code>는 유료로 문장을 번역해 주는 <strong>번역가</strong>입니다(한 문장 번역할 때마다 돈이 나가죠).
+      <code>CacheBackedEmbeddings</code>는 그 번역가 옆에 <strong>번역 노트</strong>를 하나 붙여 준 것입니다.
+      새 문장이 오면 노트를 먼저 뒤져 보고, <strong>전에 번역한 적 있으면 노트에서 그대로 베껴</strong> 공짜로 즉시 돌려줍니다.
+      노트에 없을 때만 번역가에게 돈을 주고 맡기죠. 같은 문장을 두 번 임베딩할 때 <strong>비용과 시간을 아끼는</strong> 이유가 여기 있습니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+
+underlying_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+store = LocalFileStore("./cache/")
+
+cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+    underlying_embeddings,
+    store,
+    namespace=underlying_embeddings.model
+)</code></pre>
+
+    <p>한 줄씩 뜯어보면 이렇습니다.</p>
+
+    <ul>
+      <li><strong><code>underlying_embeddings</code></strong> — 실제로 돈 받고 일하는 "진짜 번역가". 여기서는 OpenAI의 <code>text-embedding-3-small</code> 모델입니다.</li>
+      <li><strong><code>store = LocalFileStore("./cache/")</code></strong> — 번역 결과를 적어 둘 "노트"의 물리적 위치. <code>./cache/</code> 폴더에 파일로 쌓입니다.</li>
+      <li><strong><code>namespace=underlying_embeddings.model</code></strong> — 노트에 붙이는 "이름표". 아래 보충 카드에서 왜 필요한지 설명합니다.</li>
+      <li><strong><code>from_bytes_store(...)</code></strong> — 번역가와 노트를 하나로 묶어 <strong>캐시 지원 임베더</strong>를 완성합니다.</li>
+    </ul>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실행하면 뜨는 경고 — SHA-1 안내</strong>
+      이 셀을 처음 돌리면 아래처럼 경고가 하나 출력됩니다. <strong>에러가 아니라 안내</strong>이니 그대로 진행해도 됩니다.
+      캐시가 텍스트를 저장할 때 만드는 "열쇠(key)"를 기본값인 SHA-1 방식으로 만든다는 뜻입니다.
+    </div>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">UserWarning: Using default key encoder: SHA-1 is *not* collision-resistant.
+While acceptable for most cache scenarios, a motivated attacker can craft two
+different payloads that map to the same cache key... supply a stronger encoder
+(e.g. SHA-256 or BLAKE2) via the `key_encoder` argument.</pre>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — <code>namespace</code>는 왜 붙일까?</div>
+      <p>
+        캐시는 "이 텍스트 → 이 벡터"를 파일로 저장합니다. 그런데 <strong>같은 문장이라도 임베딩 모델이 다르면 벡터도 완전히 달라집니다.</strong>
+        <code>text-embedding-3-small</code>이 만든 벡터와 <code>text-embedding-3-large</code>가 만든 벡터는 서로 호환되지 않죠.
+      </p>
+      <div class="callout callout-analogy" style="margin-top:4px;">
+        <strong>🔍 비유 — 사물함마다 다른 이름표</strong>
+        한 캐시 폴더를 여러 모델이 공유하면, 이름표가 없을 경우 "small이 넣어 둔 벡터"를 "large가 자기 것인 줄 알고" 꺼내 쓰는 사고가 납니다.
+        <code>namespace</code>는 각 모델에게 <strong>따로 이름표가 붙은 사물함 칸</strong>을 배정하는 것과 같습니다. 그래서 모델 이름(<code>...small</code>)을 이름표로 씁니다.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── 2. load db ── -->
+    <h2 id="load-db">2. Chroma DB 열기 — <code>documents=</code> 없이 불러오기</h2>
+
+    <p>
+      이제 이미 저장돼 있는 벡터 데이터베이스를 엽니다. 여기서 <strong>가장 중요한 포인트</strong>는
+      05장에서 저장할 때 쓰던 <code>Chroma.from_documents(...)</code>가 <strong>아니라는</strong> 점입니다.
+      이번에는 그냥 <code>Chroma(...)</code>를 쓰고, <strong><code>documents=</code> 인자를 주지 않습니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도서관 '새로 짓기' vs '문 열기'</strong>
+      <code>Chroma.from_documents(documents=...)</code>는 <strong>책을 한 아름 안고 들어가 서가에 꽂으며 도서관을 새로 짓는</strong> 일입니다.
+      반면 이번처럼 <code>documents=</code> 없이 <code>Chroma(persist_directory=경로)</code>만 쓰는 것은
+      <strong>이미 다 지어진 도서관의 문을 열고 들어가 열람만 하는</strong> 것입니다.
+      경로에 데이터가 있으면 그대로 <strong>불러오고</strong>, 없으면 빈 도서관이 하나 만들어질 뿐 새 책이 자동으로 들어오진 않습니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_chroma import Chroma
+
+CHROMA_PATH = "./chroma_db"
+
+
+db = Chroma(
+    collection_name="rag_collection",
+    embedding_function=cached_embedder,
+    persist_directory=CHROMA_PATH,
+    collection_metadata={"hnsw:space": "cosine"}  # 옵션: "cosine", "l2" (유클리드), "ip" (내적)
+)</code></pre>
+
+    <p>인자 하나하나가 무엇을 뜻하는지 노트북 저자의 주석을 그대로 풀어 보면 이렇습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>인자</th><th>의미</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>collection_name</code></td>
+            <td>DB 안에서 데이터를 담는 "테이블 이름" 같은 개념. 저장할 때 쓴 이름(<code>"rag_collection"</code>)과 <strong>똑같이</strong> 맞춰야 그 데이터를 찾습니다.</td>
+          </tr>
+          <tr>
+            <td><code>embedding_function</code></td>
+            <td>질문을 숫자로 바꿀 임베더. 앞에서 만든 <code>cached_embedder</code>를 넘깁니다. 즉 "이미 계산한 적 있는 내용은 다시 계산하지 말고 저장해 둔 값을 꺼내 쓰라"는 뜻입니다.</td>
+          </tr>
+          <tr>
+            <td><code>persist_directory</code></td>
+            <td>데이터가 저장된(또는 저장될) 폴더 경로. 이 경로에 데이터가 <strong>있으면 불러오고</strong>, 없으면 나중에 이 폴더에 <strong>영구 저장</strong>합니다.</td>
+          </tr>
+          <tr>
+            <td><code>collection_metadata</code></td>
+            <td><code>{"hnsw:space": "cosine"}</code> — 검색할 때 거리(유사도)를 어떤 방식으로 잴지 정합니다. 여기서는 코사인 유사도를 씁니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>hnsw:space</code>가 뭐죠?</strong>
+      <code>hnsw</code>는 Chroma가 내부적으로 쓰는 고속 검색 알고리즘(<em>Hierarchical Navigable Small World</em>)의 약자이고,
+      <code>space</code>는 "거리를 재는 방식"입니다. 즉 이 설정은 <strong>"가장 의미가 가까운 문장을 코사인 유사도로 찾아라"</strong>라는 지시입니다.
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 거리를 재는 세 가지 '자'</strong>
+      두 지점이 얼마나 가까운지 재는 방법은 하나가 아닙니다.
+      <strong>코사인(<code>cosine</code>)</strong>은 <strong>나침반</strong>처럼 "방향이 같은가"만 봅니다(크기 무시).
+      <strong>유클리드(<code>l2</code>)</strong>는 <strong>줄자</strong>처럼 두 점 사이 직선거리를 잽니다.
+      <strong>내적(<code>ip</code>)</strong>은 방향과 크기를 <strong>모두</strong> 고려하죠. 텍스트 의미 검색에서는 보통 <strong>코사인</strong>이 가장 무난해서 널리 씁니다.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 노트북에 나온 '주석 가득한' 두 번째 버전</div>
+      <p>
+        노트북에는 위와 완전히 같은 <code>db = Chroma(...)</code> 코드를 <strong>주석으로 상세히 설명한 버전</strong>이 한 번 더 나옵니다.
+        코드 동작은 동일하고, 핵심 메시지는 다음 한 문장입니다.
+      </p>
+      <div class="callout callout-info" style="margin-bottom:0;">
+        <strong>핵심</strong> — <code>documents=</code> 인자가 없습니다. 즉 <strong>새 문서를 추가하려는 게 아니라, 기존에 저장된 데이터를 검색하기 위한 용도</strong>로 DB를 여는 것입니다.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── 3. similarity_search ── -->
+    <h2 id="similarity">3. <code>similarity_search</code> — 가장 단순한 검색</h2>
+
+    <p>
+      DB를 열었으니 이제 질문을 던져 봅니다. 가장 기본적인 검색은 <code>db.similarity_search(query)</code>입니다.
+      질문을 벡터로 바꾼 뒤, DB에 저장된 모든 문서와 <strong>유사도를 계산해 가까운 순서대로</strong> 몇 개를 돌려줍니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 사서에게 대뜸 질문하기</strong>
+      도서관에 들어가 사서에게 <strong>"테슬라 투자 비중이 얼마나 되나요?"</strong>라고 물으면,
+      사서는 그 질문과 <strong>가장 관련 있는 자료 몇 개를 자동으로 골라</strong> 책상 위에 턱 올려 줍니다.
+      기본값으로 상위 4개를 가져오는데, 우리는 보통 그중 <strong>맨 위(가장 가까운) 자료</strong>를 먼저 봅니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>query = "Tesla 투자 비중이 얼마나 되나요?"
+results = db.similarity_search(query)
+# 벡터스토어에 있는 문서와 유사도를 계산하고, 유사도가 높은 순서대로 검색 결과를 반환한다
+
+print(len(results))
+
+print(f"검색된 문서 내용:\n{results[0].page_content}")
+# 가장 유사한 문서의 내용을 반환한다
+# 이 내용을 LLM에게 전달해서 답변을 생성할 수 있다
+# 이것이 RAG</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">4
+검색된 문서 내용:
+Holdings Data - ARKK
+As of 11/26/2025
+ARKK
+ARK Innovation ETF
+Company Ticker CUSIP Shares Market Value ($) Weight (%)
+1 TESLA INC TSLA 88160R101 2,204,438 $924,541,297.20 12.26%
+2 TEMPUS AI INC TEM 88023B103 5,465,331 $419,956,034.04 5.57%
+3 ROKU INC ROKU 77543R102 4,347,025 $412,445,732.00 5.47%</pre>
+
+    <p>
+      결과가 <strong>4개</strong> 나왔고, 그중 가장 가까운 문서에는 실제로 <strong>테슬라(TSLA)의 비중이 12.26%</strong>라고 적혀 있습니다.
+      질문에 딱 맞는 자료를 찾아왔죠. 이렇게 찾아온 문서 내용을 그대로 LLM에게 건네 답을 만들게 하는 것, <strong>그게 바로 RAG</strong>입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 검색은 '반환'까지, 답변 생성은 그다음</strong>
+      <code>similarity_search</code>는 <strong>관련 문서를 찾아 돌려주는 데까지</strong>만 합니다. 이 문서를 프롬프트에 끼워
+      "이 자료를 참고해서 답해 줘"라고 LLM에게 넘기면 최종 답변이 완성됩니다. 이 노트북은 그 앞 단계(검색)에 집중합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 4. threshold ── -->
+    <h2 id="threshold">4. <code>score_threshold</code> 검색기 — 그리고 흔한 함정</h2>
+
+    <p>
+      <code>db.as_retriever()</code>를 쓰면 검색 규칙을 정해 둔 <strong>"검색기(retriever)"</strong> 객체를 만들 수 있습니다.
+      그중 <code>search_type="similarity_score_threshold"</code>는 <strong>"유사도 점수가 일정 기준 이상인 문서만 통과"</strong>시키는 방식입니다.
+      아래에서는 기준(<code>score_threshold</code>)을 <strong>0.4</strong>로 잡았습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 합격 커트라인</strong>
+      <code>score_threshold</code>는 시험의 <strong>합격 커트라인</strong>입니다. "유사도 점수 0.4점 넘는 문서만 합격시켜 데려와"라는 뜻이죠.
+      기준을 낮추면 웬만하면 다 합격해 넉넉히 나오고, <strong>기준을 너무 높이면 아무도 못 넘어서 결과가 0개</strong>가 될 수 있습니다.
+      바로 이 지점에서 초보자가 자주 걸려 넘어집니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 검색기 생성
+retriever = db.as_retriever(
+    search_type="similarity_score_threshold",
+    search_kwargs={"score_threshold": 0.4}
+    # score_threshold: 유사도 점수가 0.4 이상인 문서만 검색하겠다는 의미
+    # 따라서 유사도 점수를 높이면 검색 결과가 없을 수도 있다.
+)
+
+results = retriever.invoke(query)
+
+print(len(results))
+
+print(results[0].page_content)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">No relevant docs were retrieved using the relevance score threshold 0.4
+
+0
+
+IndexError: list index out of range</pre>
+
+    <p>
+      방금 <code>similarity_search</code>로는 4개나 잘 찾았는데, 커트라인 0.4를 걸자마자
+      <strong>"기준 0.4를 넘는 문서가 하나도 없다"</strong>는 안내와 함께 <code>len(results)</code>가 <strong>0</strong>이 되었습니다.
+      그리고 텅 빈 리스트에서 <code>results[0]</code>을 꺼내려다 <strong><code>IndexError</code></strong>가 터졌죠.
+    </p>
+
+    <div class="callout callout-danger">
+      <strong>🚨 왜 0개가 됐을까 — 점수의 정체</strong>
+      <code>score_threshold</code>가 재는 <strong>relevance score(0~1, 클수록 유사)</strong>는 우리가 흔히 상상하는 원점수가 아니라,
+      Chroma가 <strong>거리(distance)를 0~1 점수로 환산</strong>한 값입니다. 이번 데이터에서는 가장 가까운 문서조차 이 환산 점수가
+      <strong>0.4에 못 미쳤기 때문에</strong> 전부 걸러진 것입니다. 즉 <strong>문서를 못 찾은 게 아니라, 커트라인을 너무 높게 잡은</strong> 것이죠.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 두 가지 교훈</strong>
+      <p><strong>① 임계값은 데이터에 맞춰 조정하라.</strong> 0.4가 안 나오면 0.2, 0.1처럼 <strong>낮춰</strong> 보며 적절한 값을 찾습니다. 정답 값은 데이터·모델마다 다릅니다.</p>
+      <p><strong>② 인덱싱 전에 개수를 확인하라.</strong> <code>results[0]</code>처럼 바로 첫 요소를 꺼내기 전에 <code>if len(results) &gt; 0:</code>으로 <strong>비었는지 먼저 확인</strong>하면 <code>IndexError</code>를 막을 수 있습니다.</p>
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — <code>similarity_search</code>는 되는데 왜 여기선 0개?</div>
+      <p>
+        둘 다 같은 DB를 쓰는데 결과가 다른 이유는 <strong>"거르는 기준의 유무"</strong>입니다.
+        <code>similarity_search</code>는 <strong>커트라인 없이 무조건 가까운 순서대로 상위 N개</strong>를 줍니다(점수가 낮아도 일단 줌).
+        반면 <code>score_threshold</code> 검색기는 <strong>"0.4 미만은 버려"</strong>라는 필터를 한 겹 더 겁니다.
+        그래서 같은 문서라도 앞에서는 통과, 뒤에서는 탈락한 것입니다.
+      </p>
+    </div>
+
+    <hr />
+
+    <!-- ── 5. mmr ── -->
+    <h2 id="mmr">5. MMR 검색기 — 비슷하면서도 '다양하게'</h2>
+
+    <p>
+      마지막은 <code>search_type="mmr"</code>입니다. MMR은 <strong>Maximal Marginal Relevance(최대 한계 관련성)</strong>의 약자로,
+      "질문과 관련 있으면서도 <strong>서로 겹치지 않는(다양한)</strong> 문서"를 골라 줍니다. 여기서는 <code>k=3</code>으로 3개를 요청합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 뷔페에서 접시 담기</strong>
+      일반 유사도 검색은 "제일 맛있는 요리"만 찾다 보니 <strong>같은 파스타를 세 접시</strong> 담아 올 수 있습니다(중복).
+      MMR은 <strong>"맛있으면서도 서로 다른"</strong> 요리를 담습니다 — 파스타 하나, 샐러드 하나, 스테이크 하나처럼요.
+      덕분에 LLM이 <strong>한쪽으로 치우치지 않고</strong> 폭넓은 근거로 답할 수 있습니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 검색기 생성
+retriever2 = db.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 3,}
+
+)
+
+
+results2 = retriever2.invoke(query)
+
+print(len(results2))
+
+print(results2[0].page_content)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">3
+Holdings Data - ARKK
+As of 11/26/2025
+ARKK
+ARK Innovation ETF
+Company Ticker CUSIP Shares Market Value ($) Weight (%)
+1 TESLA INC TSLA 88160R101 2,204,438 $924,541,297.20 12.26%
+2 TEMPUS AI INC TEM 88023B103 5,465,331 $419,956,034.04 5.57%
+3 ROKU INC ROKU 77543R102 4,347,025 $412,445,732.00 5.47%</pre>
+
+    <p>
+      <code>k=3</code>이니 정확히 <strong>3개</strong>가 나왔고, 맨 위 문서는 다시 우리가 원하던 ARKK 보유 종목 표입니다.
+      커트라인 방식과 달리 MMR은 <strong>안정적으로 원하는 개수를 채워</strong> 주면서 결과의 다양성까지 챙깁니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>k</code>는 '몇 개 가져올지'</strong>
+      <code>search_kwargs={"k": 3}</code>의 <code>k</code>는 반환할 문서 개수입니다. 문맥이 더 필요하면 5, 6으로 늘리고,
+      프롬프트를 짧게 유지하고 싶으면 줄이면 됩니다. (코드의 <code>"k": 3,</code>처럼 <strong>딕셔너리 끝의 쉼표</strong>는 있어도 문법 오류가 아닙니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── compare ── -->
+    <h2 id="compare">세 가지 검색 방식 비교</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>방식</th><th>한 줄 요약</th><th>이번 결과</th><th>언제 쓰나</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>similarity_search</code></td>
+            <td>커트라인 없이 가까운 순 상위 N개</td>
+            <td><strong>4개</strong> 반환 ✅</td>
+            <td>가장 단순·기본. 일단 관련 문서를 보고 싶을 때</td>
+          </tr>
+          <tr>
+            <td><code>score_threshold</code></td>
+            <td>점수 커트라인을 넘는 문서만 통과</td>
+            <td><strong>0개</strong> → <code>IndexError</code> ⚠️</td>
+            <td>"확실히 관련된 것만" 걸러내고 싶을 때 (임계값 튜닝 필수)</td>
+          </tr>
+          <tr>
+            <td><code>mmr</code></td>
+            <td>관련성 + 다양성(중복 제거)으로 k개</td>
+            <td><strong>3개</strong> 반환 ✅</td>
+            <td>비슷한 문서 중복을 피하고 폭넓은 근거가 필요할 때</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      한 번 저장한 벡터 DB는 <strong><code>documents=</code> 없이 다시 열어</strong> 검색만 반복할 수 있고, 검색 방식(<strong>기본 · 임계값 · MMR</strong>)에 따라
+      결과의 <strong>개수와 다양성</strong>이 달라진다.
+    </div>
+
+    <ul>
+      <li><strong>캐시 임베더</strong> — 검색할 때도 <strong>저장할 때와 같은 임베더</strong>가 필요하다(같은 자로 재야 비교됨). <code>CacheBackedEmbeddings</code>로 비용까지 아낀다.</li>
+      <li><strong>DB 열기</strong> — <code>Chroma.from_documents()</code>는 "새로 짓기", <code>documents=</code> 없는 <code>Chroma(persist_directory=...)</code>는 "문 열기(불러오기)". <code>collection_name</code>은 저장 때와 <strong>똑같이</strong> 맞춘다.</li>
+      <li><strong><code>similarity_search</code></strong> — 커트라인 없이 가까운 순 상위 N개(기본 4개). 가장 단순하고 확실하다.</li>
+      <li><strong><code>score_threshold</code></strong> — 점수 커트라인 필터. <strong>너무 높으면 0개</strong>가 되고, 빈 리스트에 <code>results[0]</code>을 하면 <code>IndexError</code>. 임계값은 데이터에 맞춰 낮춰 보고, 인덱싱 전 <code>len()</code>을 확인하라.</li>
+      <li><strong>MMR</strong> — "관련 있으면서 서로 다른" 문서를 <code>k</code>개. 중복을 피해 LLM의 편향을 줄인다.</li>
+      <li><strong>거리 척도</strong> — <code>hnsw:space</code>로 <code>cosine</code>(방향) · <code>l2</code>(직선거리) · <code>ip</code>(방향+크기) 중 선택. 의미 검색은 보통 <code>cosine</code>.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./06.html">
+        <small>← 이전 노트북</small>
+        06. RAG Retrieve: 검색기 생성
+      </a>
+      <a class="next" href="./08.html">
+        <small>다음 노트북 →</small>
+        08. RAG 응용: Hybrid Search (BM25 + 벡터)
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>03. Memory 기초 (Short-term)</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">03. Memory 기초 목차</div>
+    <a href="#overview">개요 · LLM은 왜 매번 처음일까</a>
+    <a href="#types">메모리 두 종류 — Short vs Long</a>
+    <a href="#setup">0. 환경 준비</a>
+    <a href="#saver">1. InMemorySaver로 기억력 부여</a>
+    <a href="#thread">2. thread_id로 대화방 구분</a>
+    <a href="#newthread">3. thread_id를 바꾸면 새 대화</a>
+    <a href="#history">4. 대화 히스토리 전체 조회</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. Tool 기초</a>
+      <a href="./02.html">02. Tool 심화</a>
+      <a href="#" style="font-weight:700;color:var(--text);">03. Memory 기초 (현재)</a>
+      <a href="./04.html">04. Tool Emulator</a>
+      <a href="./05.html">05. Middleware: TodoList</a>
+      <a href="./06.html">06. Middleware: HITL</a>
+      <a href="./07.html">07. Middleware: PII 탐지</a>
+      <a href="./08.html">08. Structured Output</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>03. Memory 기초 — Short-term Memory</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>03.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/02.agent-basic.md">docs/02.agent-basic.md</a> 2장 Memory
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+      &nbsp;·&nbsp; 선행: <a href="./02.html">02. Tool 심화</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>03.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      앞 장에서 만든 Agent는 <strong>대화가 한 번 끝나면 방금 나눈 이야기를 모조리 잊어버립니다.</strong>
+      이 장에서는 Agent에게 <strong>"기억용 수첩"</strong>을 하나 쥐여줘서, 이전 대화를 이어갈 수 있게 만드는
+      <strong>Short-term Memory</strong>를 배웁니다. 핵심 도구는 딱 두 가지 —
+      <code>InMemorySaver</code>와 <code>thread_id</code>입니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 매번 처음 보는 사이인 상담사</strong>
+      LLM은 원래 <strong>대화가 끝나는 순간 방금 무슨 얘기를 했는지 통째로 잊습니다.</strong>
+      아무리 정겹게 대화해도, 다음에 말을 걸면 당신을 <strong>오늘 처음 만난 사람</strong>처럼 대하죠.
+      이 성질을 어려운 말로 <strong>"stateless(상태가 없다)"</strong>라고 합니다.
+      그래서 "제가 뭐라고 했죠?"라고 물으면 <strong>"저는 이전 대화를 기억할 수 없어요"</strong>라는
+      답이 돌아옵니다. 이 장의 목표는 이 기억상실을 고쳐주는 것입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>이 장에서 배우는 것</strong>
+      "기억"이라는 마법 같은 기능이 따로 있는 게 아닙니다. Agent가 대화를 나눌 때마다
+      <strong>그 내용을 어딘가에 저장(Checkpoint)</strong>해 두고, 다음 호출 때 <strong>같은 대화방 번호(thread_id)</strong>로
+      찾아와서 <strong>이전 기록을 다시 읽는</strong> 방식입니다. 그 저장소가 <code>InMemorySaver</code>이고,
+      대화방을 구분하는 번호표가 <code>thread_id</code>입니다.
+    </div>
+
+    <!-- ── types ── -->
+    <h2 id="types">먼저, 메모리에는 두 종류가 있다</h2>
+
+    <p>
+      사람의 기억도 <strong>"방금 대화 내용을 잠깐 붙들고 있는 단기 기억"</strong>과
+      <strong>"이름·취향처럼 오래 담아두는 장기 기억"</strong>으로 나뉩니다.
+      LangChain의 메모리도 똑같이 두 갈래로 나뉩니다. 이 장에서 다루는 것은 그중 <strong>Short-term(단기) 메모리</strong>입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 통화 중 메모지 vs. 주소록</strong>
+      전화 통화 중에 상대가 부른 번호를 <strong>메모지에 잠깐 적어두는 것</strong>이 Short-term memory입니다.
+      통화(세션)가 이어지는 동안만 유효하죠. 반면 자주 연락하는 사람을 <strong>주소록에 영구 저장</strong>하는 것이
+      Long-term memory입니다. 이 장은 <strong>메모지(Checkpointer)</strong> 이야기이고, 주소록(Store)은 나중 장의 몫입니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>메모리 종류</th><th>저장 방식</th><th>용도</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Short-term memory</strong></td><td>Checkpointer (<code>InMemorySaver</code> 등)</td><td>대화 중 문맥 유지</td></tr>
+          <tr><td><strong>Long-term memory</strong></td><td>Store</td><td>사용자 선호도·과거 정보 영구 저장</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 실생활 예시</strong>
+      ChatGPT 왼쪽 사이드바에 남는 <strong>대화 기록</strong>이 Short-term memory의 예시이고,
+      "나에 대해 알아두세요" 설정처럼 세션이 바뀌어도 유지되는 정보가 Long-term memory의 예시입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 환경 준비</h2>
+    <p>
+      앞 장들과 똑같이 모델 하나와 Agent 재료를 준비합니다. 이번 장의 주인공은 모델이 아니라,
+      Agent에게 붙여줄 <strong>기억 저장소</strong>입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <hr />
+
+    <!-- ── saver ── -->
+    <h2 id="saver">1. <code>InMemorySaver</code>로 Agent에게 기억력 부여</h2>
+
+    <p>
+      <code>InMemorySaver</code>는 대화 상태(스레드)를 <strong>프로그램이 켜져 있는 동안 메모리 안</strong>에 저장하는
+      가장 기본적인 <strong>Checkpointer</strong>입니다. <code>create_agent</code>를 만들 때
+      <code>checkpointer=InMemorySaver()</code>를 넘겨주기만 하면, 그 순간부터 Agent는 대화를 기억할 수 있게 됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 수첩과 펜을 손에 쥐여주기</strong>
+      기억을 못 하던 상담사에게 <strong>수첩과 펜</strong>을 하나 쥐여줬다고 상상해보세요.
+      이제 그는 손님이 한 말을 그때그때 수첩에 적어두고, 다음에 그 손님이 오면 수첩을 펼쳐 읽습니다.
+      <code>InMemorySaver()</code>가 바로 이 <strong>수첩</strong>이고, <code>checkpointer=</code>로 넘기는 행위가
+      상담사(Agent)에게 그 수첩을 쥐여주는 것입니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langgraph.checkpoint.memory import InMemorySaver
+
+# 메모리 종류
+# short term memory: Checkpointer를 통해 대화 스레드(세션) 저장
+# long term memory: Store를 통해 장기 메모리 저장
+
+# 주의할 점은 invoke할 때 thread_id = 1를 명시적으로 지정해야 한다는 점입니다.
+
+agent = create_agent(
+    model=model,
+    tools=[],
+    checkpointer=InMemorySaver()
+)</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 반드시 함께 넘겨야 하는 짝 — thread_id</strong>
+      Checkpointer를 붙였다고 끝이 아닙니다. <code>invoke()</code>를 호출할 때
+      <code>{"configurable": {"thread_id": "..."}}</code>를 <strong>두 번째 인자로 반드시</strong> 함께 넘겨야 합니다.
+      <code>thread_id</code>가 없으면 수첩은 있는데 <strong>"어느 페이지(어느 손님)의 기록인지"</strong>를
+      구분할 수 없어서 기억이 동작하지 않습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── thread ── -->
+    <h2 id="thread">2. <code>thread_id</code>로 대화방을 구분한다</h2>
+
+    <p>
+      <code>thread_id</code>는 한마디로 <strong>대화방 번호</strong>입니다.
+      <strong>같은 번호</strong>로 계속 말을 걸면 이전 대화가 이어지고(맥락 기억),
+      <strong>다른 번호</strong>로 말을 걸면 아무것도 모르는 새 대화가 시작됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 카카오톡 채팅방</strong>
+      <code>thread_id</code>는 메신저의 <strong>채팅방</strong>과 똑같습니다.
+      "엄마와의 대화방"에 들어가면 어제 나눈 얘기가 그대로 이어져 있고, "친구와의 대화방"으로 옮기면
+      완전히 다른 맥락이 펼쳐지죠. 번호가 같으면 같은 방, 번호가 다르면 다른 방입니다.
+    </div>
+
+    <p>
+      먼저 <strong>1번 방</strong>에서 나를 소개해봅니다. Agent가 이 말을 수첩(1번 페이지)에 적어둘 것입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>result = agent.invoke({"messages": [
+  {"role": "user", "content": "안녕하세요, 나는 자유인입니다"}]},
+  {"configurable": {"thread_id": 1}})
+
+print(result['messages'][-1].content)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">안녕하세요! 자유인님. 어떻게 도와드릴까요?</pre>
+
+    <p>
+      이제 <strong>같은 1번 방</strong>에서 "제가 뭐라고 했죠?"라고 물어봅니다.
+      수첩(1번 페이지)에 앞 대화가 적혀 있으니, Agent는 그것을 다시 읽고 <strong>내가 방금 한 말을 그대로 기억</strong>합니다.
+    </p>
+
+    <div class="chat">
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">안녕하세요, 나는 자유인입니다 <span class="tag">← 1번 방에 저장됨</span></div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">안녕하세요! 자유인님. 어떻게 도와드릴까요?</div></div>
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">제가 뭐라고 했죠? <span class="tag">← 같은 1번 방에서 이어 물음</span></div></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>result = agent.invoke({"messages": [
+  {"role": "user", "content": "제가 뭐라고 했죠 ?"}]},
+  {"configurable": {"thread_id": 1}}) # thread_id가 다르면, 새로운 대화로 인식합니다.
+
+
+print(result['messages'][-1].content)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">당신은 "안녕하세요, 나는 자유인입니다"라고 말씀하셨습니다. 자유로운 삶에 대해 이야기하고 싶으신가요? 아니면 다른 주제가 있으신가요?</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 방금 무슨 일이 일어났나</strong>
+      두 번째 호출에서 우리는 <strong>"제가 뭐라고 했죠?"</strong> 딱 한 문장만 보냈습니다.
+      그런데도 Agent가 "자유인입니다"를 기억한 이유는, Checkpointer가 <strong>1번 방에 쌓여 있던 이전 메시지들을
+      자동으로 앞에 붙여서</strong> 모델에게 전달했기 때문입니다. 즉, 내가 매번 손으로 대화 기록을 다시 보내지 않아도
+      <strong>수첩이 알아서 채워주는</strong> 셈입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── newthread ── -->
+    <h2 id="newthread">3. <code>thread_id</code>를 바꾸면 완전히 새로운 대화</h2>
+
+    <p>
+      이번엔 방 번호를 <strong>2번</strong>으로 바꿔봅니다. 2번 방은 아직 아무 기록도 없는 <strong>빈 페이지</strong>입니다.
+      그래서 똑같이 "제가 뭐라고 했죠?"라고 물어도, "자유인입니다"라고 했던 <strong>1번 방의 기억은 전혀 알지 못합니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 옆방으로 옮겨가면</strong>
+      1번 상담실에서 나눈 이야기를 들고 <strong>2번 상담실로 옮겨가면</strong>, 그곳 상담사는 앞방에서 무슨 대화가
+      오갔는지 알 길이 없습니다. 방(수첩 페이지)이 다르니까요. <code>thread_id</code>를 바꾼다는 건
+      이렇게 <strong>기록이 전혀 다른 새 방</strong>으로 들어가는 것과 같습니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>result = agent.invoke({"messages": [
+  {"role": "user", "content": "제가 뭐라고 했죠 ?"}]},
+  {"configurable": {"thread_id": 2}}) # thread_id가 다르면, 새로운 대화로 인식합니다.
+
+
+print(result['messages'][-1].content)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">죄송하지만, 저는 이전 대화 내용을 기억할 수 없습니다. 제가 도와드릴 수 있는 것이 있다면 말씀해 주세요!</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 헷갈리기 쉬운 지점</strong>
+      "기억을 못 하네? Checkpointer가 고장 났나?"라고 오해하기 쉽습니다. 하지만 이건 <strong>정상 동작</strong>입니다.
+      Checkpointer는 제대로 작동하고 있고, 단지 <strong>2번 방에는 저장된 기록이 없을 뿐</strong>입니다.
+      기억을 이어가고 싶다면 <strong>방 번호를 바꾸지 말아야</strong> 합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── history ── -->
+    <h2 id="history">4. 1번 방의 대화 히스토리 전체 조회</h2>
+
+    <p>
+      다시 <strong>1번 방</strong>으로 돌아와 봅니다. 그동안 오간 대화가 <strong>차곡차곡 누적</strong>되어 있어서,
+      <code>response["messages"]</code>를 순회하면 <strong>대화 흐름 전체</strong>(Human → AI → Human → AI …)를
+      처음부터 끝까지 꺼내볼 수 있습니다. 각 메시지의 <code>.type</code>은 그 발화가 누구 것인지(<code>human</code>/<code>ai</code>)
+      알려주고, <code>.content</code>는 실제 내용을 담고 있습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 수첩을 처음부터 넘겨 읽기</strong>
+      "지금까지 무슨 얘기 나눴죠?"라고 물으면서, 동시에 우리가 <strong>수첩(1번 페이지)을 첫 장부터 끝까지
+      직접 펼쳐 읽는</strong> 장면입니다. 방금 던진 새 질문까지 포함해 그 자리에서 나눈 모든 발화가
+      순서대로 적혀 있는 걸 눈으로 확인할 수 있습니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 1번 방의 대화 내역을 다시 불러옵니다.
+response = agent.invoke(
+    {"messages": [{"role": "user", "content": "지금까지 무슨 얘기 나눴죠?"}]},
+    {"configurable": {"thread_id": "1"}},
+)
+
+# 세션에 누적된 전체 메시지 히스토리를 하나씩 뜯어봅니다.
+for i, msg in enumerate(response["messages"], start=1):
+    print(f"--- Message {i} ({msg.type}) ---")
+    print(msg.content)
+    print()</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">--- Message 1 (human) ---
+안녕하세요, 나는 자유인입니다
+
+--- Message 2 (ai) ---
+안녕하세요! 자유인님. 어떻게 도와드릴까요?
+
+--- Message 3 (human) ---
+제가 뭐라고 했죠 ?
+
+--- Message 4 (ai) ---
+당신은 "안녕하세요, 나는 자유인입니다"라고 말씀하셨습니다. 자유로운 삶에 대해 이야기하고 싶으신가요? 아니면 다른 주제가 있으신가요?
+
+--- Message 5 (human) ---
+지금까지 무슨 얘기 나눴죠?
+
+--- Message 6 (ai) ---
+지금까지 당신은 "안녕하세요, 나는 자유인입니다"라고 인사하셨고, 제가 그에 대해 반응하며 어떻게 도와드릴지 물었습니다. 그 이후에 당신이 제가 지금까지의 대화를 요약해 달라고 요청하셨습니다. 더 이야기하고 싶은 주제가 있으면 말씀해 주세요!</pre>
+
+    <div class="info-card">
+      <div class="info-card-title">📘 보충 — 왜 숫자 1과 문자열 "1"이 같은 방을 가리킬까?</div>
+      <p style="margin-bottom:8px;">
+        앞에서는 <code>thread_id: 1</code>(숫자)로 저장했는데, 여기서는 <code>thread_id: "1"</code>(문자열)로 조회했습니다.
+        그런데도 같은 1번 방의 기록이 그대로 이어졌습니다. LangGraph가 <code>thread_id</code>를 내부적으로
+        <strong>문자열로 취급</strong>하기 때문에 <code>1</code>과 <code>"1"</code>이 사실상 같은 키로 다뤄지는 것입니다.
+      </p>
+      <p style="margin-bottom:0;">
+        다만 실전에서는 <strong>처음부터 문자열(<code>"1"</code>, <code>"user-42"</code> 등)로 통일</strong>해 쓰는 것을 권합니다.
+        표기를 섞으면 나중에 "왜 기억이 안 이어지지?" 하는 혼란의 씨앗이 될 수 있습니다.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 메시지가 쌓이는 규칙</strong>
+      매 <code>invoke</code>마다 우리는 <strong>새 질문 한 개</strong>만 보내지만, 방에는 그 질문뿐 아니라
+      <strong>모델의 답변(AI 메시지)까지 함께</strong> 쌓입니다. 그래서 대화를 거듭할수록 히스토리는
+      Human → AI → Human → AI … 순으로 <strong>눈덩이처럼 길어집니다.</strong>
+      (대화가 아주 길어지면 오래된 메시지를 요약·정리하는 전략이 필요해지는데, 그건 다음 단계의 이야기입니다.)
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      Agent의 기억은 마법이 아니다. <strong>Checkpointer(수첩)에 대화를 저장</strong>하고,
+      <strong>thread_id(방 번호)로 그 기록을 찾아 다시 읽는 것</strong>이 곧 Short-term Memory다.
+    </div>
+
+    <ul>
+      <li><strong>LLM은 stateless</strong> — 손대지 않으면 대화를 스스로 기억하지 못한다(기억상실 상담사).</li>
+      <li><strong>InMemorySaver = 기억용 수첩</strong> — <code>create_agent(..., checkpointer=InMemorySaver())</code>로 Agent에게 쥐여준다.</li>
+      <li><strong>thread_id = 대화방 번호</strong> — <code>invoke</code>의 두 번째 인자 <code>{"configurable": {"thread_id": ...}}</code>로 꼭 지정한다.</li>
+      <li><strong>같은 번호 → 기억 이어짐</strong>, <strong>다른 번호 → 빈 방에서 새 대화</strong>.</li>
+      <li><strong>히스토리는 자동 누적</strong> — <code>response["messages"]</code>를 순회하면 Human/AI 발화 전체를 <code>.type</code>·<code>.content</code>로 꺼내볼 수 있다.</li>
+    </ul>
+
+    <div class="callout callout-warn">
+      <strong>➡️ 다음 이야기</strong>
+      기억은 갖췄으니, 이번엔 Agent가 <strong>도구(tool)를 실제로 호출하는 순간</strong>을 눈으로 들여다볼 차례입니다.
+      다음 노트북에서는 <strong>Tool Emulator</strong>로 도구 호출 과정을 시뮬레이션해 봅니다.
+    </div>
+
+    <div class="pager">
+      <a href="./02.html">
+        <small>← 이전 노트북</small>
+        02. Tool 심화 — 외부 API 호출 도구
+      </a>
+      <a class="next" href="./04.html">
+        <small>다음 노트북 →</small>
+        04. Tool Emulator — 도구 호출 시뮬레이션
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

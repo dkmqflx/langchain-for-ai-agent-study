@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>02. Custom Middleware: Node-style (@before_model)</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Chat bubbles (message list visual) ── */
+    .chat { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg .role {
+      flex-shrink: 0; width: 66px; text-align: center;
+      font-size: 11px; font-weight: 700; padding: 4px 0; border-radius: 6px;
+    }
+    .role-system { background: #ede7f6; color: #4527a0; }
+    .role-human  { background: #e3f2fd; color: #0d47a1; }
+    .role-ai     { background: #e8f5e9; color: #1b5e20; }
+    .msg .bubble {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px; font-size: 13.5px;
+    }
+    .msg .bubble .tag { font-size: 11px; color: var(--text-secondary); }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">02. Custom Middleware 목차</div>
+    <a href="#overview">개요 · 이 노트북에서 배우는 것</a>
+    <a href="#node-style">Node-style Hook이란</a>
+    <a href="#when">@before_agent vs @before_model</a>
+    <a href="#jump">can_jump_to와 반환값의 약속</a>
+    <a href="#setup">0. 모델 준비</a>
+    <a href="#validate">1. 입력 검문소 만들기</a>
+    <a href="#run">2. Agent에 붙여 실행하기</a>
+    <a href="#analysis">3. 실행 결과 분석</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+      <a href="./02.html"><strong>02. Custom Middleware: Node-style</strong></a>
+      <a href="./03.html">03. Custom Middleware: Wrap-style</a>
+      <a href="./04.html">04. 멤버십 기반 모델 선택</a>
+      <a href="./05.html">05. 메시지 객체와 .type 속성</a>
+      <a href="./06.html">06. Guardrails: After Agent 필터</a>
+      <a href="./07.html">07. Guardrails: 정답 누출 방지</a>
+      <a href="./08.html">08. student_safety_middleware 원리</a>
+      <a href="./09.html">09. Long-term Memory: Store CRUD</a>
+      <a href="./10.html">10. Long-term Memory: 메모리 주입</a>
+      <a href="./11.html">11. @tool 인자 결정·전달 원리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>02. Custom Middleware: Node-style (<code>@before_model</code>)</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>02.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/03.advanced-agent.md">docs/03.advanced-agent.md</a> 1.6 Node-style 심화
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟡 중급</span>
+      &nbsp;·&nbsp; 선행: <a href="./01.html">01. Hooks &amp; Middleware 가이드</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>02.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      이번 시간엔 Agent 실행 흐름 중간에 <strong>내 손으로 만든 검문소(Custom Middleware)</strong>를 하나 세워 봅니다.
+      구체적으로는 <code>@before_model</code> 데코레이터로 <strong>"모델을 부르기 직전"</strong>에 사용자 입력을 검사하고,
+      위험한 낱말이 보이면 <strong>LLM을 아예 호출하지 않고 즉시 대화를 끝내는</strong> 입력 가드레일을 만들어 봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 노트북에서 배우는 것</strong>
+      Middleware(미들웨어)는 Agent가 일하는 <strong>파이프라인의 중간중간에 끼워 넣는 작은 부품</strong>입니다.
+      그중 <strong>Node-style Hook</strong>은 <em>정해진 지점</em>(모델 호출 전/후, Agent 시작/종료)에서
+      <strong>순서대로 딱딱 실행</strong>되는 방식이에요. 오늘은 그 대표격인 <code>@before_model</code>을 써서
+      <strong>"모델에게 말을 넘기기 전에 먼저 검사하기"</strong>를 구현합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── Node-style Hook ── -->
+    <h2 id="node-style">Node-style Hook이란</h2>
+
+    <p>
+      Agent가 답을 만들어내는 과정은 사실 여러 <strong>단계(node)</strong>가 줄지어 이어진 <strong>공정 라인</strong>입니다.
+      사용자의 말이 들어오면 → 모델이 호출되고 → (도구가 있으면) 도구가 실행되고 → 다시 모델이 불리고 …
+      이렇게 순서대로 흘러가죠. <strong>Node-style Hook</strong>은 이 라인의 <strong>특정 지점에 매다는 표지판 겸 검문소</strong>입니다.
+      "모델 호출 <em>직전</em>에 이 함수를 한 번 돌려라"처럼요.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 공장 컨베이어 벨트의 검문 초소</strong>
+      Agent를 <strong>컨베이어 벨트</strong>라고 생각해 보세요. 부품(메시지)이 벨트를 타고 흘러갑니다.
+      Node-style Hook은 벨트 <strong>특정 위치에 세워 둔 검문 초소</strong>예요.
+      부품이 그 지점을 지날 때마다 초소 직원(우리 함수)이 잠깐 멈춰 세워
+      <strong>"통과시킬까? 여기서 라인을 세울까?"</strong>를 판단합니다.
+      <code>@before_model</code>은 <strong>"모델 기계 바로 앞"</strong>에 세운 초소입니다.
+    </div>
+
+    <p>
+      Node-style Hook은 데코레이터로 붙입니다. 붙이는 위치(=검문 지점)에 따라 이름이 다릅니다 —
+      <code>@before_agent</code>, <code>@before_model</code>, <code>@after_model</code>, <code>@after_agent</code>.
+      함수는 항상 <code>state</code>(지금까지의 상태 = 메시지 기록 등)와 <code>runtime</code>(실행 환경 정보)을 받습니다.
+      오늘 쓸 건 그중 <strong>모델 호출 직전</strong>에 걸리는 <code>@before_model</code>입니다.
+    </p>
+
+    <hr />
+
+    <!-- ── when ── -->
+    <h2 id="when"><code>@before_agent</code> vs <code>@before_model</code> — 몇 번 실행될까?</h2>
+
+    <p>
+      이 둘은 이름이 닮았지만 <strong>실행되는 횟수</strong>가 결정적으로 다릅니다.
+      이 차이를 놓치면 "왜 검사가 두 번 도는 거지?" 하고 당황하게 됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 놀이공원 정문 vs 놀이기구 앞</strong>
+      <code>@before_agent</code>는 <strong>놀이공원 정문의 입장 검표</strong>입니다. 공원에 들어올 때 <strong>딱 한 번</strong> 표를 확인하죠.
+      반면 <code>@before_model</code>은 <strong>각 놀이기구 앞에 선 안전요원</strong>입니다.
+      롤러코스터를 탈 때도, 회전목마를 탈 때도 <strong>탈 때마다</strong> 키와 안전벨트를 확인합니다.
+      Agent가 도구를 쓴 뒤 모델을 <em>다시</em> 부르면, <code>@before_model</code>은 그때도 또 실행돼요.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>데코레이터</th><th>실행 시점</th><th>실행 횟수</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>@before_agent</code></td><td>Agent 전체 실행이 시작될 때</td><td><strong>딱 한 번</strong></td></tr>
+          <tr><td><code>@before_model</code></td><td>모델(LLM)을 호출하기 직전</td><td><strong>모델을 부를 때마다</strong> (도구 실행 후 재호출 포함)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 이번 예시에서는?</strong>
+      우리는 <strong>사용자 입력을 검사</strong>하는 게 목적이고, 이 노트북 예시엔 도구(tool)가 없어서 모델은 한 번만 호출됩니다.
+      그래서 <code>@before_model</code>이든 <code>@before_agent</code>든 결과는 비슷하게 보입니다.
+      다만 원문 교재는 "모델을 지키는 초소"라는 의미를 강조하기 위해 <code>@before_model</code>을 씁니다.
+    </div>
+
+    <hr />
+
+    <!-- ── jump ── -->
+    <h2 id="jump"><code>can_jump_to</code>와 반환값의 약속</h2>
+
+    <p>
+      검문소가 부품을 그냥 구경만 한다면 의미가 없겠죠. 핵심은 <strong>"흐름을 멈추거나 다른 곳으로 보낼 수 있는 권한"</strong>입니다.
+      Node-style Hook에서는 이 권한을 <code>can_jump_to</code>로 <strong>미리 선언</strong>하고,
+      함수의 <strong>반환값</strong>으로 <strong>실제 명령</strong>을 내립니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 비상 정지 버튼과 그 사용 권한</strong>
+      공장 초소마다 <strong>빨간 비상 정지 버튼</strong>이 있으면 위험하겠죠. 그래서 <strong>"이 초소는 라인을 끝(end)으로 보낼 수 있다"</strong>는
+      권한을 관리자에게 먼저 등록해 둡니다. 이게 <code>can_jump_to=["end"]</code>예요.
+      그렇게 등록해 둔 초소만이, 실제 상황에서 <strong>버튼을 누를(=<code>jump_to</code>를 반환할)</strong> 수 있습니다.
+      권한 선언 없이 버튼부터 누르면 시스템이 "너 그럴 권한 없어" 하고 막습니다.
+    </div>
+
+    <p>반환값에 따라 흐름이 이렇게 갈립니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>이 함수가 돌려주는 값</th><th>무슨 뜻인가</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>return None</code></td><td>점프하지 마라. <strong>평소대로 다음 단계</strong>(모델 호출)로 진행</td></tr>
+          <tr><td><code>return {"jump_to": "end"}</code></td><td>여기서 <strong>끝(end)으로 바로 점프</strong>. 즉 모델을 부르지 않고 Agent 종료</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 권한 선언을 잊지 마세요</strong>
+      <code>jump_to: "end"</code>를 쓰려면 데코레이터에 반드시 <code>@before_model(can_jump_to=["end"])</code>처럼
+      <strong>"end로 갈 수 있다"고 미리 선언</strong>해야 합니다. 선언 없이 점프를 시도하면 오류가 납니다.
+      비상 버튼을 누르려면 먼저 그 버튼 사용 권한을 등록해 둬야 하는 것과 같아요.
+    </div>
+
+    <hr />
+
+    <!-- ── setup ── -->
+    <h2 id="setup">0. 모델 준비</h2>
+
+    <p>
+      늘 그렇듯 먼저 말을 걸 상대(모델)를 하나 준비합니다. 이 노트북에서는
+      환경 변수를 불러오고 <code>gpt-4o-mini</code>로 기본 모델 객체를 만들어 둡니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
+# 모델 선언
+model = init_chat_model("gpt-4o-mini")</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 참고</strong>
+      여기서 만든 <code>model</code> 변수는 이 셀에서 미리 선언해 두는 것이고,
+      실제 Agent를 만드는 아래 셀에서는 <code>init_chat_model("gpt-5-nano")</code>로 <strong>모델을 다시 지정</strong>합니다.
+      오늘의 주인공은 모델이 아니라 <strong>그 앞을 지키는 미들웨어</strong>이니, 어느 모델을 쓰는지는 크게 중요하지 않습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── validate ── -->
+    <h2 id="validate">1. 입력 검문소 만들기 — <code>validate_input</code></h2>
+
+    <p>
+      이제 초소를 세울 차례입니다. <strong>모델 호출 직전</strong>에 마지막 메시지를 들여다보고,
+      그 안에 <strong>"암구호"</strong>라는 낱말이 들어 있으면 <strong>모델을 부르지 않고 즉시 차단</strong>합니다.
+      "암구호(비밀 통과 암호)"는 여기서 <strong>절대 외부 모델로 흘러가면 안 되는 민감 키워드</strong>를 흉내 낸 것입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 사장에게 넘기기 전에 서류를 거르는 비서</strong>
+      임원(모델)에게 보고서를 올리기 전에, <strong>비서(before_model)</strong>가 먼저 서류를 훑어봅니다.
+      만약 "대외비 · 암구호" 같은 <strong>기밀 도장</strong>이 찍혀 있으면, 비서는 그 서류를 <strong>임원 손에 절대 넘기지 않고</strong>
+      "이 요청은 처리할 수 없습니다"라는 회신만 대신 남깁니다.
+      덕분에 <strong>민감 정보가 외부 AI 모델로 유출되는 사고를 원천 차단</strong>할 수 있죠.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import before_model
+from langchain.messages import AIMessage
+
+@before_model(can_jump_to=["end"])
+def validate_input(state, runtime):
+    last_message = state["messages"][-1]
+    if "암구호" in last_message.content:
+        print("암구호 감지됨 — 응답 차단")
+        return {
+            "messages": [AIMessage(content="이 요청은 처리할 수 없습니다.")],
+            "jump_to": "end"  # 모델 호출 중단 후 에이전트 종료
+        }
+    print("✅ 정상 입력, 모델 호출 계속 진행")
+    return None</code></pre>
+
+    <p>한 줄씩 뜯어보면 이렇습니다.</p>
+
+    <ul>
+      <li><code>@before_model(can_jump_to=["end"])</code> — 이 함수를 <strong>모델 호출 직전 초소</strong>로 등록하고,
+        동시에 <strong>"end로 점프할 권한"</strong>을 부여합니다.</li>
+      <li><code>state["messages"][-1]</code> — 지금까지 쌓인 메시지 중 <strong>가장 마지막(방금 들어온 사용자 입력)</strong>을 꺼냅니다.</li>
+      <li><code>if "암구호" in last_message.content:</code> — 그 내용 안에 <strong>금지 낱말이 있는지</strong> 검사합니다.</li>
+      <li>있으면 → <code>AIMessage</code>로 <strong>차단 안내문</strong>을 대신 남기고 <code>jump_to: "end"</code>로 <strong>즉시 종료</strong>합니다.</li>
+      <li>없으면 → <code>return None</code>으로 <strong>평소대로 통과</strong>시켜 모델이 정상 호출되게 합니다.</li>
+    </ul>
+
+    <div class="callout callout-info">
+      <strong>💡 차단할 때 왜 <code>AIMessage</code>를 직접 만들까?</strong>
+      모델을 아예 부르지 않으니, 사용자에게 돌려줄 답변이 <strong>비어 버립니다.</strong>
+      그래서 우리가 손수 <code>AIMessage(content="이 요청은 처리할 수 없습니다.")</code>를 만들어
+      <strong>모델 대신 대답</strong>을 채워 넣는 것입니다. 배우가 무대에 못 오르니 감독이 대사를 대독하는 셈이죠.
+    </div>
+
+    <hr />
+
+    <!-- ── run ── -->
+    <h2 id="run">2. Agent에 붙여 실행하기</h2>
+
+    <p>
+      만든 초소를 <code>create_agent</code>의 <code>middleware</code> 목록에 넣어 주면 설치가 끝납니다.
+      그런 다음 일부러 <strong>"암구호"가 들어간 문장</strong>을 던져서, 초소가 제대로 라인을 세우는지 확인해 봅니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>사용자 입력</strong><p>"오늘의 암구호는 삼각대-자동차 입니다."</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>before_model 검사</strong><p>마지막 메시지에 "암구호" 포함? → <strong>발견!</strong></p></div>
+      <div class="flow-step"><span class="n">3</span><strong>jump_to end</strong><p>모델 호출 <strong>건너뛰고</strong> 차단 메시지 남김</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>Agent 종료</strong><p>LLM은 한 번도 불리지 않음</p></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+
+agent = create_agent(
+    model=init_chat_model("gpt-5-nano"),
+    tools=[],
+    middleware=[validate_input],
+)
+
+response = agent.invoke(
+    {"messages": [{"role": "user", "content": "오늘의 암구호는 삼각대-자동차 입니다."}]},
+)
+print(response)</code></pre>
+
+    <p>
+      입력한 문장에는 <strong>"암구호"</strong>라는 낱말이 들어 있습니다. 따라서 초소(<code>validate_input</code>)는
+      바로 이 조건을 잡아내고, 모델을 부르지 않은 채 대화를 끝냅니다.
+    </p>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">암구호 감지됨 — 응답 차단
+{'messages': [HumanMessage(content='오늘의 암구호는 삼각대-자동차 입니다.', additional_kwargs={}, response_metadata={}, id='c2349713-c8fa-408d-b511-1daafe796cab'), AIMessage(content='이 요청은 처리할 수 없습니다.', additional_kwargs={}, response_metadata={}, id='ba386814-bac9-4740-8162-7dd9d5f45a87', tool_calls=[], invalid_tool_calls=[])]}</pre>
+
+    <hr />
+
+    <!-- ── analysis ── -->
+    <h2 id="analysis">3. 실행 결과 분석</h2>
+
+    <p>
+      출력을 자세히 보면, <code>print("암구호 감지됨 — 응답 차단")</code>이 먼저 찍혔습니다.
+      이건 초소가 <strong>금지 낱말을 잡아 라인을 세웠다</strong>는 증거입니다.
+      그리고 최종 <code>messages</code> 리스트에는 <strong>딱 두 개</strong>만 담겨 있습니다.
+    </p>
+
+    <div class="chat">
+      <div class="msg"><div class="role role-human">Human</div><div class="bubble">오늘의 암구호는 삼각대-자동차 입니다. <span class="tag">← 사용자가 보낸 원문 (암구호 포함)</span></div></div>
+      <div class="msg"><div class="role role-ai">AI</div><div class="bubble">이 요청은 처리할 수 없습니다. <span class="tag">← 모델이 아니라 우리 미들웨어가 만든 차단 메시지</span></div></div>
+    </div>
+
+    <p>
+      여기서 가장 중요한 사실은 <strong>이 <code>AIMessage</code>가 LLM이 만든 게 아니라는 점</strong>입니다.
+      실제 모델(gpt-5-nano) 호출은 <strong>단 한 번도 일어나지 않았습니다.</strong>
+      사용자의 민감한 문장은 <strong>외부 AI에게 전달되기 전에</strong> 우리 손으로 걸러졌습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 이게 바로 "입력 가드레일"</strong>
+      Guardrail(가드레일)은 도로 옆 <strong>가드레일(난간)</strong>처럼, 시스템이 <strong>위험한 방향으로 벗어나지 못하게 막아주는 안전장치</strong>입니다.
+      <code>@before_model</code>은 <strong>모델에 닿기 전</strong> 단계에 세우는 가드레일이라, 민감 정보 유출·비용 낭비·부적절한 요청을
+      <strong>가장 이른 시점에</strong> 차단할 수 있습니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실전에서는 키워드 검사만으로 부족합니다</strong>
+      이 예시는 원리를 보여주기 위해 <code>"암구호" in ...</code>이라는 <strong>단순 문자열 포함</strong> 검사를 씁니다.
+      하지만 실제 서비스에서는 띄어쓰기·변형·우회 표현을 피해 갈 수 있으므로,
+      정규식·분류 모델·PII 탐지기 같은 <strong>더 촘촘한 검사</strong>를 조합해야 합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <code>@before_model</code>은 <strong>모델을 부르기 직전에 서는 검문소</strong>다.
+      위험한 입력이면 <strong>LLM을 아예 호출하지 않고</strong> <code>jump_to: "end"</code>로 대화를 즉시 끝낼 수 있다.
+    </div>
+
+    <ul>
+      <li><strong>Node-style Hook</strong> — 실행 라인의 <strong>정해진 지점</strong>에서 순서대로 도는 미들웨어(<code>@before_model</code> 등).</li>
+      <li><strong><code>@before_agent</code> vs <code>@before_model</code></strong> — 정문 검표(딱 한 번) vs 놀이기구 안전요원(<strong>모델 부를 때마다</strong>).</li>
+      <li><strong><code>can_jump_to=["end"]</code></strong> — 비상 정지 버튼을 <strong>누를 권한을 미리 등록</strong>하는 선언.</li>
+      <li><strong>반환값의 약속</strong> — <code>None</code>이면 그대로 통과, <code>{"jump_to": "end"}</code>면 모델 없이 즉시 종료.</li>
+      <li><strong>차단 시 <code>AIMessage</code> 직접 생성</strong> — 모델을 안 부르니, 사용자에게 줄 대답은 우리가 채워 넣는다.</li>
+      <li><strong>효과</strong> — 민감 정보(암구호)가 <strong>외부 모델에 닿기 전</strong>에 걸러지는 <strong>입력 가드레일</strong>이 완성된다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./01.html">
+        <small>← 이전 노트북</small>
+        01. Hooks &amp; Middleware 가이드
+      </a>
+      <a class="next" href="./03.html">
+        <small>다음 노트북 →</small>
+        03. Custom Middleware: Wrap-style
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

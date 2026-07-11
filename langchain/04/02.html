@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>02. RAG Load: PyMuPDF</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">02. RAG Load 목차</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+    <a href="#load">Load란 무엇인가 — Document 객체</a>
+    <a href="#compare">PDFPlumber vs PyMuPDF</a>
+    <a href="#load-code">PyMuPDFLoader로 불러오기</a>
+    <a href="#metadata">더 풍부한 Metadata</a>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">다른 노트북</div>
+      <a href="./01.html">01. RAG Load: PDFPlumber</a>
+      <a href="./02.html"><strong>02. RAG Load: PyMuPDF</strong></a>
+      <a href="./03.html">03. RAG Split: 청크 분할</a>
+      <a href="./04.html">04. 캐시 임베더 (CacheBackedEmbeddings)</a>
+      <a href="./05.html">05. RAG Store: Chroma DB</a>
+      <a href="./06.html">06. RAG Retrieve: 검색기 생성</a>
+      <a href="./07.html">07. RAG: 캐시 임베더로 저장·검색</a>
+      <a href="./08.html">08. RAG 응용: Hybrid Search (BM25 + 벡터)</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>02. RAG Load: PyMuPDF</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>02.ipynb</code>
+      &nbsp;·&nbsp; 원문: <a href="../docs/04.rag.md">docs/04.rag.md</a> 2.1.2 PyMuPDF
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+      &nbsp;·&nbsp; 선행: <a href="./01.html">01. RAG Load: PDFPlumber</a>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>02.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      RAG 파이프라인의 첫 단추인 <strong>Load(문서 불러오기)</strong>를, 앞 장의 PDFPlumber에 이어
+      이번에는 <strong>PyMuPDF</strong>라는 또 다른 PDF 로더로 다뤄봅니다.
+      "같은 PDF를 왜 굳이 다른 로더로 읽을까?"라는 질문에 답하며, <strong>표 추출과 풍부한 메타데이터</strong>라는
+      PyMuPDF의 강점을 비유와 예시로 천천히 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      RAG의 다섯 단계(Load → Split → Embed → Store → Retrieve) 중 <strong>맨 앞 Load</strong>를 이어서 배웁니다.
+      PDF에서 텍스트를 꺼내는 도구는 하나가 아닙니다. 이 장은 <strong>PyMuPDF 로더</strong>가 무엇이고,
+      앞서 배운 <strong>PDFPlumber와 무엇이 다른지</strong>, 그리고 그 결과물인 <strong>Document 객체와 metadata</strong>를
+      어떻게 확인하는지 알려줍니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 실행 전 준비</strong>
+      코드를 직접 돌려보려면 <code>langchain-community</code>와 함께 <code>pymupdf</code> 패키지가 설치돼 있어야 하고,
+      노트북과 같은 폴더에 읽을 <code>pdf-file.pdf</code>가 있어야 합니다. 이 교재만 읽을 때는 필요 없습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── Load 개념 ── -->
+    <h2 id="load">Load란 무엇인가 — Document 객체</h2>
+
+    <p>
+      본격적으로 PyMuPDF를 만나기 전에, RAG의 첫 단계인 <strong>Load</strong>가 정확히 무슨 일을 하는지 다시 짚어봅시다.
+      Load는 PDF·CSV·웹페이지 같은 <strong>바깥 세상의 문서</strong>를, LangChain이 다룰 수 있는 표준 형식인
+      <strong>Document 객체</strong>로 바꿔 들여오는 단계입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 수입 물품을 표준 택배 상자에 다시 담기</strong>
+      해외에서 온 물건들은 크기도, 포장도, 라벨 언어도 제각각입니다. 그대로는 우리 물류 창고에서 다루기 어렵죠.
+      그래서 통관을 거치면 <strong>모두 똑같은 규격의 택배 상자</strong>에 다시 담고, 겉면에 표준 <strong>송장</strong>을 붙입니다.
+      Load가 바로 이 작업입니다. 어떤 소스에서 왔든 <strong>Document라는 똑같은 상자</strong>로 통일해주기 때문에,
+      뒤따르는 Split·Embed·Store 단계가 소스 종류를 신경 쓰지 않고 늘 똑같은 방식으로 처리할 수 있습니다.
+    </div>
+
+    <p>Document 상자에는 딱 두 칸이 있습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>속성</th><th>택배 상자에 비유하면</th><th>담기는 내용</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>page_content</code></td><td>상자 안의 내용물</td><td>문서에서 뽑아낸 <strong>실제 텍스트</strong></td></tr>
+          <tr><td><code>metadata</code></td><td>겉면에 붙은 송장 라벨</td><td>소스 경로 · 페이지 번호 · 총 페이지 · 생성일 등 <strong>부가 정보</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 페이지 1장 = Document 1개</strong>
+      PDF 로더는 보통 <strong>PDF의 한 페이지를 Document 하나</strong>로 만듭니다.
+      그래서 3페이지짜리 PDF를 로드하면 Document가 3개 들어 있는 리스트가 돌아옵니다. 이 점은 잠시 뒤 실행 결과에서 직접 확인합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 비교 ── -->
+    <h2 id="compare">PDFPlumber vs PyMuPDF — 왜 로더가 여러 개일까</h2>
+
+    <p>
+      앞 장에서는 <strong>PDFPlumber</strong>로 같은 PDF를 읽었습니다. 그런데 왜 또 다른 로더를 배울까요?
+      PDF 안에는 그냥 줄글 텍스트만 있는 게 아니라 <strong>표, 이미지, 복잡한 레이아웃</strong>이 섞여 있고,
+      로더마다 이걸 얼마나 잘 뽑아내는지가 다르기 때문입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 똑딱이 카메라 vs DSLR</strong>
+      스냅 사진을 빠르게 찍기엔 <strong>똑딱이 카메라(PDFPlumber)</strong>가 최고입니다. 가볍고 빠르고, 일상 텍스트를 담기엔 충분하죠.
+      하지만 세밀한 질감이나 표·수치가 빼곡한 장면을 정밀하게 담아야 한다면 <strong>DSLR(PyMuPDF)</strong>이 유리합니다.
+      렌즈가 좋아 <strong>표를 더 깔끔하게 잡아내고</strong>, 사진에 딸려오는 <strong>촬영 정보(EXIF)처럼 메타데이터도 더 풍부</strong>합니다.
+      둘 중 뭐가 "정답"인 게 아니라, <strong>찍으려는 대상(문서 종류)에 맞춰 고르는</strong> 것입니다.
+    </div>
+
+    <p>노트북에 정리된 두 로더의 비교표를 그대로 옮기면 다음과 같습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>항목</th><th>PDFPlumber</th><th>PyMuPDF</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>기반</td><td>C 언어</td><td>Python</td></tr>
+          <tr><td>속도</td><td>매우 빠름</td><td>빠름</td></tr>
+          <tr><td>표 추출</td><td>보통</td><td><strong>우수</strong></td></tr>
+          <tr><td>Metadata</td><td>기본</td><td><strong>풍부</strong> (format, title, author 등 추가 제공)</td></tr>
+          <tr><td>적합한 문서</td><td>단순 텍스트 위주</td><td>논문, 재무제표, 표가 많은 문서</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 한 줄 선택 기준</strong>
+      <strong>빠른 처리 · 단순 텍스트</strong>라면 PDFPlumber, <strong>표가 많거나 정밀 추출·풍부한 정보</strong>가 필요하면 PyMuPDF.
+      이번 노트북의 예제 PDF는 종목별 보유 비중이 담긴 <strong>ETF 보유내역 표(ARKK Holdings)</strong>라, 표에 강한 PyMuPDF가 잘 어울립니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 코드 ── -->
+    <h2 id="load-code">PyMuPDFLoader로 불러오기</h2>
+
+    <p>
+      사용법은 앞 장의 PDFPlumber와 <strong>거의 판박이</strong>입니다. 로더 클래스 이름만
+      <code>PyMuPDFLoader</code>로 바뀔 뿐, 흐름은 똑같이 3단계입니다.
+      이게 바로 앞에서 말한 "표준 택배 상자"의 힘 — 로더를 갈아끼워도 우리 코드는 거의 그대로입니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>로더 준비</strong><p>읽을 PDF 경로로 <code>PyMuPDFLoader</code> 객체를 만든다</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>불러오기</strong><p><code>loader.load()</code>로 페이지별 Document 리스트를 얻는다</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>확인</strong><p>개수·내용·metadata를 <code>print</code>로 들여다본다</p></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_community.document_loaders import PyMuPDFLoader
+
+
+loader = PyMuPDFLoader("./pdf-file.pdf")
+
+
+docs = loader.load()
+
+print(docs) # 업로드한 파일이 총 3개의 페이지가 있기 때문에 총 3개의 Document 객체가 생성됨
+
+print(len(docs))
+
+print(docs[0].metadata)</code></pre>
+
+    <ul>
+      <li><code>PyMuPDFLoader("./pdf-file.pdf")</code> — 어떤 PDF를 읽을지 <strong>경로만 알려주고</strong> 로더를 만듭니다(아직 읽진 않음).</li>
+      <li><code>loader.load()</code> — 실제로 PDF를 <strong>펼쳐 읽어</strong> 페이지마다 Document 하나씩, <code>docs</code> 리스트로 돌려줍니다.</li>
+      <li><code>docs[0].metadata</code> — 리스트의 <strong>첫 번째 페이지</strong> Document에 붙은 송장(라벨)만 콕 집어 출력합니다.</li>
+    </ul>
+
+    <p>이제 세 개의 <code>print</code>가 각각 무엇을 보여주는지 하나씩 살펴봅니다.</p>
+
+    <h3>① <code>print(docs)</code> — Document 리스트 전체</h3>
+    <p>
+      리스트 안에 Document가 <strong>3개</strong> 들어 있습니다(PDF가 3페이지라서요). 각 Document는
+      <code>metadata=&#123;...&#125;</code>와 <code>page_content='...'</code> 두 칸으로 이뤄져 있죠.
+      실제 출력은 표 내용이 통째로 담겨 매우 길기 때문에, 아래는 구조가 보이도록 <strong>본문을 줄여</strong> 표시한 것입니다.
+    </p>
+
+    <div class="io-label">▶ 이렇게 나와요 (실제 출력, 본문 일부 생략)</div>
+<pre class="result-block">[Document(metadata={'producer': '', 'creator': '', 'creationdate': '2025-11-26T07:05:39+00:00', 'source': './pdf-file.pdf', 'file_path': './pdf-file.pdf', 'total_pages': 3, 'format': 'PDF 1.4', 'title': '', 'author': '', 'subject': '', 'keywords': 'HD:2025-11-26', 'moddate': '2025-11-26T07:05:39+00:00', 'trapped': '', 'modDate': "D:20251126070539+00'00'", 'creationDate': "D:20251126070539+00'00'", 'page': 0}, page_content='Holdings Data - ARKK\nAs of 11/26/2025\nARKK\nARK Innovation ETF\nCompany\nTicker\nCUSIP\nShares\nMarket Value ($)\nWeight (%)\n1\nTESLA INC\nTSLA\n88160R101\n2,204,438\n$924,541,297.20\n12.26%\n ...(1페이지 표 데이터가 길어 생략)... '),
+ Document(metadata={..., 'page': 1}, page_content='Holdings Data - ARKK\n ...(2페이지 표 + 투자 위험 안내문)... '),
+ Document(metadata={..., 'page': 2}, page_content='Holdings Data - ARKK\n ...(3페이지 저작권 안내문)... ')]</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 읽는 법</strong>
+      대괄호 <code>[ ... ]</code>는 리스트, 그 안의 <code>Document(...)</code> 하나하나가 <strong>페이지 한 장</strong>입니다.
+      <code>metadata</code>의 <code>'page': 0 / 1 / 2</code>가 각각 1·2·3페이지를 가리킵니다(번호는 0부터 시작).
+      내용물(<code>page_content</code>)에는 종목명·티커·주식 수·평가액이 줄바꿈(<code>\n</code>)으로 이어져 담겨 있습니다.
+    </div>
+
+    <h3>② <code>print(len(docs))</code> — 몇 페이지였나</h3>
+    <p>리스트에 든 Document 개수, 즉 <strong>페이지 수</strong>입니다. 예제 PDF가 3페이지이므로 <code>3</code>이 나옵니다.</p>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">3</pre>
+
+    <h3>③ <code>print(docs[0].metadata)</code> — 첫 페이지의 송장</h3>
+    <p>
+      첫 번째 Document의 <strong>metadata(송장 라벨)</strong>만 따로 꺼내 본 것입니다.
+      여기서 PyMuPDF의 진가가 드러납니다 — 송장에 적힌 항목이 상당히 많죠.
+    </p>
+
+    <div class="io-label">▶ 이렇게 나와요</div>
+<pre class="result-block">{'producer': '', 'creator': '', 'creationdate': '2025-11-26T07:05:39+00:00', 'source': './pdf-file.pdf', 'file_path': './pdf-file.pdf', 'total_pages': 3, 'format': 'PDF 1.4', 'title': '', 'author': '', 'subject': '', 'keywords': 'HD:2025-11-26', 'moddate': '2025-11-26T07:05:39+00:00', 'trapped': '', 'modDate': "D:20251126070539+00'00'", 'creationDate': "D:20251126070539+00'00'", 'page': 0}</pre>
+
+    <hr />
+
+    <!-- ── 메타데이터 ── -->
+    <h2 id="metadata">더 풍부한 Metadata</h2>
+
+    <p>
+      방금 출력된 송장을 자세히 보면, PDFPlumber가 주던 기본 항목(<code>source</code>, <code>page</code>,
+      <code>total_pages</code>, 생성일 등) <strong>말고도</strong> <code>format</code>, <code>title</code>,
+      <code>author</code>, <code>subject</code>, <code>producer</code> 같은 <strong>문서 자체의 속성</strong>이 함께 담겨 있습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 사진의 EXIF, 책의 판권 페이지</strong>
+      스마트폰으로 찍은 사진에는 우리 눈에 안 보여도 <strong>촬영 시각·기종·설정값(EXIF)</strong>이 숨어 있습니다.
+      책 맨 뒤 <strong>판권 페이지</strong>에는 지은이·출판사·발행일이 적혀 있죠.
+      PyMuPDF의 metadata가 바로 이런 역할입니다. PDF 파일이 <strong>스스로에 대해 기록해 둔 정보</strong>를 더 알뜰히 긁어와,
+      나중에 "이 문서 누가 언제 어떤 형식으로 만들었지?"를 코드에서 바로 확인할 수 있게 해줍니다.
+      (값이 비어 있는 칸은 원본 PDF에 그 정보가 애초에 안 적혀 있었다는 뜻입니다.)
+    </div>
+
+    <p>metadata에 담긴 주요 항목을 정리하면 다음과 같습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>필드</th><th>의미</th><th>이 예제에서의 값</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>source</code> / <code>file_path</code></td><td>원본 파일 경로</td><td><code>./pdf-file.pdf</code></td></tr>
+          <tr><td><code>page</code></td><td>페이지 번호(0부터)</td><td><code>0</code> (첫 페이지)</td></tr>
+          <tr><td><code>total_pages</code></td><td>전체 페이지 수</td><td><code>3</code></td></tr>
+          <tr><td><code>format</code></td><td>PDF 버전/형식 <span class="badge badge-green">PyMuPDF 추가</span></td><td><code>PDF 1.4</code></td></tr>
+          <tr><td><code>title</code> / <code>author</code> / <code>subject</code></td><td>제목·저자·주제 <span class="badge badge-green">PyMuPDF 추가</span></td><td>비어 있음(원본 미기재)</td></tr>
+          <tr><td><code>producer</code> / <code>creator</code></td><td>PDF를 만든 소프트웨어 <span class="badge badge-green">PyMuPDF 추가</span></td><td>비어 있음</td></tr>
+          <tr><td><code>keywords</code></td><td>문서 키워드</td><td><code>HD:2025-11-26</code></td></tr>
+          <tr><td><code>creationdate</code> / <code>moddate</code></td><td>생성일 · 수정일</td><td><code>2025-11-26T07:05:39+00:00</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-card" id="why-metadata">
+      <div class="info-card-title">📘 보충 — 풍부한 metadata가 RAG에서 왜 쓸모 있을까?</div>
+      <p>
+        metadata는 단순한 참고 정보가 아니라, 뒤 단계에서 <strong>실전 무기</strong>가 됩니다.
+      </p>
+      <ul>
+        <li><strong>출처 표기</strong> — 답변을 만들 때 "이 정보는 <code>pdf-file.pdf</code> 3페이지에서 나왔어요"처럼 <strong>근거(source)</strong>를 함께 보여줄 수 있습니다.</li>
+        <li><strong>필터링 검색</strong> — "특정 저자의 문서에서만", "특정 페이지 범위에서만" 검색하도록 <strong>metadata로 조건</strong>을 걸 수 있습니다.</li>
+        <li><strong>디버깅</strong> — 이상한 답이 나왔을 때, 어떤 페이지·어떤 파일이 검색됐는지 metadata로 <strong>추적</strong>할 수 있습니다.</li>
+      </ul>
+      <div class="callout callout-info" style="margin-bottom: 0;">
+        <strong>한 줄 요약</strong>
+        내용물(<code>page_content</code>)이 "무엇을 말하는가"라면, 송장(<code>metadata</code>)은 "어디서 왔는가"입니다.
+        RAG에서는 <strong>둘 다</strong> 중요합니다.
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      Load는 아무 문서나 <strong>Document라는 표준 상자</strong>로 바꾸는 단계이고, PyMuPDF는 그 상자를 만드는
+      <strong>여러 로더 중 표·메타데이터에 강한 선택지</strong>다.
+    </div>
+
+    <ul>
+      <li><strong>Load = 표준 택배 상자</strong> — 어떤 소스든 <code>page_content</code>(내용물)와 <code>metadata</code>(송장)를 가진 <strong>Document</strong>로 통일한다.</li>
+      <li><strong>페이지 1장 = Document 1개</strong> — 3페이지 PDF → <code>len(docs)</code>는 <code>3</code>.</li>
+      <li><strong>PyMuPDF = DSLR</strong> — PDFPlumber(똑딱이)보다 <strong>표 추출이 우수</strong>하고 <strong>metadata가 풍부</strong>하다. 논문·재무제표·표 많은 문서에 적합.</li>
+      <li><strong>사용법은 판박이</strong> — <code>PyMuPDFLoader(경로)</code> → <code>.load()</code>. 로더만 갈아끼우면 나머지 코드는 그대로.</li>
+      <li><strong>metadata는 무기</strong> — <code>format·title·author</code> 등 문서 자체 정보까지 담겨, 출처 표기·필터 검색·디버깅에 쓰인다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./01.html">
+        <small>← 이전 노트북</small>
+        01. RAG Load: PDFPlumber
+      </a>
+      <a class="next" href="./03.html">
+        <small>다음 노트북 →</small>
+        03. RAG Split: 청크 분할
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
