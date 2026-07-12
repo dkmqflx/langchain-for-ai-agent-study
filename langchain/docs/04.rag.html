@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>04. RAG — Retrieval-Augmented Generation</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">04. RAG 목차</div>
+
+    <div class="nav-section">
+      <div class="nav-title">1장. RAG 개요</div>
+      <a href="#sec1-1">1.1 LLM의 한계</a>
+      <a href="#sec1-2">1.2 RAG란?</a>
+      <a href="#sec1-3">1.3 RAG 시스템 구축 순서</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">2장. RAG 시스템 구축</div>
+      <a href="#sec2-1">2.1 Load — 문서 로딩</a>
+      <a href="#sec2-2">2.2 Split — 청크 분할</a>
+      <a href="#sec2-3">2.3 Embed — 임베딩</a>
+      <a href="#sec2-4">2.4 Store — Vector Store</a>
+      <a href="#sec2-5">2.5 Retrieve — 검색</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">3장. RAG 응용</div>
+      <a href="#sec3-1">3.1 Agentic RAG</a>
+      <a href="#sec3-2">3.2 Hybrid RAG</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">정리</div>
+      <a href="#summary">📚 4장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">관련 폴더</div>
+      <a href="../04/index.html">04 폴더 학습 로드맵 →</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>04. RAG — Retrieval-Augmented Generation</h1>
+    <p class="doc-meta">
+      원문: <code>docs/04.rag.md</code>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span>
+    </p>
+
+    <p class="lead">
+      이 자료는 <code>langchain/04</code> 폴더의 실습 노트북(01~08)을 압축한 <strong>요약 강의 교재</strong>입니다.
+      LLM의 두 가지 한계를 보완하는 <strong>RAG(검색 증강 생성)</strong>의 개념부터,
+      <strong>Load → Split → Embed → Store → Retrieve</strong>로 이어지는 RAG 파이프라인 구축,
+      그리고 <strong>Agentic RAG · Hybrid RAG</strong> 같은 응용 아키텍처까지 한 번에 훑어봅니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════ 1장. RAG 개요 ══════════════ -->
+    <h2 id="ch1">1장. RAG 개요</h2>
+    <p>
+      RAG가 <strong>왜</strong> 필요한지(LLM의 한계), RAG가 <strong>무엇</strong>인지(작동 방식),
+      그리고 RAG 시스템을 만들 때 <strong>어떤 순서</strong>로 준비해야 하는지를 먼저 살펴봅니다.
+    </p>
+
+    <hr />
+
+    <h2 id="sec1-1">1.1 LLM의 한계</h2>
+
+    <p>아래는 LLM이 태생적으로 안고 있는 두 가지 한계를 보여줍니다.</p>
+    <img src="../images/04.rag/02.png" alt="LLM의 두 가지 한계 다이어그램" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>LLM은 강력하지만 두 가지 근본적인 한계가 있습니다.</p>
+    <ol>
+      <li><strong>유한한 컨텍스트</strong> : 한 번에 모든 데이터를 입력받을 수 없습니다.</li>
+      <li><strong>정적인 지식</strong> : 학습 데이터가 특정 시점에 고정되어 있습니다. (Knowledge Cutoff)</li>
+    </ol>
+
+    <div class="callout callout-info">
+      <strong>💡 예시</strong>
+      예를 들어 <code>gpt-5-nano-2025-08-07</code> 모델은 2025년 8월 7일 이후의 정보를 알지 못합니다.
+    </div>
+
+    <hr />
+
+    <h2 id="sec1-2">1.2 RAG란?</h2>
+
+    <p>아래는 RAG의 정의를 나타낸 다이어그램입니다.</p>
+    <img src="../images/04.rag/03.png" alt="RAG 정의 다이어그램" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <strong>RAG</strong>는 <strong>Retrieval-Augmented Generation</strong>의 약자로, <strong>검색(Retrieval)</strong>을 통해
+      LLM의 생성(Generation)을 <strong>증강(Augmented)</strong>하는 기술입니다.
+    </p>
+
+    <div class="callout callout-analogy" id="overview">
+      <strong>🔍 비유 — 폐쇄형 시험 vs 오픈북 시험</strong>
+      LLM에게 그냥 질문하는 것은 <strong>아무 자료 없이 순수 암기력으로 치르는 시험</strong>과 같습니다.
+      모델은 학습이 끝난 시점까지 외운 것만 알고, 그 뒤에 나온 정보나 우리 회사 내부 문서는 알지 못하죠.
+      <strong>RAG</strong>는 이 시험을 <strong>오픈북 시험</strong>으로 바꿔 줍니다 — 질문이 들어오면 먼저
+      <strong>관련 자료를 책에서 찾아 펼쳐 놓고(검색)</strong>, 그 내용을 보면서 답을 쓰게(생성) 하는 것이죠.
+      그래서 이름이 <strong>Retrieval(검색)-Augmented(증강) Generation(생성)</strong>입니다.
+    </div>
+
+    <p>아래는 RAG 아키텍처의 전체 개념도입니다.</p>
+    <img src="../images/04.rag/04.png" alt="RAG 아키텍처 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <h3>RAG의 작동 방식</h3>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>사용자 질문</strong><p>Question — 사용자가 궁금한 것을 입력한다</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>관련 문서 검색</strong><p>RETRIEVE — Vector DB에서 관련 문서를 찾는다</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>프롬프트에 추가</strong><p>PROMPT — 검색 결과를 질문과 함께 프롬프트에 넣는다</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>답변 생성</strong><p>LLM이 검색된 정보를 바탕으로 답을 만든다</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>최종 답변</strong><p>Answer — 사용자에게 답변을 반환한다</p></div>
+    </div>
+
+    <p>
+      LLM이 학습 데이터에 없는 정보도 <strong>외부 문서를 실시간으로 검색해 참고</strong>함으로써
+      정확하고 최신의 답변을 생성할 수 있습니다.
+    </p>
+
+    <hr />
+
+    <h2 id="sec1-3">1.3 RAG 시스템 구축 순서</h2>
+
+    <p>아래는 RAG 시스템을 구축하는 전체 순서를 나타낸 다이어그램입니다.</p>
+    <img src="../images/04.rag/05.png" alt="RAG 시스템 구축 순서 다이어그램" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      RAG 시스템은 <strong>사전 준비(인덱싱)</strong>와 <strong>런타임(검색·생성)</strong> 두 단계로 나뉩니다.
+    </p>
+
+    <h3>사전 준비 (인덱싱)</h3>
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Load</strong><p>다양한 소스(PDF, CSV 등)를 Document 객체로 변환</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Split</strong><p>Document를 작은 Chunk(말뭉치)로 분할</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>Embed</strong><p>각 Chunk를 고정 길이의 숫자 벡터로 변환</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>Store</strong><p>벡터를 Vector DB에 저장</p></div>
+    </div>
+
+    <h3>런타임 (검색·생성)</h3>
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Retrieve</strong><p>사용자 질문을 임베딩 → Vector DB에서 유사 문서 검색</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Generate</strong><p>검색된 문서를 프롬프트에 추가해 LLM이 답변 생성</p></div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도서관을 새로 여는 준비</strong>
+      RAG를 하나의 <strong>도서관</strong>이라고 생각해 보세요. 손님(질문)이 오기 전에 사서가 할 일이 있습니다.
+      책을 <strong>들여오고(Load)</strong>, 두꺼운 책을 챕터로 <strong>나누고(Split)</strong>, 내용에 따라 <strong>분류 번호를 붙이고(Embed)</strong>,
+      <strong>서가에 꽂아(Store)</strong> 둡니다. 그래야 나중에 손님이 오면 딱 맞는 책을 <strong>빠르게 찾아(Retrieve)</strong> 건넬 수 있죠.
+      2장에서는 이 다섯 단계를 하나씩 직접 만들어 봅니다.
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 2장. RAG 시스템 구축 ══════════════ -->
+    <h2 id="ch2">2장. RAG 시스템 구축</h2>
+    <p>
+      RAG 파이프라인의 다섯 단계 — <strong>Load → Split → Embed → Store → Retrieve</strong> — 를 한눈에 먼저 보고,
+      이어서 각 단계를 절 순서대로 자세히 살펴봅니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Load</strong><p>PDF·CSV 등을 Document 객체로 변환</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Split</strong><p>Document를 작은 Chunk로 분할</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>Embed</strong><p>Chunk를 숫자 벡터로 변환</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>Store</strong><p>벡터를 Vector DB에 저장</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>Retrieve</strong><p>질문과 유사한 Chunk를 검색</p></div>
+    </div>
+
+    <hr />
+
+    <h2 id="sec2-1">2.1 Load — 문서 로딩</h2>
+
+    <p>아래는 Load 단계의 개념도입니다.</p>
+    <img src="../images/04.rag/06.png" alt="Load 단계 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <strong>Load</strong>는 RAG 시스템 구축의 <strong>첫 번째 단계</strong>입니다.
+      다양한 데이터 소스(PDF, CSV, Google Drive 등)를 LangChain에서 작업할 수 있는 <strong>Document 객체</strong>로 변환합니다.
+    </p>
+
+    <p>각 Document 객체는 두 가지 핵심 속성을 가집니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>속성</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><code>page_content</code></td><td>문서의 실제 텍스트 내용</td></tr>
+          <tr><td><code>metadata</code></td><td>소스 경로, 페이지 번호, 생성일 등 부가 정보</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 택배 상자와 송장 라벨</strong>
+      Document 객체는 <strong>택배 상자</strong> 하나와 같습니다. 상자를 열면 나오는 <strong>내용물</strong>이
+      <code>page_content</code>(실제 글자)이고, 상자 겉면에 붙은 <strong>송장 라벨</strong>이 <code>metadata</code>(어디서 왔는지,
+      몇 번째 페이지인지 같은 부가 정보)입니다.
+    </div>
+
+    <h3>2.1.1 PDFPlumber</h3>
+
+    <p>아래는 PDFPlumber 로더의 특징을 보여줍니다.</p>
+    <img src="../images/04.rag/07.png" alt="PDFPlumber 로더 개념" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <ul>
+      <li><strong>C 언어 기반</strong> → 매우 빠름</li>
+      <li>대량의 문서, <strong>단순 텍스트 추출</strong>에 유리</li>
+    </ul>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_community.document_loaders import PDFPlumberLoader
+
+loader = PDFPlumberLoader("./pdf-file.pdf")
+docs = loader.load()
+
+print(len(docs))  # 페이지 수
+print(docs[0])    # 첫 번째 페이지 Document 객체</code></pre>
+
+    <p>아래는 로드된 첫 번째 페이지 Document 객체를 확인한 결과 화면입니다.</p>
+    <img src="../images/04.rag/08.png" alt="PDFPlumber로 로드한 Document 객체 예시" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><code>docs[0].metadata</code>에는 소스 경로, 파일명, 페이지 번호, 총 페이지 수, 생성일 등의 정보가 담겨 있습니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>import pprint
+pprint.pp(docs[0].metadata)</code></pre>
+
+    <div class="io-label">▶ 이렇게 나와요 (예상 출력)</div>
+<pre class="result-block">{'source': '/content/ARK_INNOVATION_ETF_ARKK_HOLDINGS.pdf',
+ 'file_path': '...',
+ 'page': 0,
+ 'total_pages': 3,
+ 'Keywords': 'HD:2025-11-26',
+ 'CreationDate': "D:20251126070539+00'00'",
+ 'ModDate': "D:20251126070539+00'00'"}</pre>
+
+    <h3>2.1.2 PyMUPDF</h3>
+
+    <p>아래는 PyMuPDF 로더의 특징을 보여줍니다.</p>
+    <img src="../images/04.rag/10.png" alt="PyMuPDF 로더 개념" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <ul>
+      <li><strong>Python 기반</strong></li>
+      <li><strong>표 추출</strong>에 유리, 더 많은 Metadata 제공</li>
+      <li>논문, 재무제표, 표가 많은 문서, 정밀 분석에 유리</li>
+    </ul>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_community.document_loaders import PyMuPDFLoader
+
+loader = PyMuPDFLoader("./pdf-file.pdf")
+docs = loader.load()
+docs[0]</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 똑딱이 카메라 vs DSLR</strong>
+      스냅 사진을 빠르게 찍기엔 <strong>똑딱이 카메라(PDFPlumber)</strong>가 최고입니다. 가볍고 빠르고, 일상 텍스트를 담기엔 충분하죠.
+      하지만 세밀한 질감이나 표·수치가 빼곡한 장면을 정밀하게 담아야 한다면 <strong>DSLR(PyMuPDF)</strong>이 유리합니다.
+      렌즈가 좋아 <strong>표를 더 깔끔하게 잡아내고</strong>, 사진에 딸려오는 <strong>촬영 정보(EXIF)처럼 메타데이터도 더 풍부</strong>합니다.
+      둘 중 뭐가 "정답"인 게 아니라, <strong>찍으려는 대상(문서 종류)에 맞춰 고르는</strong> 것입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 어떤 Loader를 선택할까?</strong>
+      빠른 처리, 단순 텍스트 → <strong>PDFPlumber</strong> &nbsp;·&nbsp; 표가 많거나 정밀 추출 필요 → <strong>PyMUPDF</strong>
+    </div>
+
+    <hr />
+
+    <h2 id="sec2-2">2.2 Split — 청크 분할</h2>
+
+    <p>아래는 Split 단계의 개념도입니다.</p>
+    <img src="../images/04.rag/11.png" alt="Split 단계 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <strong>Split</strong>은 RAG 시스템 구축의 <strong>두 번째 단계</strong>입니다.
+      Load한 Document 객체를 <strong>작은 말뭉치(Chunk)</strong>로 쪼갭니다.
+    </p>
+
+    <h3>왜 쪼개야 할까?</h3>
+    <p>
+      LLM의 <strong>Context Window 사이즈 한계</strong> 때문입니다. 전체 문서를 한 번에 넣을 수 없으므로,
+      관련된 부분만 잘라서 LLM에게 전달해야 합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 두꺼운 백과사전과 복사기</strong>
+      친구가 "고래는 왜 포유류야?"라고 물었을 때, 30권짜리 백과사전 <strong>전체를 통째로 건네주면</strong> 친구는 필요한 답을 찾다 지쳐버립니다.
+      대신 <strong>'고래' 항목 한두 페이지만 복사해서</strong> 건네주면 바로 답을 찾을 수 있죠.
+      LLM도 똑같습니다. 문서를 통째로 넣을 수 없으니(공간 제한), 미리 <strong>알맞은 크기의 조각(Chunk)</strong>으로 잘라 두었다가
+      질문과 관련된 조각만 골라 건네줍니다. 이 "미리 잘라 두는 작업"이 바로 <strong>Split</strong>입니다.
+    </div>
+
+    <h3>2.2.1 RecursiveCharacterTextSplitter — 재귀적 문자 텍스트 분할기</h3>
+
+    <p>아래는 RecursiveCharacterTextSplitter의 동작 방식을 보여줍니다.</p>
+    <img src="../images/04.rag/13.png" alt="RecursiveCharacterTextSplitter 동작 방식" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <strong>가장 많이 사용되는 텍스트 분할기</strong>입니다. <strong>큰 단위에서 작은 단위로 순차적으로 내려가며 쪼개는 방식</strong>으로,
+      문맥을 최대한 보존합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 초콜릿 판 쪼개기</strong>
+      큰 판초콜릿을 나눠 먹을 때, 우리는 아무 데나 부러뜨리지 않습니다. 먼저 <strong>깊게 파인 큰 홈(문단, <code>\n\n</code>)</strong>을 따라 뚝 자릅니다.
+      그래도 조각이 크면 <strong>다음으로 얕은 홈(줄, <code>\n</code>)</strong>을 따라, 그것도 없으면 <strong>손톱 자국(공백)</strong>을 따라,
+      정 안 되면 <strong>결국 아무 데나(글자)</strong> 부러뜨리죠. Recursive 분할기가 딱 이 순서로 움직입니다.
+      "최대한 티 안 나게, 자연스러운 금부터."
+    </div>
+
+    <h4>분할 우선순위 (기본값)</h4>
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong><code>\n\n</code></strong><p>문단 바꿈 — 가장 큰 단위부터 시도</p></div>
+      <div class="flow-step"><span class="n">2</span><strong><code>\n</code></strong><p>줄 바꿈 — 문단으로 안 되면 여기서</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>공백 <code>" "</code></strong><p>띄어쓰기 — 줄바꿈도 없으면 단어 사이</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>글자 <code>""</code></strong><p>최후의 수단 — 공백도 없으면 글자로</p></div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+docs = loader.load()
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=300,      # 각 청크의 최대 글자 수
+    chunk_overlap=0,     # 청크 간 겹치는 글자 수 (문맥 연결용)
+    separators=["\n\n", "\n", " ", ""]  # 기본 우선순위
+)
+
+recursive_docs = text_splitter.split_documents(docs)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>📝 <code>split_texts</code> vs <code>split_documents</code></strong>
+      <code>split_texts</code>는 문자열을, <code>split_documents</code>는 <strong>Document 객체 리스트</strong>를 청킹할 때 사용합니다.
+    </div>
+
+    <p>아래는 <code>chunk_size=100</code>으로 분할한 결과 예시입니다.</p>
+    <img src="../images/04.rag/15.png" alt="chunk_size=100 청킹 결과 예시" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <code>chunk_size=100</code>으로 설정하면 본문이 여러 개의 Chunk로 나뉘어, 각각 100자 이하의 텍스트가 담긴
+      청크 목록이 생성됩니다.
+    </p>
+
+    <h3>2.2.2 청킹 전략 참고</h3>
+
+    <p>아래는 AWS Bedrock이 지원하는 청킹 전략들을 정리한 자료입니다.</p>
+    <img src="../images/04.rag/17.png" alt="AWS Bedrock 청킹 전략 비교" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>전략</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><strong>기본 청킹</strong></td><td>약 300 토큰 크기로 자동 분할</td></tr>
+          <tr><td><strong>고정 크기 청킹</strong></td><td>설정한 고정 토큰 크기로 분할</td></tr>
+          <tr><td><strong>계층적 청킹</strong></td><td>상위-하위 관계의 계층 구조로 분할</td></tr>
+          <tr><td><strong>의미 체계 청킹</strong></td><td>서로 의미상 얼마나 유사한지를 기준으로 분할</td></tr>
+          <tr><td><strong>청킹 없음</strong></td><td>이미 사전 처리된 문서에 적합</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr />
+
+    <h2 id="sec2-3">2.3 Embed — 임베딩 (벡터화)</h2>
+
+    <p>아래는 Embed 단계의 개념도입니다.</p>
+    <img src="../images/04.rag/18.png" alt="Embed 단계 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <strong>Embed</strong>는 RAG 시스템 구축의 <strong>세 번째 단계</strong>입니다.
+      Split한 각 Chunk를 <strong>고정 길이의 숫자 배열(벡터)로 변환</strong>합니다. 이후 유사도 검색을 위해 필요합니다.
+    </p>
+
+    <h3>2.3.1 임베딩/벡터라이징이란?</h3>
+
+    <p>아래는 텍스트가 벡터로 변환되는 과정을 보여줍니다.</p>
+    <img src="../images/04.rag/19.png" alt="임베딩 벡터화 과정" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>텍스트, 이미지 등을 <strong>컴퓨터가 이해하고 계산할 수 있는 숫자들로 바꾸는 과정</strong>입니다.</p>
+
+    <div class="io-label">▶ 예시</div>
+<pre class="code-block"><code>"anatine amigos" → [-0.027, -0.001, -0.020, ..., -0.023]
+"porcine pals"   → [-0.011, -0.011,  0.032, ..., -0.011]</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 의미 지도 위의 GPS 좌표</strong>
+      거대한 <strong>의미 지도</strong>가 있다고 상상해보세요. 이 지도 위에서 뜻이 비슷한 단어들은 서로 <strong>가까이</strong> 모여 있습니다.
+      "강아지"와 "개"는 바로 옆 동네, "자동차"는 저 멀리 다른 구역에 있죠. 임베딩은 어떤 텍스트가 이 지도의
+      <strong>어디쯤에 있는지를 나타내는 GPS 좌표(숫자 목록)</strong>를 찍어주는 일입니다.
+      좌표가 가까우면 의미가 비슷하다 — 이것이 나중에 "유사한 문서 검색"의 원리가 됩니다.
+    </div>
+
+    <p>아래는 이 원리를 FIFA 선수 데이터에 빗댄 그림입니다.</p>
+    <img src="../images/04.rag/20.png" alt="FIFA 선수 데이터로 본 임베딩 유사도 비유" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="callout callout-info">
+      <strong>💡 FIFA 선수 데이터 비유</strong>
+      메시와 호날두처럼 비슷한 특성을 가진 선수들은 임베딩 벡터도 유사하게 나옵니다. 이와 같은 원리로
+      <strong>유사한 의미의 텍스트는 유사한 벡터값</strong>을 갖습니다.
+    </div>
+
+    <h3>2.3.2 OpenAI Embedding 모델</h3>
+
+    <p>아래는 OpenAI Embedding 모델을 사용하는 흐름을 보여줍니다.</p>
+    <img src="../images/04.rag/21.png" alt="OpenAI Embedding 모델 개념" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import OpenAIEmbeddings
+from langchain_core.vectorstores import InMemoryVectorStore
+
+# 1. 임베딩 모델 객체 생성
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+
+text = "랭체인이 뭔가요?"
+
+# 2. 임베딩 결과를 Vector Store에 저장
+vectorstore = InMemoryVectorStore.from_texts(
+    [text],
+    embedding=embeddings,
+)</code></pre>
+
+    <h3>2.3.3 CacheBackedEmbeddings — 임베딩 캐싱</h3>
+
+    <p>아래는 CacheBackedEmbeddings의 동작 구조를 보여줍니다.</p>
+    <img src="../images/04.rag/22.png" alt="CacheBackedEmbeddings 구조" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      임베딩 API 호출은 비용이 발생합니다. <strong>한 번 임베딩한 텍스트 결과를 로컬 파일에 저장해두고, 똑같은 텍스트가
+      들어오면 API 호출 대신 저장된 파일을 사용</strong>합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 유료 번역가 vs 내 번역 공책</strong>
+      "How are you?"를 한국어로 바꿔야 할 때, 매번 <strong>유료 번역가(OpenAI 임베딩 API)</strong>에게 돈을 내고 맡길 수도 있습니다.
+      하지만 똑똑한 사람은 <strong>한 번 번역한 문장을 공책에 적어둡니다.</strong> 다음에 똑같은 "How are you?"가 오면
+      번역가를 부르지 않고 <strong>공책을 펼쳐 즉시 답을 베낍니다.</strong> 돈도 안 들고 훨씬 빠르죠.
+      캐시 임베더가 바로 이 <strong>번역 공책</strong>입니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+
+# 1. 실제 계산을 담당할 핵심 임베딩 모델
+underlying_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# 2. 캐시 데이터를 저장할 물리적 위치
+store = LocalFileStore("./cache/")
+
+# 3. 캐시 지원 임베딩 래퍼(Wrapper) 생성
+cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+    underlying_embeddings,   # 실제 계산을 수행할 모델 객체
+    store,                   # 결과를 저장하고 불러올 저장소 객체
+    namespace=underlying_embeddings.model  # 충돌 방지용 이름표
+)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>📌 캐시의 효과</strong>
+      같은 텍스트를 두 번 임베딩하면 첫 번째는 API를 호출하지만, 두 번째는 캐시에서 즉시 반환합니다.
+      비용과 시간 모두 절약됩니다.
+    </div>
+
+    <hr />
+
+    <h2 id="sec2-4">2.4 Store — Vector Store 저장</h2>
+
+    <p>아래는 Store 단계의 개념도입니다.</p>
+    <img src="../images/04.rag/23.png" alt="Store 단계 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>
+      <strong>Store</strong>는 RAG 시스템 구축의 <strong>네 번째 단계</strong>입니다.
+      임베딩한 결과(벡터)를 Vector Database에 저장합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 정리 안 된 책 더미 vs 도서관</strong>
+      임베딩만 끝낸 상태는 <strong>바닥에 쌓인 책 더미</strong>와 같습니다. 분명 있긴 한데, 필요한 책을 찾으려면 하나하나 뒤져야 하죠.
+      <strong>Store</strong>는 이 책들을 <strong>도서관 서고에 분류해 꽂아 두는 일</strong>입니다.
+      한 번 잘 꽂아 두면, 나중에 "테슬라 이야기 나온 책"이라고 말만 해도 <strong>사서(similarity_search)</strong>가 곧바로 찾아줍니다.
+      그리고 이 서고는 <strong>파일</strong>이라, 도서관 문을 닫았다 다시 열어도(프로그램 재시작) 책이 그대로 남아 있습니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 주요 Vector DB</strong>
+      <strong>Chroma</strong>, <strong>FAISS</strong>, <strong>MongoDB</strong> 등이 있습니다.
+    </div>
+
+    <h3>2.4.1 Chroma DB</h3>
+
+    <p>아래는 Chroma DB의 저장 구조를 보여줍니다.</p>
+    <img src="../images/04.rag/24.png" alt="Chroma DB 저장 구조" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Chroma</strong>는 벡터로 전환한 데이터를 <strong>파일 형태로 저장</strong>합니다. 프로그램을 껐다 켜도 데이터가 보존됩니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_chroma import Chroma
+
+# 1. DB 경로 설정
+CHROMA_PATH = "./chroma_db"
+
+# 2. Store 생성 (Split한 문서를 임베딩해서 저장)
+db = Chroma.from_documents(
+    documents=recursive_docs,         # Split한 문서 리스트
+    embedding=cached_embedder,        # 임베딩 모델
+    persist_directory=CHROMA_PATH,    # 데이터를 저장할 폴더 경로
+    collection_name="rag_collection"  # (선택) DB 내의 테이블 이름 같은 개념
+)</code></pre>
+
+    <p>기존 Chroma DB를 불러올 때는 <code>documents=</code> 인자 없이 경로만 지정합니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 기존 DB 불러오기 (새 문서 추가 없이 검색만)
+db = Chroma(
+    collection_name="rag_collection",
+    embedding_function=cached_embedder,
+    persist_directory=CHROMA_PATH,
+)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도서관 '새로 짓기' vs '문 열기'</strong>
+      <code>Chroma.from_documents(documents=...)</code>는 <strong>책을 한 아름 안고 들어가 서가에 꽂으며 도서관을 새로 짓는</strong> 일입니다.
+      반면 <code>documents=</code> 없이 <code>Chroma(persist_directory=경로)</code>만 쓰는 것은
+      <strong>이미 다 지어진 도서관의 문을 열고 들어가 열람만 하는</strong> 것입니다.
+      경로에 데이터가 있으면 그대로 <strong>불러오고</strong>, 없으면 빈 도서관이 하나 만들어질 뿐 새 책이 자동으로 들어오진 않습니다.
+    </div>
+
+    <hr />
+
+    <h2 id="sec2-5">2.5 Retrieve — 검색</h2>
+
+    <p>아래는 Retrieve 단계의 개념도입니다.</p>
+    <img src="../images/04.rag/25.png" alt="Retrieve 단계 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Retrieve</strong>는 사용자의 질문을 임베딩해 Vector Store에서 <strong>유사한 문서를 검색</strong>하는 단계입니다.</p>
+
+    <h3>유사도 측정 방법</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>방법</th><th>설명</th><th>특징</th></tr></thead>
+        <tbody>
+          <tr><td><strong>코사인 유사도</strong><br />(Cosine Similarity)</td><td>두 벡터 사이의 각도 계산</td><td>벡터의 크기는 무시, <strong>방향</strong>만 비교. 가장 많이 사용</td></tr>
+          <tr><td><strong>유클리드 거리</strong><br />(Euclidean Distance)</td><td>두 점 사이의 직선거리(L2 Distance) 계산</td><td>거리가 가까울수록 유사</td></tr>
+          <tr><td><strong>내적</strong><br />(Dot Product)</td><td>한 벡터를 다른 벡터에 투영했을 때의 길이 곱</td><td>방향과 크기 모두 고려</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 거리를 재는 세 가지 '자'</strong>
+      두 지점이 얼마나 가까운지 재는 방법은 하나가 아닙니다.
+      <strong>코사인(<code>cosine</code>)</strong>은 <strong>나침반</strong>처럼 "방향이 같은가"만 봅니다(크기 무시).
+      <strong>유클리드(<code>l2</code>)</strong>는 <strong>줄자</strong>처럼 두 점 사이 직선거리를 잽니다.
+      <strong>내적(<code>ip</code>)</strong>은 방향과 크기를 <strong>모두</strong> 고려하죠. 텍스트 의미 검색에서는 보통
+      <strong>코사인</strong>이 가장 무난해서 널리 씁니다.
+    </div>
+
+    <h3>2.5.1 검색기 생성 — <code>as_retriever()</code></h3>
+
+    <p>아래는 <code>as_retriever()</code>로 검색기를 만드는 흐름을 보여줍니다.</p>
+    <img src="../images/04.rag/26.png" alt="as_retriever() 검색기 생성 흐름" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><code>as_retriever()</code> 메서드로 Vector Store 기반 검색기를 생성하고, <code>invoke()</code>로 실행합니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># ① 유사도 점수 임계값 방식 (threshold)
+retriever = db.as_retriever(
+    search_type="similarity_score_threshold",
+    search_kwargs={"score_threshold": 0.4}  # 유사도 0.4 이상인 문서만 반환
+)
+results = retriever.invoke("ARKK의 Tesla 투자 비중은?")
+
+# ② MMR 방식 (다양성 고려)
+retriever = db.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 5}  # 상위 5개 반환
+)</code></pre>
+
+    <h3>2.5.2 MMR (Maximal Marginal Relevance)</h3>
+
+    <p>아래는 MMR 검색의 개념도입니다.</p>
+    <img src="../images/04.rag/27.png" alt="MMR 검색 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>일반 유사도 검색은 "가장 비슷한 것"만 찾기 때문에 <strong>똑같은 내용의 문장만 3개</strong> 나올 수 있습니다.</p>
+    <p><strong>MMR</strong>은 <strong>"관련 있으면서도 서로 다른(다양한)"</strong> 내용을 찾아줍니다.</p>
+
+    <div class="io-label">▶ 비교</div>
+<pre class="code-block"><code>일반 검색: 유사도 Top-K → [A, A', A''] (비슷한 것만)
+MMR 검색 : 유사도 ↑ + 중복 제거 → [A, B, C] (다양한 내용)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 뷔페에서 접시 담기</strong>
+      일반 유사도 검색은 "제일 맛있는 요리"만 찾다 보니 <strong>같은 파스타를 세 접시</strong> 담아 올 수 있습니다(중복).
+      MMR은 <strong>"맛있으면서도 서로 다른"</strong> 요리를 담습니다 — 파스타 하나, 샐러드 하나, 스테이크 하나처럼요.
+      덕분에 LLM이 <strong>한쪽으로 치우치지 않고</strong> 폭넓은 근거로 답할 수 있습니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>📌 RAG 품질 향상에 MMR이 효과적인 이유</strong>
+      동일 내용의 문서가 반복되면 LLM이 편향된 답변을 생성할 수 있습니다.
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 3장. RAG 응용 ══════════════ -->
+    <h2 id="ch3">3장. RAG 응용</h2>
+    <p>
+      기본 RAG 파이프라인을 확장한 두 가지 고급 아키텍처 — 스스로 검색 여부를 판단하는
+      <strong>Agentic RAG</strong>와, 여러 검색 방식을 결합하는 <strong>Hybrid RAG</strong>를 살펴봅니다.
+    </p>
+
+    <hr />
+
+    <h2 id="sec3-1">3.1 Agentic RAG</h2>
+
+    <p>아래는 Agentic RAG 아키텍처의 개념도입니다.</p>
+    <img src="../images/04.rag/29.png" alt="Agentic RAG 아키텍처 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>RAG 아키텍처는 시스템의 요구사항에 따라 다양한 방식으로 구현할 수 있습니다.</p>
+
+    <h3>2-Step RAG (기본)</h3>
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>사용자 질문</strong></div>
+      <div class="flow-step"><span class="n">2</span><strong>관련 문서 검색</strong></div>
+      <div class="flow-step"><span class="n">3</span><strong>답변 생성</strong></div>
+      <div class="flow-step"><span class="n">4</span><strong>사용자에게 반환</strong></div>
+    </div>
+    <p>고정된 단순 파이프라인. 항상 검색을 수행합니다.</p>
+
+    <h3>Agentic RAG</h3>
+<pre class="code-block"><code>사용자 입력 / 질문
+  ↓
+에이전트(LLM)
+  ↓
+외부 정보가 필요한가?
+  → Yes → 도구로 검색 → 답변이 충분한가?
+                           → Yes → 최종 답변 생성 → 사용자에게 반환
+                           → No  → (반복)
+  → No  → 최종 답변 생성 → 사용자에게 반환</code></pre>
+    <p>LLM이 <strong>스스로 검색 필요 여부를 판단</strong>하고, 충분한 정보가 쌓일 때까지 반복 검색합니다.</p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 매뉴얼대로만 움직이는 신입 vs 판단하는 베테랑</strong>
+      2-Step RAG는 <strong>매뉴얼에 "손님이 오면 무조건 창고부터 확인하라"</strong>고 적힌 대로만 움직이는 신입 직원입니다.
+      이미 아는 손님이 와도 매번 창고에 다녀오죠. 반면 Agentic RAG는 <strong>베테랑 직원</strong>입니다.
+      "이건 내가 이미 아는 내용이네" 싶으면 바로 답하고, <strong>정말 필요할 때만</strong> 창고에 다녀오며, 그마저도
+      <strong>한 번 찾아본 게 부족하면 만족할 때까지 몇 번이고 다시</strong> 찾아봅니다. 스스로 판단하는 능력이 다른 거죠.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">💡 2-Step RAG vs Agentic RAG</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>구분</th><th>2-Step RAG</th><th>Agentic RAG</th></tr></thead>
+          <tbody>
+            <tr><td>검색 여부</td><td>항상 검색</td><td>필요할 때만 검색</td></tr>
+            <tr><td>검색 횟수</td><td>1회 고정</td><td>충분할 때까지 반복</td></tr>
+            <tr><td>제어 주체</td><td>개발자 설계</td><td>LLM이 스스로 판단</td></tr>
+            <tr><td>복잡도</td><td>낮음</td><td>높음</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <hr />
+
+    <h2 id="sec3-2">3.2 Hybrid RAG</h2>
+
+    <p>아래는 Hybrid RAG 아키텍처의 개념도입니다.</p>
+    <img src="../images/04.rag/30.png" alt="Hybrid RAG 아키텍처 개념도" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Hybrid RAG</strong>는 여러 검색 방식과 LLM 추론을 결합한 고급 아키텍처입니다.</p>
+
+<pre class="code-block"><code>사용자 질문
+  ↓
+쿼리 향상 (전처리)
+  ↓
+문서 검색
+  ↓
+정보가 충분한가?
+  → Yes → 답변 생성 → 답변 품질이 괜찮은가?
+                        → Yes → 최적의 답변 반환 → 사용자
+                        → No  → 다른 접근 방식 시도?
+                                  → Yes → (반복)
+                                  → No  → 쿼리 수정 → (재검색)
+  → No  → 쿼리 수정 → (재검색)</code></pre>
+
+    <p><strong>RAG 검색</strong>과 <strong>LLM 추론</strong>이 상호작용하며 답변 품질을 높입니다.</p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도서관의 두 사서</strong>
+      큰 도서관에 성격이 다른 사서 두 명이 있다고 해봅시다.
+      한 명은 <strong>색인 카드 사서</strong>입니다. "혈압"이라고 말하면 제목·본문에 <strong>정확히 그 단어가 든 책</strong>을
+      번개같이 찾아줍니다. 대신 "고혈압 관리법"을 물으면 "관리"라는 글자가 없는 좋은 책은 놓치죠.
+      다른 한 명은 <strong>주제 전문 사서</strong>입니다. 단어가 달라도 <strong>뜻이 통하면</strong> "혈압 조절", "심혈관 건강" 책까지
+      척척 골라줍니다. 대신 "BM25 논문"처럼 <strong>정확한 고유명사</strong>는 가끔 엉뚱한 걸 집어옵니다.
+      <strong>Hybrid Search</strong>는 이 두 사서를 <strong>동시에</strong> 부르는 것입니다. 색인 카드 사서(BM25)와
+      주제 전문 사서(벡터 검색)의 추천을 합치면, 어느 한쪽만 쓸 때보다 훨씬 든든하죠.
+    </div>
+
+    <div class="info-card">
+      <div class="info-card-title">📌 Hybrid Search — BM25 + 벡터 유사도 검색 결합</div>
+      <p>BM25(키워드 기반) + 벡터 유사도 검색을 결합하면 더 정확한 문서를 찾을 수 있습니다.</p>
+      <ul>
+        <li><strong>BM25</strong>: 전통적인 키워드 빈도 기반 검색 알고리즘 (ElasticSearch 기본 알고리즘)</li>
+        <li><strong>Vector Search</strong>: 의미(Semantic) 기반 유사도 검색</li>
+      </ul>
+      <p style="margin-bottom: 0;">두 방식을 결합하면 키워드 매칭과 의미적 유사성을 모두 활용할 수 있습니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 4장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      <strong>RAG</strong>는 LLM의 두 가지 한계(유한한 컨텍스트, 정적인 지식)를 외부 문서 검색으로 보완하는 기술이다.
+      <ul>
+        <li><strong>RAG 파이프라인</strong>: Load → Split → Embed → Store → Retrieve</li>
+        <li><strong>Load</strong>: PDFPlumber(빠름, 텍스트), PyMUPDF(표, 정밀)로 Document 객체 생성</li>
+        <li><strong>Split</strong>: <code>RecursiveCharacterTextSplitter</code>로 <code>\n\n → \n → 공백 → 글자</code> 순으로 청크 분할</li>
+        <li><strong>Embed</strong>: <code>OpenAIEmbeddings</code> + <code>CacheBackedEmbeddings</code>로 비용 절약하며 벡터화</li>
+        <li><strong>Store</strong>: <code>Chroma DB</code>로 파일에 영구 저장</li>
+        <li><strong>Retrieve</strong>: <code>as_retriever()</code>로 검색기 생성, <code>score_threshold</code> 또는 <strong>MMR</strong>로 다양성 있는 검색</li>
+        <li><strong>Agentic RAG</strong>: LLM이 검색 필요 여부를 스스로 판단하고 반복 검색</li>
+        <li><strong>Hybrid RAG</strong>: BM25 키워드 검색 + 벡터 유사도 검색 결합으로 정확도 향상</li>
+      </ul>
+    </div>
+
+    <div class="pager">
+      <a href="./03.advanced-agent.html">
+        <small>← 이전 문서</small>
+        03. Advanced Agent — Context Engineering · Guardrails · Memory
+      </a>
+      <span></span>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

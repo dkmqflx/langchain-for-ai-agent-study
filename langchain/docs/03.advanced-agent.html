@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>03. Advanced Agent — Context Engineering · Guardrails · Memory</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6100; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">03. Advanced Agent 목차</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1장. Advanced Agent</div>
+      <a href="#ctx-eng">1.1 Context Engineering</a>
+      <a href="#runtime-state">1.2 Runtime &amp; State</a>
+      <a href="#dataclass">1.3 dataclass</a>
+      <a href="#node-style">1.4 Runtime 접근 — Node-style</a>
+      <a href="#wrap-style">1.5 Runtime 접근 — Wrap-style</a>
+      <a href="#node-style-adv">1.6 Node-style 심화</a>
+      <a href="#wrap-style-adv">1.7 Wrap-style 심화</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">2장. Guardrails</div>
+      <a href="#builtin-guardrails">2.1 Built-in Guardrails</a>
+      <a href="#custom-guardrails">2.2 Custom Guardrails</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">3장. Memory</div>
+      <a href="#longterm-memory">3.1 Long-term Memory</a>
+      <a href="#store-crud">3.2 Store 기본 CRUD</a>
+      <a href="#inject-memory">3.3 Store → Model 메모리 주입</a>
+      <a href="#memory-shift">3.4 기억 관리 주체 전환</a>
+      <a href="#tool-memory">3.5 Tool 기반 메모리 관리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">정리</div>
+      <a href="#summary">📚 3장 정리</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">관련 폴더</div>
+      <a href="../03/index.html">03. Agent 심화 학습 로드맵 →</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>03. Advanced Agent — Context Engineering · Guardrails · Memory</h1>
+    <p class="doc-meta">
+      원문: <code>docs/03.advanced-agent.md</code>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+    </p>
+
+    <p class="lead">
+      이 자료는 <code>langchain/03</code> 폴더의 실습 노트북들을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      Agent를 프로덕션 수준으로 끌어올리는 데 필요한 세 가지 축 —
+      <strong>Runtime · State로 정교하게 제어하는 Advanced Agent</strong>, <strong>입출력을 검증하는 Guardrails</strong>,
+      <strong>대화가 끝나도 살아남는 Long-term Memory</strong> — 를 비유와 코드로 차근차근 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      기본 Agent는 "질문 → 답변"만 반복합니다. 하지만 실제 서비스에서는 <strong>누가 묻는지(Context)</strong>,
+      <strong>무엇을 기억하는지(State·Store)</strong>, <strong>위험한 요청은 걸러내는지(Guardrails)</strong>,
+      <strong>대화가 끝나도 사용자를 알아보는지(Long-term Memory)</strong>까지 챙겨야 합니다.
+      이 장은 그 네 가지를 하나씩 Agent에 붙여나가는 여정입니다.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>장</th><th>주요 내용</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>1장 Advanced Agent</strong></td><td>Runtime &amp; State · Custom Middleware</td></tr>
+          <tr><td><strong>2장 Guardrails</strong></td><td>Built-in Guardrails · Custom Guardrails</td></tr>
+          <tr><td><strong>3장 Memory</strong></td><td>Long-term Memory</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>▲ 이번 장 전체 지도 — Advanced Agent · Guardrails · Memory 세 축을 순서대로 다룹니다.</p>
+    <img src="../images/03.advanced-agent/01.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <hr />
+
+    <!-- ══════════════ 1장 ══════════════ -->
+    <h2 id="ch1">1장. Advanced Agent</h2>
+    <p>
+      1장에서는 Agent를 더 정교하게 제어하기 위한 두 가지 뼈대 — <strong>Context Engineering</strong>이라는 관점과,
+      그것을 코드로 구현하는 <strong>Runtime &amp; State · Custom Middleware</strong> — 를 다룹니다.
+    </p>
+
+    <hr />
+
+    <!-- ── 1.1 Context Engineering ── -->
+    <h2 id="ctx-eng">1.1 Context Engineering</h2>
+    <p>▲ "프롬프트 엔지니어링"에서 "컨텍스트 엔지니어링"으로 무게중심이 옮겨가고 있음을 보여주는 슬라이드.</p>
+    <img src="../images/03.advanced-agent/02.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>"프롬프트 엔지니어링"보다 "<strong>컨텍스트 엔지니어링</strong>"이라는 용어가 더 중요해지고 있습니다.</p>
+
+    <div class="callout callout-info">
+      <strong>💬 원문 인용</strong>
+      "Context Engineering is the delicate art and science of filling the context window with just the right
+      information for the next step." — LLM 앱을 개발할 때 컨텍스트 엔지니어링은 필요한 정보를 Context Window에
+      아주 적절하게 채워 넣는, 섬세한 예술이자 과학의 영역입니다.
+    </div>
+
+    <ul>
+      <li>정보가 너무 적거나 형식이 잘못되면 LLM은 최적의 성능을 낼 수 없습니다.</li>
+      <li>반대로 정보가 너무 많거나 불필요한 내용이 가득하면 비용은 증가하고 성능은 오히려 떨어질 수 있습니다.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 캐리어 짐 싸기</strong>
+      2박 3일 여행에 <strong>캐리어 하나</strong>만 들고 간다고 해봅시다. 옷을 한 벌만 넣으면 갈아입을 옷이 없어
+      곤란하고(정보 부족), 겨울 패딩까지 계절 상관없이 다 욱여넣으면 캐리어가 무거워 옮기기도 힘들고 정작 필요한
+      물건을 못 찾습니다(정보 과잉). 잘 싸는 사람은 <strong>이번 여행 일정에 딱 맞는 만큼만</strong> 골라 넣죠.
+      Context Window도 똑같습니다 — Agent가 다음 스텝을 수행하는 데 <strong>딱 필요한 정보만</strong> 골라 채우는
+      것이 Context Engineering입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1.2 Runtime & State ── -->
+    <h2 id="runtime-state">1.2 Runtime &amp; State</h2>
+    <p>▲ Advanced Agent를 구현하기 위한 두 핵심 축, Runtime과 State.</p>
+    <img src="../images/03.advanced-agent/03.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>Advanced Agent를 구현하기 위한 핵심 개념 두 가지입니다.</p>
+
+    <h3>Runtime — Agent 실행에 필요한 공유 정보</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구성 요소</th><th>설명</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Context</strong></td><td>사용자 Id나 DB 연결 URL처럼 Agent 실행 시 변하지 않는 정보</td><td>보안 및 권한 제어</td></tr>
+          <tr><td><strong>Store</strong></td><td>사용자의 선호도, 이름 등 장기 메모리</td><td>개인화 및 제어</td></tr>
+          <tr><td><strong>Stream writer</strong></td><td>Agent 내부 작동 로그 등 실시간 이벤트 출력 기능</td><td>모니터링</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>State — Agent가 작동하며 만든 결과물</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구성 요소</th><th>설명</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Message</strong></td><td>Model이 Runtime을 참조해가며 만든 결과물</td><td>대화 흐름 제어</td></tr>
+          <tr><td><strong>tool_results</strong></td><td>Tool이 만든 정보 모음</td><td>도구 실행 결과</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>▲ State가 대화·도구 결과라면, Runtime은 그 바깥의 실행 환경입니다.</p>
+    <img src="../images/03.advanced-agent/04.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 요리사의 주방(Runtime) vs 지금까지 만든 요리(State)</strong>
+      <strong>Runtime</strong>은 요리사가 일하는 <strong>주방 환경</strong>입니다 — 손님이 누구인지 적힌
+      <strong>주문서(Context)</strong>, 단골손님 취향을 적어 둔 <strong>메모 노트(Store)</strong>, 홀에 상황을
+      알리는 <strong>인터폰(Stream writer)</strong>. 요리 중에 바뀌지 않는 <strong>바깥 환경</strong>이죠.
+      반면 <strong>State</strong>는 요리사가 <strong>지금까지 실제로 만들어 낸 결과물</strong>입니다 — 완성된
+      접시들(messages), 재료를 손질한 기록(tool_results). 주방(Runtime)은 그대로여도, 접시(State)는 요리할 때마다
+      계속 쌓입니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 핵심</strong>
+      <strong>State</strong>가 Agent 내부 흐름(대화, 도구 결과)을 제어한다면, <strong>Runtime</strong>은 그 외부
+      환경(사용자 정보, 저장소, 스트림)을 제어합니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1.3 dataclass ── -->
+    <h2 id="dataclass">1.3 dataclass — Context 클래스 작성 도구</h2>
+    <p>▲ Context를 정의할 때 사용하는 Python 표준 도구, dataclass.</p>
+    <img src="../images/03.advanced-agent/06.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><code>dataclass</code>는 Python에서 데이터 중심 클래스(data container)를 쉽게 만드는 문법입니다. (Python 3.7+ 내장)</p>
+    <p>일반 클래스를 만들 때 반복적으로 작성해야 하는 <code>__init__</code>, <code>__repr__</code> 등의 메서드를
+      <code>@dataclass</code> 데코레이터 하나로 자동 생성해 줍니다.</p>
+
+    <p>▲ @dataclass가 자동으로 만들어주는 메서드들.</p>
+    <img src="../images/03.advanced-agent/07.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>메서드</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><code>__init__</code></td><td>필드 초기화 메서드 자동 생성</td></tr>
+          <tr><td><code>__repr__</code></td><td>보기 좋은 문자열 표현 자동 생성</td></tr>
+          <tr><td><code>__eq__</code></td><td>객체 비교(<code>==</code>) 자동 구현</td></tr>
+          <tr><td><code>__hash__</code></td><td>(옵션) 해시 가능하게 설정 가능</td></tr>
+          <tr><td><code>__post_init__</code></td><td>생성자 이후 추가 초기화 로직 가능</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 서식 자동 완성기</strong>
+      보통 클래스를 만들려면 "값을 받는 생성자(<code>__init__</code>)", "예쁘게 출력하는 법(<code>__repr__</code>)",
+      "두 개가 같은지 비교하는 법(<code>__eq__</code>)"을 <strong>매번 손으로</strong> 적어야 합니다.
+      <code>@dataclass</code>는 <strong>"어떤 칸이 필요한지"만 적으면 나머지 지루한 서식을 자동으로 채워 주는
+      문서 자동 완성기</strong>입니다. 우리는 <code>user_name: str</code> 한 줄만 쓰면, 파이썬이 "아, 이건
+      <code>user_name</code>을 받는 생성자가 필요하겠구나" 하고 알아서 만들어 줍니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dataclasses import dataclass
+
+@dataclass
+class Context:
+    user_name: str
+    age: int = 20  # 기본값 가능
+
+ctx1 = Context("Jay")
+ctx2 = Context("Jay")
+print(ctx1)        # Context(user_name='Jay', age=20)
+print(ctx1 == ctx2)  # True</code></pre>
+
+    <hr />
+
+    <!-- ── 1.4 Node-style ── -->
+    <h2 id="node-style">1.4 Middleware에서 Runtime 접근하기 — 방법 1: Node-style</h2>
+    <p>▲ create_agent에 context_schema를 전달하면 Middleware가 runtime을 통해 Context에 접근할 수 있습니다.</p>
+    <img src="../images/03.advanced-agent/09.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><code>create_agent</code>에 <code>context_schema=Context</code>를 전달하면 Middleware 함수가
+      <code>runtime</code>을 통해 Context 정보에 접근할 수 있습니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+from dataclasses import dataclass
+
+@dataclass
+class Context:
+    user_name: str
+
+agent = create_agent(
+    model="gpt-5-mini",
+    tools=[],
+    middleware=[log_before_model],
+    context_schema=Context,   # Context 스키마 전달
+)
+
+agent.invoke(
+    {"messages": [{"role": "user", "content": "제 이름이 뭐죠?"}]},
+    context=Context(user_name="Jay"),  # 호출 시 Context 인스턴스 주입
+)</code></pre>
+
+    <p>▲ Agent 실행 시 invoke의 context 인자로 Context 인스턴스가 주입되는 흐름.</p>
+    <img src="../images/03.advanced-agent/10.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <h3>Node-style vs Wrap-style Hook 비교</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구분</th><th>Node-style Hook</th><th>Wrap-style Hook</th></tr></thead>
+        <tbody>
+          <tr><td><strong>동작 방식</strong></td><td>특정 실행 지점(before/after)에서 <strong>순차적</strong>으로 동작</td><td>실행 흐름(model call, tool call 등)을 <strong>감싸서(intercept)</strong> 조작</td></tr>
+          <tr><td><strong>입력 파라미터</strong></td><td><code>state</code>, <code>runtime</code></td><td><code>request</code>, <code>handler</code></td></tr>
+          <tr><td><strong>적합한 용도</strong></td><td>상태 확인, 로깅, 유효성 검사</td><td>동적 프롬프트 삽입, 흐름 건너뛰기 등 흐름 제어 및 변형</td></tr>
+          <tr><td><strong>데코레이터</strong></td><td><code>@before_agent</code>, <code>@before_model</code>, <code>@after_model</code>, <code>@after_agent</code></td><td><code>@wrap_model_call</code>, <code>@wrap_tool_call</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — CCTV vs 톨게이트</strong>
+      <strong>Node-style</strong>은 도로 옆에 세워둔 <strong>CCTV</strong>와 같습니다 — 정해진 지점을
+      <strong>지켜보고 기록</strong>하지만, 지나가는 차 자체를 멈추거나 바꾸진 않죠(관찰·로깅에 적합).
+      <strong>Wrap-style</strong>은 <strong>톨게이트(검문소)</strong>입니다 — 지나가려는 차를 실제로
+      <strong>세워서</strong> 짐을 바꿔 싣거나 다른 길로 보낼 수 있습니다(흐름 제어·변형에 적합).
+    </div>
+
+    <p>▲ Node-style 훅이 실제로 코드에서 어떻게 정의되는지 보여주는 슬라이드.</p>
+    <img src="../images/03.advanced-agent/11.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Node-style 예시</strong> — <code>@before_model</code> 데코레이터 사용:</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import before_model
+
+@before_model
+def log_before_model(state, runtime):
+    print(f"(step1)before_model_state : \n{state}")
+    print(f"(step2)before_model_runtime : \n{runtime}")
+    print(f"(step3)사용자 이름 : {runtime.context.user_name}")
+    return None</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 라인 옆에 선 검수원(관찰자)</strong>
+      Node-style은 공장 라인 <strong>옆에 서서 지나가는 물건을 지켜보는 검수원</strong>과 같습니다. 물건이 기계에
+      들어가기 <strong>직전(before_model)</strong>에 "번호 잘 찍혔나" 살펴보고, 이상 없으면 로그를 적고 그냥
+      흘려보냅니다. 물건 자체를 <strong>붙잡거나 바꾸는 게 주 임무가 아니라</strong>, <strong>들여다보고
+      기록·검사</strong>하는 데 특화돼 있죠. 그래서 공식 문서도 <strong>로깅·검증·상태 갱신</strong>에 이 방식을
+      추천합니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>📝 실행 횟수 주의</strong>
+      <code>@before_model</code>은 <strong>Model이 호출될 때마다</strong> 실행됩니다. (Tool 호출 → Model 재호출
+      시에도 반복 실행) 반면 <code>@before_agent</code>는 Agent 실행 시 <strong>딱 한 번</strong>만 실행됩니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1.5 Wrap-style ── -->
+    <h2 id="wrap-style">1.5 Middleware에서 Runtime 접근하기 — 방법 2: Wrap-style</h2>
+    <p>▲ Wrap-style은 model·tool 호출 자체를 가로채 조작하는 방식입니다.</p>
+    <img src="../images/03.advanced-agent/13.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Wrap-style</strong>은 model이나 tool이 호출될 때 실행과 제어를 <strong>가로채는(intercept)</strong>
+      방식입니다. 입력 파라미터는 <code>request</code>(요청 객체)와 <code>handler</code>(실제 실행 함수)입니다.</p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 물건을 붙잡는 문지기</strong>
+      Node-style이 "옆에서 지켜보는 검수원"이었다면, Wrap-style은 <strong>기계 앞을 막고 선 문지기</strong>입니다.
+      들어가는 물건(<code>request</code>)을 <strong>손에 쥐고</strong>, 라벨을 바꿔 붙이거나(변형) · 아예 기계를
+      거치지 않고 되돌려 보내거나(건너뛰기) · 실패하면 몇 번이고 다시 밀어 넣을(재시도) 수 있습니다.
+      "실제로 기계를 돌려라"라고 <strong>버튼을 눌러 주는 행위가 <code>handler(request)</code></strong>입니다.
+    </div>
+
+    <p>▲ request와 handler, 두 파라미터로 이루어지는 Wrap-style의 구조.</p>
+    <img src="../images/03.advanced-agent/14.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <h3>ModelRequest 구조</h3>
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>ModelRequest(
+    model=...,           # 어떤 모델을 쓸지 (예: ChatOpenAI)
+    system_prompt=...,   # 시스템 프롬프트 (없을 수도 있음)
+    messages=...,        # 대화 메시지 목록
+    tool_choice=...,     # 특정 tool을 강제 선택하도록 지정할 때
+    tools=...,           # 사용 가능한 도구 목록
+    response_format=..., # 출력 포맷 (예: JSON schema)
+    state=...,           # 실행 상태 (메시지 기록 등)
+    runtime=...,         # 실행 환경 정보 (context, store, stream 등)
+    model_settings=...,  # 모델 설정 (온도, 토큰 제한 등)
+)</code></pre>
+
+    <p>▲ ModelRequest 안에 모델 호출에 필요한 모든 정보가 한 보따리로 담겨 있습니다.</p>
+    <img src="../images/03.advanced-agent/15.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Wrap-style 예시</strong> — <code>@wrap_model_call</code>로 사용자 이름을 시스템 메시지에 동적 삽입:</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import wrap_model_call
+from langchain.messages import SystemMessage
+
+@wrap_model_call
+def inject_user_name(request, handler):
+    # ① 요청 가로채기
+    print(f"request : \n{request}")
+
+    # ② request.runtime.context.user_name 접근
+    user_name = request.runtime.context.user_name
+
+    # ③ 시스템 메시지 삽입 (요청 수정)
+    if user_name:
+        system_message = f"사용자의 이름은 {user_name}입니다"
+        request = request.override(system_prompt=system_message)
+
+    # ④ 수정된 요청을 다음 단계(LLM 호출)로 넘김
+    return handler(request)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 모델에게 직접 떠먹여 주기</strong>
+      <code>request</code>는 모델에게 전달할 정보가 다 든 <strong>보따리</strong>입니다. 이 보따리 안
+      <strong>책상(<code>runtime</code>)</strong> 위에 놓인 <strong>신분증(<code>context.user_name</code>)</strong>을
+      꺼내, "사용자의 이름은 Jay입니다"라는 <strong>쪽지(시스템 프롬프트)</strong>로 만들어 보따리에
+      <strong>다시 넣어</strong> 모델에게 건넵니다. Node-style이 신분증을 힐끗 보고 노트에만 적었다면, Wrap-style은
+      그 정보를 <strong>모델 입에 직접 떠먹여 주는</strong> 셈입니다.
+    </div>
+
+    <p>▲ 사용자 이름이 시스템 프롬프트에 삽입된 뒤 모델이 응답하는 흐름.</p>
+    <img src="../images/03.advanced-agent/16.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="callout callout-info">
+      <strong>💡 Context + Middleware 조합의 실용 예시</strong>
+      로그인한 사용자는 고급 모델(GPT-5)을, 비로그인 사용자는 기본 모델(GPT-5-nano)을 사용하도록 하는 Agent
+      서비스를 구축할 수 있습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1.6 Node-style 심화 ── -->
+    <h2 id="node-style-adv">1.6 Custom Middleware — Node-style 심화</h2>
+    <p>▲ before_agent와 before_model의 실행 시점·횟수 차이를 짚고 넘어갑니다.</p>
+    <img src="../images/03.advanced-agent/17.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <h3>@before_agent vs @before_model 실행 횟수</h3>
+    <ul>
+      <li><strong><code>@before_agent</code></strong> : Agent 전체 실행에서 <strong>딱 한 번</strong> 실행</li>
+      <li><strong><code>@before_model</code></strong> : <strong>Model이 호출될 때마다</strong> 실행 (Tool 결과를
+        받은 후 재호출 시에도)</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 놀이공원 정문 vs 놀이기구 앞</strong>
+      <code>@before_agent</code>는 <strong>놀이공원 정문의 입장 검표</strong>입니다. 공원에 들어올 때
+      <strong>딱 한 번</strong> 표를 확인하죠. 반면 <code>@before_model</code>은 <strong>각 놀이기구 앞에 선
+      안전요원</strong>입니다. 롤러코스터를 탈 때도, 회전목마를 탈 때도 <strong>탈 때마다</strong> 키와 안전벨트를
+      확인합니다. Agent가 도구를 쓴 뒤 모델을 <em>다시</em> 부르면, <code>@before_model</code>은 그때도 또
+      실행돼요.
+    </div>
+
+    <p><strong><code>@before_agent</code> + <code>can_jump_to</code> 예시</strong> — 암구호 감지 후 응답 차단:</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import before_agent
+from langchain.messages import AIMessage
+
+@before_agent(can_jump_to=["end"])
+def validate_input(state: AgentState, runtime):
+    last_message = state["messages"][-1]
+    if "암구호" in last_message.content:
+        print("암구호 감지됨 - 응답 차단")
+        return {
+            "messages": [AIMessage(content="이 요청은 처리할 수 없습니다.")],
+            "jump_to": "end"  # 모델 호출 없이 바로 에이전트 종료
+        }
+    print("✅ 정상 입력, 모델 호출 계속 진행")
+    return None</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 비상 정지 버튼과 그 사용 권한</strong>
+      공장 초소마다 <strong>빨간 비상 정지 버튼</strong>이 있으면 위험하겠죠. 그래서 <strong>"이 초소는 라인을
+      끝(end)으로 보낼 수 있다"</strong>는 권한을 관리자에게 먼저 등록해 둡니다. 이게 <code>can_jump_to=["end"]</code>
+      예요. 그렇게 등록해 둔 초소만이, 실제 상황에서 <strong>버튼을 누를(=<code>jump_to</code>를 반환할)</strong>
+      수 있습니다. 권한 선언 없이 버튼부터 누르면 시스템이 막습니다.
+    </div>
+
+    <p>▲ jump_to로 모델 호출을 건너뛰고 바로 종료하는 흐름.</p>
+    <img src="../images/03.advanced-agent/19.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 사장에게 넘기기 전에 서류를 거르는 비서</strong>
+      임원(모델)에게 보고서를 올리기 전에, <strong>비서(before_model 또는 before_agent)</strong>가 먼저 서류를
+      훑어봅니다. 만약 "대외비 · 암구호" 같은 <strong>기밀 도장</strong>이 찍혀 있으면, 비서는 그 서류를
+      <strong>임원 손에 절대 넘기지 않고</strong> "이 요청은 처리할 수 없습니다"라는 회신만 대신 남깁니다.
+    </div>
+
+    <div class="callout callout-info">
+      <strong>📌 핵심</strong>
+      <code>return None</code>은 "점프하지 않고 평소대로 다음 단계를 진행하라"는 신호입니다. 반면
+      <code>jump_to: "end"</code>를 반환하면 모델 호출 없이 Agent가 종료됩니다. → <strong>AI Model에게 민감
+      정보가 유출되는 것을 사전에 방지</strong>할 수 있습니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 1.7 Wrap-style 심화 ── -->
+    <h2 id="wrap-style-adv">1.7 Custom Middleware — Wrap-style 심화</h2>
+    <p>▲ 메시지 길이에 따라 모델을 동적으로 바꿔 배차하는 Wrap-style 예시.</p>
+    <img src="../images/03.advanced-agent/20.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Wrap-style 예시</strong> — 메시지 길이에 따른 동적 모델 선택:</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_openai import ChatOpenAI
+
+@wrap_model_call
+def dynamic_model_selector(request, handler):
+    # 최근 사용자 입력 메시지 추출
+    last_msg = request.messages[-1].content if request.messages else ""
+    msg_len = len(last_msg)
+
+    # 길이에 따라 모델 선택
+    if msg_len &lt; 10:
+        model_name = "gpt-5-nano"
+    elif msg_len &lt; 30:
+        model_name = "gpt-5-mini"
+    else:
+        model_name = "gpt-5"
+
+    print(f"메시지 길이: {msg_len}, 선택된 모델: {model_name}")
+
+    # request.model을 새로운 모델로 교체
+    new_model = ChatOpenAI(model_name=model_name)
+    new_request = request.override(model=new_model)
+
+    # 수정된 요청으로 LLM 호출
+    return handler(new_request)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 물건 크기에 따른 배차(配車)</strong>
+      택배 회사는 짐마다 같은 트럭을 보내지 않습니다. <strong>편지 한 통</strong>엔 날쌘 오토바이(<code>gpt-5-nano</code>),
+      <strong>중간 소포</strong>엔 승합차(<code>gpt-5-mini</code>), <strong>대형 이삿짐</strong>엔 5톤 트럭
+      (<code>gpt-5</code>)을 배차하죠. 큰 짐에 오토바이를 보내면 다 못 싣고, 편지 한 통에 5톤 트럭을 보내면
+      기름값만 아깝습니다. 우리 미들웨어는 <strong>질문의 "무게(길이)"를 저울에 달아 알맞은 차량(모델)을 배차하는
+      물류 담당자</strong>입니다.
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 2장 ══════════════ -->
+    <h2 id="ch2">2장. Guardrails</h2>
+    <p>▲ 책임 있고 신뢰할 수 있는 AI 애플리케이션을 위한 Guardrail.</p>
+    <img src="../images/03.advanced-agent/21.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>책임 있고 신뢰할 수 있는 AI 애플리케이션</strong> 구축에 대한 관심이 증가하면서, Guardrail은
+      프로덕션 Agent의 필수 요소가 되었습니다.</p>
+
+    <hr />
+
+    <!-- ── 2.1 Built-in Guardrails ── -->
+    <h2 id="builtin-guardrails">2.1 Built-in Guardrails</h2>
+    <p>▲ LangChain이 지원하는 내장 가드레일 목록.</p>
+    <img src="../images/03.advanced-agent/22.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>LangChain이 지원하는 내장 가드레일 목록입니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>가드레일</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><strong>개인정보(PII) 유출 방지</strong></td><td>이메일, 카드번호, IP 등 개인정보 탐지·마스킹</td></tr>
+          <tr><td><strong>Human-in-the-loop</strong></td><td>위험 작업 전 사용자 승인 요청</td></tr>
+          <tr><td><strong>Prompt Injection 방지</strong></td><td>악의적인 프롬프트 조작 탐지</td></tr>
+          <tr><td><strong>유해 컨텐츠 생성 방지</strong></td><td>폭력, 성인물 등 유해 내용 생성 차단</td></tr>
+          <tr><td><strong>법률 및 규정에 입각한 답변 생성</strong></td><td>특정 도메인 규정 준수</td></tr>
+          <tr><td><strong>답변 품질 체크</strong></td><td>할루시네이션, 부적절한 답변 검증</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>▲ 구현 방식은 크게 결정론적 방식과 모델 기반 방식으로 나뉩니다.</p>
+    <img src="../images/03.advanced-agent/25.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <h3>구현 방식 — 결정론적 vs 모델 기반</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>방식</th><th>설명</th><th>장점</th><th>단점</th><th>대표 예시</th></tr></thead>
+        <tbody>
+          <tr><td><strong>결정론적(Deterministic)</strong></td><td>정규식, 키워드 매칭 활용</td><td>비용 저렴, 빠름</td><td>미묘한 부분을 놓칠 수 있음</td><td>PII 커스텀 탐지기</td></tr>
+          <tr><td><strong>모델 기반</strong></td><td>LLM 모델의 평가 기반 탐지</td><td>미세한 문제까지 포착 가능</td><td>비용 및 시간 소요</td><td>Human-in-the-loop</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 스팸 필터의 키워드 차단 vs 상담원의 직접 검토</strong>
+      이메일 스팸 필터는 두 겹으로 동작합니다. 1차는 <strong>"광고", "무료" 같은 키워드를 기계적으로 걸러내는
+      필터</strong>입니다 — 빠르고 공짜에 가깝지만, 교묘하게 단어를 바꾼 스팸은 놓칩니다. 애매한 메일은
+      <strong>사람 상담원이 직접 내용을 읽고 판단</strong>합니다 — 느리고 비용이 들지만 훨씬 정확하죠.
+      결정론적 가드레일이 전자, 모델 기반 가드레일이 후자입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 2.2 Custom Guardrails ── -->
+    <h2 id="custom-guardrails">2.2 Custom Guardrails</h2>
+    <p>▲ Middleware를 이용해 Agent 흐름 앞뒤에 검증 로직을 직접 추가하는 Custom Guardrails.</p>
+    <img src="../images/03.advanced-agent/26.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>커스텀 가드레일은 Middleware를 이용해 Agent 흐름의 앞·뒤에 검증 로직을 직접 추가합니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>방식</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Before Agent Guardrails</strong></td><td>사용자 입력이 LLM에 도달하기 <strong>전</strong> 필터링</td></tr>
+          <tr><td><strong>After Agent Guardrails</strong></td><td>LLM이 답변을 생성한 <strong>직후</strong> (사용자에게 보이기 전) 검증</td></tr>
+          <tr><td><strong>Combine Multiple Guardrails</strong></td><td>여러 가드레일을 레이어로 쌓아 방어</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>2.2.1 Before Agent Guardrails — 입력 필터</h3>
+    <p>▲ 차단할 키워드를 사전에 정의합니다.</p>
+    <img src="../images/03.advanced-agent/27.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>차단할 키워드를 사전에 정의합니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 차단 및 제재 키워드 정의
+forbidden_topics = {
+    "cheating": ["답지", "정답 알려줘", "숙제 대신", "써줘", "베끼기"],  # 부정행위 관련
+    "distraction": ["롤", "게임", "유튜브", "아이돌", "웹툰"],           # 학습 방해 요소
+    "harmful": ["담배", "술", "폭력", "싸움", "바보"],                   # 유해 콘텐츠
+}</code></pre>
+
+    <p>▲ before_agent 미들웨어에서 키워드를 검사해 차단합니다.</p>
+    <img src="../images/03.advanced-agent/28.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import before_agent
+from langchain.messages import AIMessage
+
+@before_agent(can_jump_to=["end"])
+def education_guardrail(state, runtime):
+    # 1. 메시지 유효성 검사
+    if not state["messages"]:
+        return None
+    last_message = state["messages"][-1]
+    if last_message.type != "human":
+        return None
+
+    user_text = last_message.content
+
+    # 2. 카테고리별 검사 로직
+    # Case A: 부정행위 방지 (Cheating Prevention)
+    for keyword in forbidden_topics["cheating"]:
+        if keyword in user_text:
+            return {
+                "messages": [AIMessage(
+                    role="assistant",
+                    content="🚫 스스로 고민해봐야 실력이 늘어요!..."
+                )],
+                "jump_to": "end"  # 차단 키워드 감지 시 바로 return
+            }</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 교문 앞의 선도부</strong>
+      학생이 교문(AI)으로 들어가기 <strong>전에</strong> 선도부가 가방을 봅니다. 게임기가 보이면 "지금은 공부
+      시간이야, 돌아가"라며 <strong>교문 안으로 들여보내지 않고</strong> 그 자리에서 타이릅니다.
+      <code>education_guardrail</code>이 바로 이 선도부예요. 문제가 보이면 AI를 부르지도 않고 <strong>미리
+      준비한 답으로 대화를 끝냅니다.</strong>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 can_jump_to의 의미</strong>
+      <code>can_jump_to=["end"]</code>는 이 미들웨어가 <code>"end"</code> 노드로 바로 점프할 수 있는 권한을
+      가진다는 선언입니다. 반환값에 <code>"jump_to": "end"</code>를 포함하면 LLM 호출 없이 Agent가 바로
+      종료됩니다.
+    </div>
+
+    <h3>2.2.2 After Agent Guardrails — 출력 필터</h3>
+    <p>▲ After Agent Guardrails는 답변을 사용자에게 보여주기 전에 검증합니다.</p>
+    <img src="../images/03.advanced-agent/29.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>After Agent Guardrails</strong>는 AI Model이 생성한 답변을 <strong>사용자에게 보여주기 전에</strong>
+      검증합니다. 주로 <strong>LLM 모델 기반</strong> 검증을 활용해 미묘한 문제까지 포착합니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 평가용 감시자(Safety) 모델 정의
+safety_model = init_chat_model("gpt-5-nano")</code></pre>
+
+    <p>▲ 감시자 모델(safety_model)을 별도로 준비합니다.</p>
+    <img src="../images/03.advanced-agent/30.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 기자와 편집장(데스크)</strong>
+      신문사에서 <strong>기자(메인 Agent)</strong>가 기사 초고를 씁니다. 그런데 그 초고가 그대로 신문에 실리지는
+      않아요. <strong>편집장(감시자 모델)</strong>이 먼저 읽고 "이건 내보내면 안 돼"라고 판단하면 문장을 고쳐서
+      내보냅니다. <code>safety_model</code>이 바로 이 <strong>편집장</strong>입니다. 메인 Agent가 아무리 답을
+      잘(?) 써도, 편집장이 통과시켜야만 독자(사용자)에게 도착합니다.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import after_agent
+from langchain.messages import AIMessage
+
+@after_agent
+def answer_leakage_guardrail(state, runtime):
+    """AI가 답변을 생성한 직후, 사용자에게 보여주기 전에 내용을 검사."""
+    # 1. 메시지 유효성 검사
+    if not state["messages"]:
+        return None
+    last_message = state["messages"][-1]
+    if not isinstance(last_message, AIMessage):
+        return None</code></pre>
+
+    <p>▲ AIMessage인지 확인하는 유효성 검사 단계.</p>
+    <img src="../images/03.advanced-agent/31.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>    # 2. 감시자 AI에게 평가 요청
+    auditor_prompt = f"""
+    당신은 엄격한 교육 감독관입니다.
+    다음은 튜터의 답변 '을 확인하세요.
+    학생을 지도하지 않고 문제의 정답을 직접적으로 알려줬다면 'LEAKED'라고 답하세요.
+    답변이 적절한 힌트나 설명을 포함한다면 'SAFE'라고 답하세요.
+    튜터의 답변: {last_message.content}
+    """
+    result = safety_model.invoke([{"role": "user", "content": auditor_prompt}])</code></pre>
+
+    <p>▲ 감시자 모델에게 LEAKED / SAFE 이진 판정을 요청합니다.</p>
+    <img src="../images/03.advanced-agent/32.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 채점표에 O/X만 찍게 하기</strong>
+      감시자에게 "이 답 어때? 자유롭게 평가해줘"라고 하면 장황한 감상문이 돌아옵니다. 그래서 우리는 <strong>답안을
+      딱 두 개(<code>LEAKED</code> / <code>SAFE</code>)로 좁혀</strong> 채점표처럼 만듭니다. 그래야 다음 단계에서
+      <code>if "LEAKED" in result.content</code>처럼 <strong>기계적으로 분기</strong>할 수 있으니까요.
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>    # 3. 결과에 따른 개입 (Intervention)
+    if "LEAKED" in result.content:
+        last_message.content = "앗, 제가 정답을 바로 말할 뻔했네요! 핵심 개념은..."
+    return None</code></pre>
+
+    <h3>2.2.3 After Agent 응용 — 검증 + 교정(Correction/Regeneration)</h3>
+    <p>▲ 단순 차단을 넘어, 교정 모델이 새 답변을 재생성합니다.</p>
+    <img src="../images/03.advanced-agent/33.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><code>"LEAKED"</code> 감지 시 단순히 차단하는 것에서 나아가, <strong>교정 모델에 "힌트로 바꿔라"고 지시해
+      새 답변을 재생성</strong>할 수도 있습니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>if "LEAKED" in result.content:
+    # 원본 질문을 가져오기 (문맥 파악용)
+    original_question = state["messages"][0].content
+
+    # 교정 프롬프트
+    correction_prompt = f"""
+    절대 정답을 말하지 말고, 학생이 스스로 생각할 수 있도록 유도하는 질문이나 핵심 개념(힌트)만 설명해 주세요.
+    사용자 질문: {original_question}
+    """
+    corrected_response = safety_model.invoke([
+        SystemMessage(content="당신은 소크라테스식 교육을 사용하는 튜터입니다."),
+        HumanMessage(content=correction_prompt)
+    ])
+    last_message.content = corrected_response.content</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 압수 후 "대체품"을 새로 건네기</strong>
+      세관에서 반입 금지 물품을 압수했다고 그냥 빈손으로 돌려보내면 손님이 곤란하겠죠. 여기서는 압수(정답 차단)에
+      그치지 않고, <strong>그 자리에서 허용되는 대체품(맞춤 힌트)을 새로 만들어</strong> 손에 쥐여줍니다.
+      소크라테스식 튜터에게 "정답 말고 스스로 생각하게 유도하는 질문만 던져줘"라고 시키는 방식입니다.
+    </div>
+
+    <h3>2.2.4 Before vs After Guardrails 비교</h3>
+    <p>▲ 입력 필터와 출력 필터, 두 가드레일의 시점·목적·비용 차이.</p>
+    <img src="../images/03.advanced-agent/34.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>특징</th><th>Before Agent Guardrail (입력 필터)</th><th>After Agent Guardrail (출력 필터)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>작동 시점</strong></td><td>사용자의 질문이 LLM에 도달하기 직전</td><td>LLM이 답변을 생성한 직후 (사용자에게 보이기 전)</td></tr>
+          <tr><td><strong>주 목적</strong></td><td>비용 절감, 보안(PII), 정책 위반 차단</td><td>품질 관리, 환각(Hallucination) 방지, 답변 안전성 검증</td></tr>
+          <tr><td><strong>방식</strong></td><td>주로 규칙 기반 (Keywords, Regex), 가벼운 로직</td><td>주로 모델 기반 (LLM에게 평가 요청), 검증 로직</td></tr>
+          <tr><td><strong>비용</strong></td><td>매우 저렴함 (LLM 호출 자체를 막음)</td><td>추가 비용 발생 (메인 LLM + 감시자 LLM 비용)</td></tr>
+          <tr><td><strong>속도</strong></td><td>매우 빠름</td><td>감시자 모델이 검사하는 시간만큼 느려짐</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 입국 심사 vs 세관(출국) 검사</strong>
+      <strong>Before Agent</strong>는 <strong>입국 심사대</strong>입니다. 아예 <strong>들여보낼지 말지</strong>를
+      문 앞에서 판단하죠. 규칙(여권·비자)만 보면 되니 빠르고 저렴합니다. <strong>After Agent</strong>는
+      <strong>세관 검사</strong>입니다. 이미 안에서 만들어진 짐(답변)을 <strong>내보내기 직전에 열어보고</strong>
+      문제가 있으면 압수·교체합니다. 짐을 하나하나 뜯어봐야 하니 느리고 비쌉니다.
+    </div>
+
+    <h3>2.2.5 Combine Multiple Guardrails — 다중 레이어 방어</h3>
+    <p>▲ 여러 미들웨어를 리스트로 쌓아 레이어 방어막을 구성합니다.</p>
+    <img src="../images/03.advanced-agent/35.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>여러 미들웨어를 <code>middleware=[...]</code> 리스트에 나열하면 <strong>레이어 방어막</strong> 구조를
+      만들 수 있습니다.</p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>agent = create_agent(
+    model="gpt-5-nano",
+    tools=[],
+    middleware=[
+        education_guardrail,              # Layer 1: 입력 필터 (규칙 - 딴짓/부정행위)
+        student_safety_middleware,        # Layer 2: 개인정보 보호 (전화번호 마스킹)
+        counseling_escalation_middleware, # Layer 3: 상담 이관 (휴먼 에스컬레이션)
+        answer_leakage_guardrail,         # Layer 4: 출력 필터 (모델 기반 교정)
+    ],
+)</code></pre>
+
+    <p>미들웨어는 <strong>리스트 순서대로</strong> 실행됩니다. 각 레이어가 통과된 요청만 다음 단계로 진행합니다.</p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 공항의 여러 겹 검문</strong>
+      공항은 안전을 위해 검문을 한 번만 하지 않죠. <strong>신분 확인 → 짐 검색 → 몸수색 → 탑승구 재확인</strong>처럼
+      여러 관문을 겹겹이 둡니다. 앞 관문이 놓친 걸 뒤 관문이 잡아냅니다. 가드레일도 똑같이
+      <strong>층층이 쌓아(layered)</strong> 방어막을 만듭니다. Before Agent(Layer 1~3)가 입구를 지키고,
+      After Agent(Layer 4)가 마지막 출구(출국 직전 검사)를 지킵니다.
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 3장 ══════════════ -->
+    <h2 id="ch3">3장. Memory</h2>
+    <p>이제 Agent가 <strong>대화가 끝나도 사용자를 기억</strong>하게 만드는 Long-term Memory를 다룹니다.</p>
+
+    <hr />
+
+    <!-- ── 3.1 Long-term Memory ── -->
+    <h2 id="longterm-memory">3.1 Long-term Memory</h2>
+    <p>▲ 스레드가 바뀌어도 유지되는 저장소, Long-term Memory.</p>
+    <img src="../images/03.advanced-agent/39.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p><strong>Long-term Memory</strong>는 대화방(thread_id)이 바뀌어도 유지되는, 스레드 및 세션을
+      <strong>넘나드는</strong> 저장소입니다.</p>
+
+    <ul>
+      <li><strong>Short-term (Checkpointer)</strong>: 한 대화 스레드(thread_id) 내에서만 유지</li>
+      <li><strong>Long-term (Store)</strong>: 여러 대화방에서 공통으로 공유(<code>user_id</code> 또는
+        <code>namespace</code> 기반)</li>
+    </ul>
+
+    <p>예시: <em>"A라는 유저는 짧은 응답을 선호한다"</em>, <em>"이전에 Jay라고 이름을 말했다"</em></p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 매번 새로 만나는 상담사 vs 나를 기억하는 단골 카페</strong>
+      "메시지 리스트 메모리"는 <strong>한 대화방 안에서만 유효한 기억</strong>입니다. 상담이 끝나 방을 나가면 그
+      대화는 통째로 사라지죠(이게 <strong>Short-term</strong>). 반면 <strong>단골 카페</strong>의 직원은 어제
+      앉았던 자리가 아니어도, 다른 지점에서 만나도 "오늘도 아이스 아메리카노 연하게 드릴까요?"라고 <strong>당신을
+      기억</strong>합니다. 이게 <strong>Long-term(Store)</strong>입니다.
+    </div>
+
+    <h3>Store 구성</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구성 요소</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><strong>namespace</strong></td><td>폴더와 유사한 개념 (튜플로 생성 — 충돌 방지)</td></tr>
+          <tr><td><strong>key</strong></td><td>파일 이름과 유사한 개념 (각 메모리 항목의 고유 식별자)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 폴더와 파일</strong>
+      <strong>namespace</strong>는 <strong>폴더 경로</strong>입니다. 예를 들어 <code>사용자_001 / 개인비서</code>
+      처럼요. 그 폴더 안에 <strong>key</strong>라는 <strong>파일 이름</strong>으로 실제 내용(<strong>value</strong>)을
+      저장합니다. <code>memory_001</code> 같은 파일을 폴더에 넣는 셈이죠. 폴더 경로를 <strong>튜플</strong>로
+      만드는 이유는 다른 사용자·다른 앱과 <strong>충돌 없이</strong> 구분하기 위해서입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 3.2 Store CRUD ── -->
+    <h2 id="store-crud">3.2 Store 기본 CRUD</h2>
+
+    <p>Store를 생성하고, namespace를 정의한 뒤, 데이터를 저장·조회·검색하는 5단계입니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Store 생성</strong><p><code>InMemoryStore()</code>로 저장소를 만든다</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>namespace 정의</strong><p><code>(user_id, app_context)</code> 튜플로 고유 경로를 만든다</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>put()</strong><p>namespace + key + 값으로 메모리를 저장한다</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>get()</strong><p>namespace + key로 특정 메모리를 조회한다</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>search()</strong><p>namespace만으로 전체 메모리를 검색한다</p></div>
+    </div>
+
+    <h3>① Store 생성</h3>
+    <p>▲ InMemoryStore로 메모리 저장소를 만듭니다.</p>
+    <img src="../images/03.advanced-agent/40.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langgraph.store.memory import InMemoryStore
+
+store = InMemoryStore()  # 실제 서비스에서는 DB(PostgreSQL 등)로 대체</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 새 서랍장과 라벨 붙이기</strong>
+      <code>InMemoryStore()</code>는 텅 빈 <strong>서랍장</strong>을 하나 새로 사는 것입니다. 그리고
+      <code>namespace</code>는 서랍 한 칸에 <strong>"user_001의 개인비서용"</strong>이라는 <strong>라벨</strong>을
+      붙이는 일이에요.
+    </div>
+
+    <h3>② namespace 정의</h3>
+    <p>▲ user_id와 애플리케이션 컨텍스트로 namespace를 만듭니다.</p>
+    <img src="../images/03.advanced-agent/41.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 사용자 ID와 컨텍스트를 기반으로 namespace 정의 (튜플로 고유값 보장)
+user_id = "user_001"
+application_context = "personal_assistant"
+
+namespace = (user_id, application_context)</code></pre>
+
+    <h3>③ store.put() — 데이터 저장</h3>
+    <p>▲ namespace, key, 값 세 가지로 메모리를 저장합니다.</p>
+    <img src="../images/03.advanced-agent/42.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>store.put(
+    namespace,
+    "memory_001",  # key: 이 데이터의 고유 식별자
+    {
+        "facts": [
+            "사용자는 커피보다 차를 선호함",
+            "사용자는 매일 아침 6시에 일어남",
+        ],
+        "language": "Korean",
+    },
+)</code></pre>
+
+    <h3>④ store.get() — 특정 메모리 조회</h3>
+    <p>▲ namespace와 key를 모두 알아야 정확히 하나를 꺼낼 수 있습니다.</p>
+    <img src="../images/03.advanced-agent/43.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># namespace와 key 모두 필요
+item = store.get(namespace, "memory_001")
+print("저장된 메모리:", item.value)
+# {'facts': ['사용자는 커피보다 차를 선호함', '사용자는 매일 아침 6시에 일어남'], 'language': 'Korean'}</code></pre>
+
+    <h3>⑤ store.search() — namespace 전체 검색</h3>
+    <p>▲ namespace만 있으면 그 폴더 안의 모든 메모리를 조회합니다.</p>
+    <img src="../images/03.advanced-agent/44.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># namespace만 있으면 해당 폴더의 모든 메모리 조회
+items = store.search(namespace)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 파일명으로 열기 vs 폴더 통째로 열기</strong>
+      <code>get</code>은 파일명을 정확히 알 때 <strong>"그 파일 하나만 딱 열어줘"</strong>라고 말하는 것입니다
+      (namespace + key 둘 다 필요). <code>search</code>는 파일명을 몰라도 <strong>"이 폴더 안에 뭐가 들어 있는지
+      전부 보여줘"</strong>라고 하는 것이죠(namespace만 있으면 됨). 그래서 <code>get</code>은 항목
+      <strong>하나</strong>를, <code>search</code>는 <strong>목록(리스트)</strong>을 돌려줍니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 3.3 Store → Model 메모리 주입 ── -->
+    <h2 id="inject-memory">3.3 Store → Model에 메모리 주입</h2>
+    <p>▲ Store에 저장된 메모리를 Model이 참고하도록 만드는 과정.</p>
+    <img src="../images/03.advanced-agent/45.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>Store에 저장된 메모리를 <strong>Model이 참고해 답변을 생성</strong>하게 하려면 두 단계가 필요합니다.</p>
+
+    <ol>
+      <li><strong>namespace 정보를 담을 Context 정의</strong> — <code>user_id</code>, <code>app_name</code> 등</li>
+      <li><strong>Store 정보를 주입할 Middleware 정의</strong> — <code>@wrap_model_call</code>을 사용해
+        system_prompt에 메모리 내용 삽입</li>
+    </ol>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 냉장고에 재료는 있는데 요리사가 안 본다</strong>
+      Store(냉장고)에 좋은 재료(사용자 정보)를 차곡차곡 넣어뒀다고 해도, 요리사(LLM)는 <strong>냉장고 문을 열어볼
+      생각을 안 합니다.</strong> 눈앞에 놓인 주문서만 보고 요리하죠. 그래서 누군가가 <strong>매번 주문이 들어올
+      때마다 냉장고를 열어 재료를 꺼내 조리대 위에 올려줘야</strong> 합니다. 이번에 만들 <code>inject_memory</code>
+      미들웨어가 바로 그 <strong>재료 담당 스태프</strong>입니다.
+    </div>
+
+    <p>▲ Context와 Middleware가 결합되는 구조.</p>
+    <img src="../images/03.advanced-agent/46.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dataclasses import dataclass
+
+@dataclass
+class Context:
+    user_id: str
+    app_name: str</code></pre>
+
+    <p>▲ inject_memory 미들웨어가 Store를 검색해 system_prompt에 메모리를 삽입합니다.</p>
+    <img src="../images/03.advanced-agent/47.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents.middleware import wrap_model_call
+
+@wrap_model_call
+def inject_memory(request, handler):
+    # ① Context에서 user_id, app_name 추출
+    current_user = request.runtime.context.user_id
+    current_app = request.runtime.context.app_name
+
+    # ② Store에서 해당 namespace의 메모리 검색
+    memories = request.runtime.store.search((current_user, current_app))
+
+    memory_content = "기록된 정보 없음"
+    if memories:
+        # 검색된 메모리들을 텍스트로 변환
+        extracted_facts = []
+        for item in memories:
+            if "facts" in item.value:
+                extracted_facts.extend(item.value["facts"])
+        memory_content = "\n- ".join(extracted_facts)
+
+    # ③ System Message에 메모리 삽입
+    system_message = f"사용자 관련 장기 메모리 : {memory_content}"
+    request = request.override(system_prompt=system_message)
+    return handler(request)</code></pre>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+agent = create_agent(
+    model="gpt-5-nano",
+    store=store,            # store 연결
+    context_schema=Context,
+    middleware=[inject_memory],
+)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 단골 카페의 3요소</strong>
+      단골손님을 알아보는 카페를 만든다고 해봅시다. ① <strong>고객 카드(Store)</strong>에 "이 손님은 연하게,
+      두유로"라고 적어두고, ② 손님이 오면 <strong>멤버십 앱(Context)</strong>으로 <em>누구인지</em> 식별하고,
+      ③ <strong>매니저(미들웨어)</strong>가 그 카드를 찾아 바리스타(LLM)에게 "이분은 연하게, 두유예요" 하고
+      귀띔합니다. 이 셋이 맞물릴 때 비로소 "어서오세요, 늘 드시던 걸로 드릴까요?"가 가능해집니다.
+    </div>
+
+    <hr />
+
+    <!-- ── 3.4 기억 관리 주체 전환 ── -->
+    <h2 id="memory-shift">3.4 기억 관리 주체: 개발자 → AI 전환</h2>
+    <p>▲ 기억을 누가 관리할 것인가 — 개발자에서 AI로.</p>
+    <img src="../images/03.advanced-agent/50.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>서비스 중 일어나는 대화를 개발자가 직접 Store에 저장해 관리하기는 어렵습니다. 따라서
+      <strong>"기억 관리"라는 행위 자체를 AI의 지적 능력(추론)의 일부로 넘겨</strong> 알아서 기억을 관리하게
+      만들 수 있습니다.</p>
+
+    <p>→ 이것이 <strong>Tool 기반 메모리 관리</strong> 방식입니다.</p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 받아쓰기 비서 vs 알아서 메모하는 비서</strong>
+      지금까지의 <code>inject_memory</code>는 <strong>받아쓰기 비서</strong>였습니다 — 개발자가 "이 정보를
+      저장해라"라고 코드로 미리 정해준 대로만 움직입니다. 이제 만들 방식은 <strong>알아서 메모하는 비서</strong>
+      입니다 — 대화 중에 "아, 이건 나중을 위해 적어둘 만한 정보네"라고 <strong>비서 스스로 판단</strong>해서
+      수첩(Store)을 펴고 적습니다. 무엇을 언제 적을지 결정하는 <strong>주체가 개발자에서 AI로</strong> 넘어간
+      것이죠.
+    </div>
+
+    <hr />
+
+    <!-- ── 3.5 Tool 기반 메모리 관리 ── -->
+    <h2 id="tool-memory">3.5 Tool 기반 메모리 관리</h2>
+    <p>▲ LLM이 스스로 판단해 Store에 저장하고 조회하는 흐름.</p>
+    <img src="../images/03.advanced-agent/51.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <p>LLM이 대화 중 중요한 정보를 <strong>스스로 판단하여 Store에 저장하고 조회</strong>합니다.</p>
+
+    <p>구현은 5단계입니다.</p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>UserInfo 정의</strong><p>저장할 정보의 형태를 <code>TypedDict</code>로 정의한다</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>Context·Store 정의</strong><p><code>dataclass</code> Context와 <code>InMemoryStore</code>를 준비한다</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>조회 Tool</strong><p><code>get_user_info</code>로 저장된 정보를 검색한다</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>저장 Tool</strong><p><code>save_user_info</code>로 새 정보를 저장한다</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>Agent 생성</strong><p>두 Tool을 <code>tools</code>에 등록해 Agent를 만든다</p></div>
+    </div>
+
+    <h3>① UserInfo 구조 정의</h3>
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from typing import TypedDict
+
+class UserInfo(TypedDict):
+    personal_information: str  # 이름, 나이, 직업 등 개인 정보
+    preference: str            # 선호도, 취향 등</code></pre>
+
+    <h3>② Context와 Store 정의</h3>
+    <p>▲ Tool 기반 메모리 관리를 위한 Context와 Store 준비.</p>
+    <img src="../images/03.advanced-agent/52.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from dataclasses import dataclass
+from langgraph.store.memory import InMemoryStore
+
+@dataclass
+class Context:
+    user_id: str
+    app_name: str
+
+store = InMemoryStore()</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 택배 상자에 붙이는 3종 세트</strong>
+      <code>Context</code>는 <strong>보내는 사람 스티커</strong>(누구의 물건인지), <code>UserInfo</code>는
+      <strong>내용물 기재란</strong>(무엇을 어떤 칸에 적을지), <code>Store</code>는 <strong>물건이 실제로 쌓이는
+      창고</strong>입니다. 셋이 맞물려야 "누구의(Context) 어떤 정보를(UserInfo) 어디에(Store) 넣을지"가
+      결정됩니다.
+    </div>
+
+    <h3>③ 사용자 정보 조회 Tool</h3>
+    <p>▲ get_user_info 도구가 runtime을 통해 저장된 정보를 검색합니다.</p>
+    <img src="../images/03.advanced-agent/53.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_core.runnables import RunnableConfig
+from langchain.tools import tool, ToolRuntime
+
+@tool
+def get_user_info(runtime: ToolRuntime) -&gt; str:
+    """현재 사용자의 정보를 조회 (시스템 내부용 도구)."""
+    user_id = runtime.context.user_id
+    app = runtime.context.app_name
+
+    # 해당 네임스페이스의 모든 메모리 검색
+    memories = runtime.store.search((user_id, app))
+
+    if not memories:
+        return "기록된 정보 없음"
+
+    results = []
+    for item in memories:
+        data = item.value
+        if "personal_information" in data:
+            results.append(f"- 개인정보: {data['personal_information']}")
+        if "preference" in data:
+            results.append(f"- 선호도: {data['preference']}")
+
+    return "\n".join(results) if results else "데이터 형식 불일치로 읽을 수 없음"</code></pre>
+
+    <h3>④ 사용자 정보 저장 Tool</h3>
+    <p>▲ save_user_info 도구가 UserInfo를 받아 Store에 저장합니다.</p>
+    <img src="../images/03.advanced-agent/54.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>import uuid
+
+@tool
+def save_user_info(user_info: UserInfo, runtime: ToolRuntime) -&gt; str:
+    """사용자의 정보를 저장하거나 업데이트."""
+    user_id = runtime.context.user_id
+    app = runtime.context.app_name
+    store = runtime.store
+
+    # Store의 key를 매번 다르게 지정하기 위한 uuid 활용
+    memory_key = str(uuid.uuid4())
+    store.put((user_id, app), memory_key, user_info)
+
+    return f"정보가 안전하게 저장되었습니다. (ID: {memory_key})"</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 식당 서버와 주방</strong>
+      손님이 서버에게 "김치찌개 하나요"라고 <strong>주문 내용(<code>user_info</code>)</strong>을 말합니다 —
+      이건 손님(AI)이 채우는 값입니다. 하지만 주방으로 넘어가는 주문표에는 <strong>테이블 번호, 주문 시각</strong>도
+      함께 찍혀 있죠. 이건 손님이 말한 게 아니라 <strong>포스(POS) 시스템이 자동으로</strong> 붙인 겁니다.
+      <code>runtime</code>이 바로 이 <strong>시스템이 자동으로 채워주는 값</strong>입니다.
+    </div>
+
+    <h3>⑤ Agent 생성</h3>
+    <p>▲ 두 Tool을 등록하고 Store를 연결해 Agent를 완성합니다.</p>
+    <img src="../images/03.advanced-agent/55.png" style="max-width:100%; border:1px solid var(--border); border-radius:8px; margin-bottom:12px;" />
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+agent = create_agent(
+    model="gpt-5-nano",
+    tools=[get_user_info, save_user_info],
+    store=store,            # 에이전트에 store 연결
+    context_schema=Context,
+)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 Middleware 방식 vs Tool 방식 비교</strong>
+      <div class="table-wrap" style="margin-top: 10px;">
+        <table>
+          <thead><tr><th>방식</th><th>특징</th><th>적합한 상황</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Middleware <code>inject_memory</code></strong></td><td>매 LLM 호출 시 자동으로 메모리를 시스템 프롬프트에 삽입</td><td>정보가 많지 않고 항상 참고해야 할 때</td></tr>
+            <tr><td><strong>Tool 기반</strong></td><td>LLM이 스스로 필요할 때만 <code>get_user_info</code>/<code>save_user_info</code>를 호출</td><td>정보가 많고 선택적으로 조회할 때 (토큰 절약)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 시험장에 들고 가는 교재</strong>
+      <strong>Middleware 방식</strong>은 시험 볼 때 <strong>모든 교과서를 통째로</strong> 들고 들어가는 방식입니다
+      — 필요 없는 과목 책까지 매번 다 펼쳐 놓으니 무겁고 비효율적이죠. <strong>Tool 기반 방식</strong>은 시험을
+      보다가 <strong>모르는 게 나왔을 때만 필요한 페이지를</strong> 찾아보는 방식입니다. 평소엔 책을 안 펼치니
+      훨씬 가볍고 경제적입니다.
+    </div>
+
+    <hr />
+
+    <!-- ── summary ── -->
+    <h2 id="summary">📚 3장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심</strong>
+      Advanced Agent는 <strong>"누가 부르는지(Runtime) · 무엇을 만들어냈는지(State) · 무엇을 걸러야 하는지
+      (Guardrails) · 무엇을 기억해야 하는지(Memory)"</strong>를 하나씩 정교하게 제어하는 일이다.
+    </div>
+
+    <ul>
+      <li><strong>Runtime</strong>은 Agent 실행 중 공유되는 환경 정보(Context, Store, Stream writer)이고,
+        <strong>State</strong>는 Agent가 실행하며 만든 결과물(Messages, tool_results)이다.</li>
+      <li><strong>dataclass</strong>를 사용해 Context를 정의하고, <code>context_schema=Context</code>로 Agent에
+        주입한다.</li>
+      <li><strong>Node-style Hook</strong>(<code>@before_agent</code>, <code>@before_model</code> 등)은 특정
+        시점에 순차 실행하고, <strong>Wrap-style Hook</strong>(<code>@wrap_model_call</code>)은 LLM 호출 자체를
+        감싸 동적으로 제어한다.</li>
+      <li><strong>Guardrails</strong>는 Before Agent(입력 필터)와 After Agent(출력 필터)로 나뉜다. 여러
+        미들웨어를 리스트로 쌓아 다중 레이어 방어막을 구성할 수 있다.</li>
+      <li><strong>Long-term Memory</strong>는 <code>InMemoryStore</code> + <code>namespace</code>/<code>key</code>
+        구조로 저장하고, <code>inject_memory</code> 미들웨어로 System Prompt에 주입한다.</li>
+      <li><strong>Tool 기반 메모리 관리</strong>를 통해 AI가 스스로 정보를 판단하고 저장/조회하게 만들 수 있다.</li>
+    </ul>
+
+    <div class="pager">
+      <a href="./02.agent-basic.html">
+        <small>← 이전 노트북</small>
+        02. Agent 기초 — Tool · Memory · Middleware · Structured Output
+      </a>
+      <a class="next" href="./04.rag.html">
+        <small>다음 노트북 →</small>
+        04. RAG — Retrieval-Augmented Generation
+      </a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

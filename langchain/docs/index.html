@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LangChain 스터디 — 요약 강의 교재</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* Layout */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 250px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav a.current { color: var(--text); font-weight: 700; background: var(--bg); }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 250px; max-width: 900px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* Typography */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 19px; font-weight: 700; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* Callouts */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info { background: var(--info-bg); border-color: var(--info-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+
+    /* Roadmap list */
+    .roadmap { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 4px; }
+    .roadmap-item {
+      display: flex; gap: 14px; align-items: flex-start;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 14px 16px;
+      transition: border-color 0.1s, box-shadow 0.1s;
+    }
+    .roadmap-item:hover { border-color: var(--accent); box-shadow: 0 1px 6px rgba(3,102,214,0.08); }
+    .roadmap-num {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px;
+      background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .roadmap-body { min-width: 0; flex: 1; }
+    a.rm-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    a.rm-title:hover { color: var(--accent); text-decoration: none; }
+    .roadmap-body p { font-size: 13px; color: var(--text-secondary); margin: 3px 0 0; }
+    .rm-tag {
+      display: inline-block; font-size: 11px; font-weight: 600; color: var(--text-secondary);
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1px 8px; margin-left: 8px; vertical-align: middle; white-space: nowrap;
+    }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">LangChain 스터디</div>
+    <div class="nav-section">
+      <div class="nav-title">요약 교재 (이 페이지)</div>
+      <a href="./01.langchain.html">01. LangChain 입문</a>
+      <a href="./02.agent-basic.html">02. Agent 기초</a>
+      <a href="./03.advanced-agent.html">03. Advanced Agent</a>
+      <a href="./04.rag.html">04. RAG</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">노트북 학습 로드맵</div>
+      <a href="../01/index.html">01. 기초</a>
+      <a href="../02/index.html">02. Agent 기초</a>
+      <a href="../03/index.html">03. Agent 심화</a>
+      <a href="../04/index.html">04. RAG</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <h1>LangChain 스터디 — 요약 강의 교재</h1>
+    <p class="doc-meta">
+      요약 교재 4편
+      &nbsp;·&nbsp; 원문: <code>langchain/docs/*.md</code>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span> ~ <span class="badge badge-yellow">🟡 중급</span>
+    </p>
+
+    <p class="lead">
+      각 폴더(<code>01</code>~<code>04</code>)의 실습 노트북들을 폴더 단위로 압축한 <strong>종합 정리 교재</strong> 4편입니다.
+      노트북을 하나씩 실습하기 전에, 또는 전체 흐름을 다시 훑어보고 싶을 때 폴더 전체를 한 문서로 읽을 수 있습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>📖 사용법</strong>
+      아래 목록을 순서대로 읽으면 LangChain 입문부터 Agent 기초·심화, RAG까지 전체 흐름이 이어집니다.
+      각 문서 안에는 같은 폴더의 노트북 강의(<code>01/01.html</code> 등)에서 가져온 비유를 재사용해 톤을 맞췄고,
+      더 자세한 실습은 각 문서 사이드바의 "관련 폴더" 링크로 이동해 노트북 강의를 참고하세요.
+    </div>
+
+    <h2>교재 목록</h2>
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">01</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./01.langchain.html">LangChain 입문 — What is LangChain · Model · Memory</a><span class="rm-tag">langchain/01 폴더</span>
+          <p>LangChain이 왜 등장했는지부터, Model을 다루는 4가지 방식(stream·batch·구조화 출력), 대화 맥락을 기억시키는 Memory까지.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">02</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./02.agent-basic.html">Agent 기초 — Tool · Memory · Middleware · Structured Output</a><span class="rm-tag">langchain/02 폴더</span>
+          <p>Tool을 만들어 Agent에 연결하고, Middleware로 실행 흐름을 통제하고, 답변을 정해진 구조로 강제하는 법.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">03</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./03.advanced-agent.html">Advanced Agent — Context Engineering · Guardrails · Memory</a><span class="rm-tag">langchain/03 폴더</span>
+          <p>Runtime/State로 Agent를 정교하게 제어하는 Custom Middleware, 안전장치를 거는 Guardrails, 영구 기억을 위한 Long-term Memory.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">04</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="./04.rag.html">RAG — Retrieval-Augmented Generation</a><span class="rm-tag">langchain/04 폴더</span>
+          <p>Load → Split → Embed → Store → Retrieve로 이어지는 RAG 파이프라인 구축과 Agentic RAG · Hybrid RAG 응용.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
