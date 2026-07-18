@@ -8,9 +8,10 @@ __pycache__/
 *.egg-info/
 
 # --- 프로젝트 산출물 (자동 생성) ---
-cache/            # 임베딩 캐시 (STEP 1)
-chroma_db/        # 벡터DB (STEP 1)
-eval_*.csv        # RAGAS 평가 결과 (STEP 5~7)
+# gitignore는 줄 중간 '#'을 주석이 아닌 패턴의 일부로 본다 → 주석은 반드시 별도 줄에.
+cache/
+chroma_db/
+eval_*.csv
 
 # --- 데이터: PDF 원본은 커밋하지 않음 (폴더 구조만 유지) ---
 data/*.pdf
