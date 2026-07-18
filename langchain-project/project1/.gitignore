@@ -1,0 +1,17 @@
+# --- 비밀키 (절대 커밋 금지) ---
+.env
+
+# --- 파이썬 / uv ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- 프로젝트 산출물 (자동 생성) ---
+cache/            # 임베딩 캐시 (STEP 1)
+chroma_db/        # 벡터DB (STEP 1)
+eval_*.csv        # RAGAS 평가 결과 (STEP 5~7)
+
+# --- 데이터: PDF 원본은 커밋하지 않음 (폴더 구조만 유지) ---
+data/*.pdf
+!data/.gitkeep
