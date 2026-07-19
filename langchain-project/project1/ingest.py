@@ -82,12 +82,16 @@ def add_in_batches(vs, chunks):
 def main():
     chunks = build_chunks()             # (1) PDF들을 읽어 청크로 분할
     print(f"청크 수: {len(chunks)}")     # 몇 조각으로 나뉘었는지 확인(0이면 PDF가 비었거나 스캔본=텍스트 없음 의심)
-    # (2) 저장할 빈 Chroma 컬렉션을 연다. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
+    # (2) 저장할 Chroma 컬렉션을 연다. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
     vs = Chroma(
         collection_name=COLLECTION,     # 저장할 컬렉션 이름 → 검색할 때 같은 이름으로 접근
         embedding_function=get_embeddings(),  # 각 청크를 벡터로 바꿀 임베딩기(위에서 만든 캐시 버전)
         persist_directory=PERSIST_DIR,  # 저장 위치(폴더). 지정하면 메모리가 아닌 디스크에 남음
     )
+    # (2-1) 멱등성 보장: Chroma의 add는 기존 문서를 지우지 않고 '덧붙인다'.
+    #       그래서 이 스크립트를 N번 실행하면 같은 청크가 N배로 중복 적재된다(검색 품질·평가 왜곡).
+    #       저장 전에 컬렉션을 비워, 몇 번을 실행하든 결과가 '항상 최신 청크 1벌'이 되게 한다.
+    vs.reset_collection()               # 같은 이름의 컬렉션을 드롭 후 빈 상태로 재생성(중복 방지)
     add_in_batches(vs, chunks)          # (3) TPM 한도를 지키며 배치로 나눠 임베딩·저장
     print(f"저장 완료 -> {PERSIST_DIR} (collection={COLLECTION})")
 
