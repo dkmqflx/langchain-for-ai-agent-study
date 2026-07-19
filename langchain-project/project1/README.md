@@ -8,8 +8,8 @@ RAGAS로 검색 품질을 정량 측정한 뒤 Hybrid + Reranker로 개선합니
 
 ## 진행 상태
 - [x] **STEP 0** · 프로젝트 셋업 & 준비물 (환경/의존성/키)
-- [ ] STEP 1 · 문서 인제스천 (`ingest.py`)
-- [ ] STEP 2 · 검색 + 생성 + 근거 (`rag.py`)
+- [x] **STEP 1** · 문서 인제스천 (`ingest.py`)
+- [x] **STEP 2** · 검색 + 생성 + 근거 (`rag.py`)
 - [ ] STEP 3 · FastAPI 서빙 (`main.py`)
 - [ ] STEP 4 · Langfuse 관측성 (`rag.py`)
 - [ ] STEP 5 · 골든셋 + RAGAS 베이스라인 (`eval_data.json`, `evaluate.py`)
