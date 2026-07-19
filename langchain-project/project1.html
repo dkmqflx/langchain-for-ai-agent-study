@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project 1 · 프로덕션급 RAG 검색 서비스 — 단계별 실행 가이드</title>
+  <style>
+    :root {
+      --bg: #f8f9fa; --surface: #ffffff; --border: #e1e4e8;
+      --text: #24292e; --text-secondary: #586069; --accent: #0366d6;
+      --green: #28a745; --yellow: #f9a825; --purple: #6f42c1; --red: #d32f2f;
+      --info-bg: #e8f4fd; --info-border: #0366d6;
+      --warn-bg: #fff8e1; --warn-border: #f9a825;
+      --danger-bg: #fce8e8; --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb; --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2; --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px; line-height: 1.7; color: var(--text); background: var(--bg);
+    }
+    .page-wrapper { display: flex; min-height: 100vh; }
+    nav {
+      position: fixed; top: 0; left: 0; width: 250px; height: 100vh; overflow-y: auto;
+      background: var(--surface); border-right: 1px solid var(--border); padding: 24px 16px; font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px; color: var(--text-secondary);
+      text-decoration: none; line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+
+    main { margin-left: 250px; max-width: 900px; padding: 48px 48px 80px; width: 100%; }
+
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 19px; font-weight: 700; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 22px 0 10px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+    ul, ol { margin: 8px 0 14px 22px; }
+    li { margin-bottom: 5px; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    .callout { border-left: 4px solid; border-radius: 0 6px 6px 0; padding: 14px 18px; margin: 16px 0; font-size: 14px; }
+    .callout-info    { background: var(--info-bg); border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg); border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg); border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout-result  { background: var(--result-bg); border-color: var(--result-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8a6d00; }
+    .badge-red    { background: #fce8e8; color: #b71c1c; }
+    .badge-blue   { background: #e8f4fd; color: #0b4a8f; }
+    .badge-purple { background: #f0e9fb; color: #4a2a86; }
+    .badge-gray   { background: #eef1f4; color: #444d56; }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+
+    .filename {
+      font-size: 12px; font-weight: 700; color: var(--text-secondary);
+      background: var(--code-bg); border: 1px solid var(--border); border-bottom: none;
+      border-radius: 6px 6px 0 0; padding: 5px 12px; display: inline-block; margin: 8px 0 0;
+      font-family: "SFMono-Regular", Consolas, monospace;
+    }
+    .filename + pre { border-radius: 0 8px 8px 8px; margin-top: 0; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; margin: 12px 0 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+    }
+    pre code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; background: none; border: none; padding: 0; font-size: inherit; color: var(--text); white-space: pre; }
+
+    table { width: 100%; border-collapse: collapse; margin: 14px 0 18px; font-size: 13.5px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--code-bg); font-weight: 700; font-size: 12.5px; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Architecture diagram */
+    .arch { margin: 16px 0 22px; }
+    .arch-flow { display: flex; flex-direction: column; align-items: center; }
+    .arch-node {
+      width: 100%; max-width: 480px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); padding: 11px 16px; display: flex; align-items: center; gap: 13px;
+      box-shadow: 0 1px 3px rgba(27,31,35,0.05);
+    }
+    .arch-node .ico {
+      font-size: 20px; flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; background: var(--code-bg); border: 1px solid var(--border);
+    }
+    .arch-node .nd-title { font-weight: 700; font-size: 14px; }
+    .arch-node .nd-sub { font-size: 12px; color: var(--text-secondary); }
+    .arch-node .nd-sub code { font-size: 11.5px; }
+    .arch-node.accent { border-color: var(--accent); }
+    .arch-node.accent .ico { background: #e8f4fd; border-color: var(--accent); }
+
+    .arch-conn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 5px 0; }
+    .arch-conn .line { width: 2px; height: 12px; background: var(--border); }
+    .arch-conn .lbl {
+      font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 20px; padding: 3px 13px; text-align: center;
+    }
+    .arch-conn .lbl b { color: var(--accent); }
+    .arch-conn .lbl code { font-size: 11px; }
+    .arch-conn .arrow { color: var(--text-secondary); font-size: 11px; line-height: 1; }
+    .arch-enh { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .enh-chip { font-size: 11.5px; font-weight: 600; background: #fff8e1; border: 1px solid #f0d98a; color: #8a6d00; border-radius: 6px; padding: 3px 9px; }
+
+    .arch-cross-label { text-align: center; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 8px; }
+    .arch-cross { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cross-card { flex: 1; min-width: 210px; border: 1px dashed var(--border); border-radius: 10px; background: var(--code-bg); padding: 10px 14px; display: flex; gap: 11px; align-items: flex-start; }
+    .cross-card .ico { font-size: 18px; line-height: 1.4; }
+    .cross-card .cc-title { font-weight: 700; font-size: 13px; }
+    .cross-card .cc-sub { font-size: 11.5px; color: var(--text-secondary); }
+    .cross-card .cc-sub code { font-size: 11px; }
+    .cross-card.green { border-color: var(--green); background: var(--result-bg); }
+
+    /* Step block */
+    .step { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 4px 24px 20px; margin: 20px 0; border-left: 4px solid var(--accent); }
+    .step-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 6px; flex-wrap: wrap; }
+    .step-num { flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+    .step-head h2 { border: none; margin: 0; padding: 0; font-size: 19px; flex: 1; min-width: 200px; }
+    .label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin: 18px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .step.new-step { border-left-color: var(--yellow); }
+    .step.new-step .step-num { background: var(--yellow); color: #5c4a00; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+    .pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 40px; font-size: 14px; }
+    .pager a { border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; background: var(--surface); flex: 1; }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+      .step { padding: 4px 16px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="#dod">완성 정의 · 아키텍처</a>
+      <a href="#step0">STEP 0 · 셋업</a>
+      <a href="#step1">STEP 1 · 인제스천</a>
+      <a href="#step2">STEP 2 · 검색+생성+근거</a>
+      <a href="#step3">STEP 3 · FastAPI 서빙</a>
+      <a href="#step4">STEP 4 · Langfuse 관측</a>
+      <a href="#step5">STEP 5 · RAGAS 평가</a>
+      <a href="#step6">STEP 6 · Hybrid 검색</a>
+      <a href="#step7">STEP 7 · Reranker</a>
+      <a href="#step8">STEP 8 · 튜닝(선택)</a>
+      <a href="#step9">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="./index.html">← 프로젝트 로드맵</a>
+      <a href="./index.html#p2">다음: P2 Agent API</a>
+      <a href="../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <h1>Project 1 · 프로덕션급 RAG 문서 검색 서비스</h1>
+    <p class="doc-meta">
+      <span class="badge badge-green">🟢 입문·복습</span> &nbsp;·&nbsp; ⏱ 1~2주
+      &nbsp;·&nbsp; 스택: <span class="badge badge-gray">LangChain 1.x</span> <span class="badge badge-gray">Chroma</span>
+      <span class="badge badge-yellow">FastAPI</span> <span class="badge badge-yellow">Langfuse</span> <span class="badge badge-yellow">RAGAS</span>
+    </p>
+
+    <p class="lead">
+      04 RAG에서 배운 <strong>Load→Split→Embed→Store→Retrieve</strong>를 재조립해,
+      문서에 질문하면 <strong>근거(citation)와 함께</strong> 답하는 RAG를 <strong>FastAPI API로 서빙</strong>하고,
+      <strong>RAGAS로 검색 품질을 정량 측정</strong>한 뒤 <strong>Hybrid + Reranker</strong>로 개선합니다.
+      STEP 0부터 STEP 9까지 순서대로 따라가면, 마지막에 <strong>돌아가는 서비스 + before/after 지표표 + 포트폴리오 README</strong>가 남습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>📖 이 문서 사용법</strong>
+      각 STEP은 <strong>🎯 목표 → 🧠 개념(왜) → 🛠 할 일(코드) → ✅ 검증 게이트 → 🎓 배우는 것</strong> 순서입니다.
+      <strong>검증 게이트를 통과하지 못하면 다음 STEP으로 넘어가지 마세요.</strong> 그래야 문제가 어디서 났는지 항상 좁혀집니다.
+      코드는 그대로 복사해 실행할 수 있게 썼지만, 예시 문서·질문은 여러분의 도메인으로 바꾸는 게 목적입니다.
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 버전 주의 (한 번만 읽어두기)</strong>
+      이 가이드는 여러분이 학습에 쓴 <strong>LangChain 1.x</strong> 환경 기준입니다.
+      FastAPI·Langfuse·RAGAS는 빠르게 바뀌어서, 일부 <strong>import 경로/인자 이름</strong>이 버전에 따라 다를 수 있어요
+      (특히 LangChain 1.x는 유틸 일부가 <code>langchain_classic.*</code> 아래로 이동했습니다).
+      <strong>ImportError가 나면 당황하지 말고</strong> 에러 메시지의 모듈명을 그대로 검색하거나 <code>langchain_classic.</code>으로 바꿔보세요 — 이 "에러 읽고 고치기"도 실무 역량입니다.
+    </div>
+
+    <h2 id="dod">✅ 완성 정의 (Definition of Done)</h2>
+    <p>아래가 모두 충족되면 이 프로젝트는 "완성"입니다. STEP들이 이 목록을 하나씩 채워 나갑니다.</p>
+    <ul>
+      <li><code>POST /query</code>에 질문을 보내면 <strong>답변 + 근거(source·page)</strong>가 JSON으로 온다 <span class="badge badge-gray">STEP 3</span></li>
+      <li>모든 질의가 <strong>Langfuse 대시보드</strong>에 검색·생성·비용·지연으로 추적된다 <span class="badge badge-gray">STEP 4</span></li>
+      <li><strong>골든 평가셋(20~50)</strong>에 대한 <strong>RAGAS 지표표</strong>가 있다 <span class="badge badge-gray">STEP 5</span></li>
+      <li><strong>baseline → Hybrid → Reranker</strong>로 지표가 개선된 <strong>비교표</strong>가 있다 <span class="badge badge-gray">STEP 6~7</span></li>
+      <li><strong>README</strong>에 문제정의·아키텍처·지표 before/after·배운 점이 정리돼 있다 <span class="badge badge-gray">STEP 9</span></li>
+    </ul>
+
+    <h3>아키텍처 한눈에 보기</h3>
+    <div class="arch">
+      <div class="arch-flow">
+
+        <div class="arch-node">
+          <div class="ico">📄</div>
+          <div><div class="nd-title">원본 문서</div><div class="nd-sub"><code>data/*.pdf</code> · 3~10개</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 1</b> · <code>ingest.py</code> — Load → Split → Embed → Store</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🗂️</div>
+          <div><div class="nd-title">Chroma 벡터DB</div><div class="nd-sub">임베딩된 청크 저장 (persist)</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl">검색 · <code>retriever.invoke(question)</code></div>
+          <div class="arch-enh">
+            <span class="enh-chip">＋ STEP 6 · Hybrid = BM25 + Dense</span>
+            <span class="enh-chip">＋ STEP 7 · Reranker (2-stage)</span>
+          </div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🎯</div>
+          <div><div class="nd-title">정제된 근거 docs</div><div class="nd-sub">질문과 관련된 top-k 청크 (source · page)</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 2</b> · <code>rag.py</code> — Generate + Cite</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node">
+          <div class="ico">💬</div>
+          <div><div class="nd-title">answer + citations[]</div><div class="nd-sub">문맥 기반 답변 + 근거 출처</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 3</b> · <code>FastAPI</code> — POST /query</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🌐</div>
+          <div><div class="nd-title">HTTP API 응답</div><div class="nd-sub">JSON &#123; answer, citations &#125;</div></div>
+        </div>
+
+      </div>
+
+      <div class="arch-cross-label">가로지르는 관심사 — 파이프라인 전체에 적용</div>
+      <div class="arch-cross">
+        <div class="cross-card">
+          <div class="ico">🔭</div>
+          <div><div class="cc-title">STEP 4 · Langfuse</div><div class="cc-sub">모든 질의의 검색·생성·토큰·비용·지연을 추적</div></div>
+        </div>
+        <div class="cross-card green">
+          <div class="ico">📏</div>
+          <div><div class="cc-title">STEP 5 · RAGAS 평가</div><div class="cc-sub">골든셋 <code>eval_data.json</code>으로 품질 정량 측정·회귀 비교</div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>🔁 도메인(문서셋) 선택 — 시작 전에 한 번만</h3>
+    <p>
+      예시는 <strong>의료 공개 문서</strong>(질병관리청 감염병 관리지침, 공개 임상 가이드라인, 의약품 설명서 PDF 등)를 기준으로 씁니다 —
+      <strong>카카오헬스케어</strong>의 "의료 정보 검색 정확도" 서사에 바로 연결되기 때문입니다.
+      하지만 <strong>어떤 PDF 묶음이든</strong> 됩니다(사내 문서·제품 매뉴얼·특정 오픈소스 문서). 3~10개 PDF면 충분합니다.
+      <strong>토스</strong>를 노린다면 같은 코드를 "어떤 문서셋에도 꽂아 쓰는 재사용 컴포넌트"로 포장하세요(STEP 9).
+    </p>
+
+    <hr />
+
+    <!-- ===================== STEP 0 ===================== -->
+    <section class="step new-step" id="step0">
+      <div class="step-head">
+        <div class="step-num">0</div>
+        <h2>프로젝트 셋업 &amp; 준비물</h2>
+        <span class="badge badge-yellow">신규(환경)</span> <span class="badge badge-gray">⏱ 30분</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>독립 실행되는 프로젝트 폴더와 가상환경, 필요한 키를 준비해 "빈 캔버스"를 만든다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>학습은 노트북에서 했지만, <strong>서비스는 재실행 가능한 스크립트/모듈</strong>이어야 합니다. 그래서 노트북이 아니라 <code>.py</code> 파일로 구조를 잡습니다.</p>
+
+      <div class="label">🛠 할 일</div>
+      <p>1) <code>langchain-project</code> 안에 작업 폴더를 만들고 <code>uv</code>로 환경을 초기화합니다. (학습 때 쓴 <code>uv</code> 그대로)</p>
+      <div class="filename">터미널</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project
+mkdir p1-rag-service &amp;&amp; cd p1-rag-service
+
+uv init .
+uv add langchain langchain-openai langchain-chroma langchain-community \
+       langchain-text-splitters langchain-classic pymupdf python-dotenv
+# 서빙·관측·평가 (뒤 STEP에서 사용)
+uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas
+# 하이브리드·리랭커 (STEP 6~7)
+uv add rank-bm25 sentence-transformers</code></pre>
+
+      <p>2) 폴더 구조를 아래처럼 잡아 둡니다(파일은 STEP마다 채웁니다).</p>
+<pre><code>p1-rag-service/
+├── data/                # 여기에 PDF를 넣습니다 (3~10개)
+├── cache/               # 임베딩 캐시 (자동 생성)
+├── chroma_db/           # 벡터DB 저장소 (자동 생성)
+├── ingest.py            # STEP 1
+├── rag.py               # STEP 2, 4, 6, 7
+├── main.py              # STEP 3
+├── eval_data.json       # STEP 5 (골든셋)
+├── evaluate.py          # STEP 5
+├── .env
+└── README.md            # STEP 9</code></pre>
+
+      <p>3) <code>.env</code>를 만듭니다. (OpenAI 키는 학습 때 쓰던 것 재사용, Langfuse는 STEP 4에서 발급)</p>
+      <div class="filename">.env</div>
+<pre><code>OPENAI_API_KEY=sk-...
+# STEP 4에서 채웁니다
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com</code></pre>
+
+      <p>4) <code>data/</code>에 PDF 몇 개를 넣습니다(도메인 선택 참고).</p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        <code>uv run python -c "import langchain, fastapi, langfuse, ragas; print('ok')"</code> 가 <code>ok</code>를 출력하고,
+        <code>data/</code>에 PDF가 1개 이상 있으면 통과.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>노트북 → 재현 가능한 프로젝트로의 전환. 의존성·환경·비밀키 관리(모든 실무 프로젝트의 0단계).</p>
+    </section>
+
+    <!-- ===================== STEP 1 ===================== -->
+    <section class="step" id="step1">
+      <div class="step-head">
+        <div class="step-num">1</div>
+        <h2>문서 인제스천 — Load → Split → Embed → Store</h2>
+        <span class="badge badge-green">복습(04 RAG)</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>PDF들을 청크로 쪼개 임베딩해 Chroma에 저장하는 <strong>인덱싱 스크립트</strong>를 완성한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        RAG의 "사전 준비" 단계입니다. <strong>Split</strong>은 검색 단위를 정하고(너무 크면 노이즈, 너무 작으면 맥락 상실),
+        <strong>Embed</strong>는 의미를 벡터로 바꿉니다. <code>CacheBackedEmbeddings</code>로 같은 청크를 재임베딩하지 않아 비용·시간을 아낍니다(04에서 배운 그대로).
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">ingest.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 1 · 인제스천(indexing): 원본 PDF를 '검색 가능한 벡터'로 바꿔 저장한다.
+# 파이프라인  Load(읽기) → Split(쪼개기) → Embed(벡터화) → Store(저장)
+# 이 스크립트를 한 번 실행해 두면, 이후 rag.py는 저장된 벡터DB에서 '검색'만 하면 된다.
+#
+# 아래 import가 각각 파이프라인의 어느 단계를 맡는지:
+#   PyMuPDFLoader                        → Load  : PDF를 페이지별 Document로 읽기
+#   RecursiveCharacterTextSplitter       → Split : 긴 텍스트를 청크로 분할
+#   OpenAIEmbeddings                     → Embed : 텍스트를 의미 벡터로 변환
+#   CacheBackedEmbeddings/LocalFileStore → Embed : 임베딩 캐시(재계산·재과금 방지)
+#   Chroma                               → Store : 벡터 저장 + 유사도 검색(벡터DB)
+# ═══════════════════════════════════════════════════════════════════
+from pathlib import Path
+from dotenv import load_dotenv
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+from langchain_chroma import Chroma
+
+load_dotenv()                    # .env를 읽어 환경변수로 등록 → OpenAI 임베딩 호출에 쓸 API 키가 준비됨
+DOCS_DIR = Path("data")          # 원본 PDF들이 들어 있는 폴더
+PERSIST_DIR = "chroma_db"        # 벡터DB를 저장할 폴더(디스크에 남아 다음 실행에서 그대로 재사용)
+COLLECTION = "p1_docs"           # 벡터DB 안에서 이 문서 묶음을 가리키는 이름표(테이블 이름 같은 것)
+
+def build_chunks():
+    """data/의 모든 PDF를 읽어 '청크(검색 단위 조각)' 리스트로 반환한다.  (Load → Split)
+
+    청크 = 검색의 기본 단위가 되는 문서 조각. 검색은 문서 전체가 아니라 이 조각
+    단위로 이뤄지므로, '어떻게 쪼개는가'가 검색 품질을 크게 좌우한다.
+    """
+    docs = []
+    for pdf in sorted(DOCS_DIR.glob("*.pdf")):   # data/의 모든 .pdf를 이름순으로 하나씩 순회
+        # PyMuPDFLoader(...).load() → PDF 1개를 '페이지별 Document' 리스트로 변환.
+        # 각 Document.metadata에 source(파일 경로)·page(쪽 번호)가 자동으로 담긴다
+        # → 이 값이 나중에 답변의 '근거(citation: 어느 문서 몇 쪽)'로 그대로 쓰인다.
+        docs.extend(PyMuPDFLoader(str(pdf)).load())
+    # chunk_size=1000  : 청크 하나의 최대 길이(글자). 크면 관련 없는 내용까지 섞여 노이즈↑, 작으면 문맥이 끊김
+    # chunk_overlap=150: 이웃한 청크를 150자 겹치게 → 경계에서 문장이 잘려 뜻이 사라지는 것을 완화
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    return splitter.split_documents(docs)        # 페이지 Document들을 청크 단위 Document로 다시 쪼개 반환
+
+def get_embeddings():
+    """청크를 벡터로 바꿀 임베딩기를 만든다. 단, 캐시를 씌워 같은 청크의 중복 계산을 막는다.  (Embed)"""
+    base = OpenAIEmbeddings(model="text-embedding-3-small")   # 실제 벡터를 만드는 OpenAI 임베딩 모델(가볍고 저렴한 소형)
+    store = LocalFileStore("./cache/embeddings")             # 임베딩 결과(벡터)를 저장해 둘 로컬 캐시 폴더
+    # 같은 청크는 다시 임베딩하지 않고 캐시에서 꺼내 씀 → 스크립트를 재실행해도 비용·시간 절약
+    # namespace=base.model : 모델이 다르면 벡터도 다르므로 캐시를 '모델 이름'별로 분리(캐시 섞임 방지)
+    return CacheBackedEmbeddings.from_bytes_store(base, store, namespace=base.model)
+
+def main():
+    chunks = build_chunks()             # (1) PDF들을 읽어 청크로 분할
+    print(f"청크 수: {len(chunks)}")     # 몇 조각으로 나뉘었는지 확인(0이면 PDF가 비었거나 스캔본=텍스트 없음 의심)
+    # (2) 각 청크를 임베딩해 Chroma에 저장. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
+    Chroma.from_documents(
+        documents=chunks,               # 저장할 청크(Document) 목록
+        embedding=get_embeddings(),     # 각 청크를 벡터로 바꿀 임베딩기(위에서 만든 캐시 버전)
+        collection_name=COLLECTION,     # 저장할 컬렉션 이름 → 검색할 때 같은 이름으로 접근
+        persist_directory=PERSIST_DIR,  # 저장 위치(폴더). 지정하면 메모리가 아닌 디스크에 남음
+    )
+    print(f"저장 완료 -&gt; {PERSIST_DIR} (collection={COLLECTION})")
+
+if __name__ == "__main__":   # 이 파일을 직접 실행할 때만 main() 호출(다른 파일에서 import하면 실행 안 됨)
+    main()</code></pre>
+      <p>실행: <code>uv run python ingest.py</code></p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        실행 후 <code>청크 수: N</code>(N&gt;0)이 찍히고 <code>chroma_db/</code> 폴더가 생기면 통과.
+        추가로 아래 한 줄 검색이 관련 있어 보이는 청크를 돌려주는지 확인하세요.
+<pre><code>uv run python -c "from langchain_chroma import Chroma; from langchain_openai import OpenAIEmbeddings; \
+vs=Chroma(collection_name='p1_docs', persist_directory='chroma_db', embedding_function=OpenAIEmbeddings(model='text-embedding-3-small')); \
+[print(d.metadata.get('source'), d.metadata.get('page'), d.page_content[:60]) for d in vs.similarity_search('가장 궁금한 주제 키워드', k=3)]"</code></pre>
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>인덱싱 파이프라인을 <strong>모듈</strong>로. <code>build_chunks()</code>를 함수로 뺀 이유는 STEP 6의 BM25가 같은 청크를 재사용하기 때문 — 재사용 가능한 설계 감각.</p>
+    </section>
+
+    <!-- ===================== STEP 2 ===================== -->
+    <section class="step" id="step2">
+      <div class="step-head">
+        <div class="step-num">2</div>
+        <h2>검색 + 생성 + 근거(Citation)</h2>
+        <span class="badge badge-green">복습</span> <span class="badge badge-yellow">+ Citation 신규</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>질문을 받아 <strong>검색 → 생성 → 근거 반환</strong>까지 하는 <code>answer()</code> 함수를 완성한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        RAG의 핵심 원칙: <strong>모델은 검색된 문맥으로만 답한다</strong>(환각 억제). 그리고 실무 RAG는 반드시
+        <strong>"이 답의 근거가 어느 문서 몇 페이지냐"</strong>를 함께 줘야 신뢰할 수 있습니다 — 특히 의료 도메인에서 필수.
+        그래서 <code>metadata</code>의 <code>source·page</code>를 답변과 함께 반환합니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">rag.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 2 · 검색 + 생성 + 근거(Citation): 질문 → 관련 청크 검색 → LLM이 그 문맥으로만 답변.
+# 핵심 원칙  (1) 모델은 검색된 CONTEXT만 근거로 답한다(환각 억제)
+#           (2) 답과 함께 '어느 문서 몇 쪽'(source·page)을 근거로 돌려준다
+# 이 answer()가 이후 서빙(STEP 3)·평가(STEP 5)·하이브리드(STEP 6)의 공통 진입점이 된다.
+# ═══════════════════════════════════════════════════════════════════
+from dotenv import load_dotenv
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain.chat_models import init_chat_model          # 문자열 하나로 챗 모델을 만드는 헬퍼
+from langchain_core.prompts import ChatPromptTemplate      # system/human 메시지 템플릿
+
+load_dotenv()                                              # .env의 OPENAI_API_KEY 로드
+emb = OpenAIEmbeddings(model="text-embedding-3-small")     # STEP 1과 '같은' 임베딩 모델이어야 검색이 맞는다
+# 이미 인덱싱된 벡터DB를 연다(새로 저장하지 않고 읽기 전용). collection·경로는 STEP 1과 동일하게
+vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_function=emb)
+retriever = vs.as_retriever(search_kwargs={"k": 4})        # 질문당 가장 유사한 청크 4개를 가져오는 검색기
+llm = init_chat_model("gpt-5-mini")                        # 답변을 생성할 LLM
+
+# 프롬프트: system=규칙(문서 밖 내용은 지어내지 말 것 = 환각 억제), human=질문 + 검색된 문맥
+PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "너는 제공된 CONTEXT만 근거로 답한다. "
+     "CONTEXT에 근거가 없으면 '문서에서 찾을 수 없습니다'라고 답하고 추측하지 마라. "
+     "답변 끝에 사용한 근거 번호를 [1][2]처럼 표기하라."),
+    ("human", "질문: {question}\n\nCONTEXT:\n{context}"),   # {question}·{context}는 invoke 때 채워짐
+])
+
+def format_context(docs):
+    """검색된 청크들을 '[번호] (source, page) + 본문' 형태의 한 문자열로 합친다.
+
+    번호를 매겨두면 LLM이 답변 끝에 [1][2]로 어떤 근거를 썼는지 가리킬 수 있다.
+    """
+    return "\n\n".join(
+        f"[{i+1}] (source={d.metadata.get('source')}, page={d.metadata.get('page')})\n{d.page_content}"
+        for i, d in enumerate(docs)                        # i=0,1,2... 각 청크에 번호 부여
+    )
+
+def answer(question: str):
+    """질문 하나를 받아 검색 → 생성 → 근거까지 끝낸 결과 dict를 돌려준다."""
+    docs = retriever.invoke(question)                      # (1) 검색: 질문과 유사한 청크 4개
+    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})  # (2) 프롬프트에 질문·문맥 주입
+    resp = llm.invoke(msg)                                 # (3) 생성: LLM이 문맥 기반으로 답변
+    return {
+        "answer": resp.content,                            # 최종 답변 텍스트
+        # 근거 목록: 답이 어느 파일 몇 쪽에서 왔는지 (신뢰성의 핵심)
+        "citations": [{"source": d.metadata.get("source"), "page": d.metadata.get("page")} for d in docs],
+        "contexts": [d.page_content for d in docs],   # 검색된 원문들 → STEP 5 RAGAS 평가에서 사용
+    }
+
+if __name__ == "__main__":
+    import json
+    # 직접 실행하면 질문 하나를 넣어 결과를 보기 좋게 출력(한글 안 깨지게 ensure_ascii=False)
+    print(json.dumps(answer("가장 궁금한 질문"), ensure_ascii=False, indent=2))</code></pre>
+      <p>실행: <code>uv run python rag.py</code></p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        문서에 있는 내용을 물으면 <strong>답변 + citations(source·page)</strong>가 나오고,
+        문서에 <em>없는</em> 내용을 물으면 <strong>"문서에서 찾을 수 없습니다"</strong>가 나오면 통과.
+        (환각을 막는지 반드시 두 경우 다 확인하세요.)
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>RAG 체인을 함수로 캡슐화 + <strong>citation 설계</strong> + 프롬프트로 환각 억제. 이 <code>answer()</code>가 이후 서빙·평가·하이브리드의 공통 진입점이 됩니다.</p>
+    </section>
+
+    <!-- ===================== STEP 3 ===================== -->
+    <section class="step new-step" id="step3">
+      <div class="step-head">
+        <div class="step-num">3</div>
+        <h2>FastAPI로 서빙</h2>
+        <span class="badge badge-yellow">신규</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p><code>answer()</code>를 <strong>HTTP API</strong>로 노출한다. 이 순간 "노트북 코드"가 "서비스"가 됩니다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        FastAPI는 파이썬 함수를 <strong>타입이 검증되는 HTTP 엔드포인트</strong>로 바꿔줍니다.
+        <code>pydantic</code> 모델로 요청/응답 <strong>스키마</strong>를 정의하면, 잘못된 입력은 자동으로 거부되고 응답 형태가 문서화됩니다.
+        토스 "실험→<strong>서빙</strong>→운영", 카카오 "서비스에 탑재 가능한 형태"의 첫걸음입니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">main.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 3 · FastAPI 서빙: STEP 2의 answer()를 HTTP API(POST /query)로 노출한다.
+# pydantic 모델로 요청/응답 '스키마'를 선언 → 잘못된 입력은 자동 거부, /docs에 문서가 자동 생성.
+# 이 순간 '노트북 코드'가 '서비스'가 된다.
+# ═══════════════════════════════════════════════════════════════════
+from fastapi import FastAPI
+from pydantic import BaseModel          # 요청/응답의 형태(스키마)를 선언하는 클래스
+from rag import answer                  # STEP 2에서 만든 핵심 함수 그대로 재사용
+
+app = FastAPI(title="P1 RAG Search Service")   # 앱 객체. title은 /docs 문서 제목에 표시됨
+
+class QueryIn(BaseModel):               # 요청 본문 스키마: question(문자열) 하나를 받는다
+    question: str
+
+class Citation(BaseModel):              # 근거 1건의 스키마
+    source: str | None = None           # 파일 경로 (없을 수 있어 None 허용)
+    page: int | None = None             # 쪽 번호
+
+class QueryOut(BaseModel):              # 응답 스키마: 답변 + 근거 목록
+    answer: str
+    citations: list[Citation]
+
+@app.get("/health")                     # 헬스체크: 서버가 살아있는지 확인하는 운영 기본 엔드포인트
+def health():
+    return {"status": "ok"}
+
+@app.post("/query", response_model=QueryOut)   # POST /query. 응답을 QueryOut 형태로 검증·문서화
+def query(body: QueryIn):               # body는 요청 JSON이 QueryIn으로 자동 파싱·검증된 결과
+    result = answer(body.question)      # RAG 실행(검색 + 생성 + 근거)
+    return {"answer": result["answer"], "citations": result["citations"]}   # contexts는 응답에서 제외</code></pre>
+      <p>실행: <code>uv run uvicorn main:app --reload</code></p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        서버를 켜고 아래가 <strong>답변 + citations</strong> JSON을 돌려주면 통과. 브라우저로 <code>http://localhost:8000/docs</code>(자동 생성 API 문서)도 열어보세요.
+<pre><code>curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "문서에 있는 내용을 물어보세요"}'</code></pre>
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>LangChain 앱을 API로 서빙 + 스키마 기반 입출력. <code>/docs</code> 자동 문서, <code>/health</code> 헬스체크 같은 운영 기본기.</p>
+    </section>
+
+    <!-- ===================== STEP 4 ===================== -->
+    <section class="step new-step" id="step4">
+      <div class="step-head">
+        <div class="step-num">4</div>
+        <h2>Langfuse로 관측성 붙이기</h2>
+        <span class="badge badge-yellow">신규</span> <span class="badge badge-gray">⏱ 1~2시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>모든 질의의 <strong>검색·생성·토큰·비용·지연</strong>을 Langfuse 대시보드에서 눈으로 본다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        RAG가 틀린 답을 하면 <strong>"검색이 잘못됐나, 생성이 잘못됐나"</strong>를 알아야 고칩니다.
+        관측성(Observability)은 그 판단 근거입니다. Langfuse는 LangChain 콜백 한 줄로 실행을 <strong>trace(추적 트리)</strong>로 남깁니다.
+        카카오가 공고에 <strong>이름을 명시</strong>한 도구예요.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <p>1) <a href="https://cloud.langfuse.com">cloud.langfuse.com</a>에서 무료 프로젝트를 만들고 키 2개를 <code>.env</code>에 채웁니다(STEP 0의 빈칸).</p>
+      <p>2) <code>rag.py</code>에 콜백 핸들러를 추가하고, 검색·생성 호출에 전달합니다.</p>
+      <div class="filename">rag.py (수정)</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 4 · 관측성(Langfuse): 모든 질의의 검색·생성·토큰·비용·지연을 대시보드로 추적한다.
+# 방법은 간단 — LangChain 호출에 '콜백 핸들러'를 config로 넘기면 실행이 trace(추적 트리)로 남는다.
+# 사전 준비: .env의 LANGFUSE_PUBLIC_KEY·SECRET_KEY를 채워둘 것(STEP 0의 빈칸).
+# ═══════════════════════════════════════════════════════════════════
+from langfuse.langchain import CallbackHandler   # langfuse v3~v4: 콜백은 langfuse.langchain 에 있음
+# (v2를 쓰면: from langfuse.callback import CallbackHandler)
+
+langfuse_handler = CallbackHandler()             # Langfuse로 로그를 보내는 콜백(키는 .env에서 자동으로 읽음)
+
+def answer(question: str):
+    cfg = {"callbacks": [langfuse_handler]}       # 이 config를 붙인 호출만 Langfuse에 기록된다
+    docs = retriever.invoke(question, config=cfg) # 검색도 config 전달 → trace에 'retriever' 노드로 남음
+    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+    resp = llm.invoke(msg, config=cfg)            # 생성도 config 전달 → 'LLM' 노드 + 토큰·지연 기록
+    return {
+        "answer": resp.content,
+        "citations": [{"source": d.metadata.get("source"), "page": d.metadata.get("page")} for d in docs],
+        "contexts": [d.page_content for d in docs],
+    }</code></pre>
+
+      <div class="callout callout-warn">
+        <strong>💡 팁</strong> <code>CallbackHandler</code> import 경로는 langfuse 버전에 민감합니다. 설치된 버전은 <code>uv run python -c "import langfuse; print(langfuse.__version__)"</code>로 확인하고, v3면 <code>langfuse.langchain</code>, v2면 <code>langfuse.callback</code>을 쓰세요.
+      </div>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        <code>/query</code>를 몇 번 호출한 뒤 Langfuse 대시보드 <strong>Traces</strong>에서 각 요청이
+        <strong>retriever → LLM</strong> 트리로 보이고 <strong>토큰·지연</strong>이 찍히면 통과.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>LLM 앱의 관측성 — 실무에서 "왜 이 답이 나왔는지"를 사후 추적하는 능력. 비용·지연 모니터링의 출발점.</p>
+    </section>
+
+    <!-- ===================== STEP 5 ===================== -->
+    <section class="step new-step" id="step5">
+      <div class="step-head">
+        <div class="step-num">5</div>
+        <h2>골든 평가셋 + RAGAS 베이스라인</h2>
+        <span class="badge badge-yellow">신규 · 핵심</span> <span class="badge badge-gray">⏱ 반나절~1일</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>"잘 되는 것 같다"를 <strong>숫자</strong>로 바꾼다. 현재 시스템의 <strong>baseline 점수</strong>를 확보한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        개선하려면 먼저 <strong>측정</strong>해야 합니다. RAGAS의 대표 지표 4개:
+      </p>
+      <table>
+        <thead><tr><th>지표</th><th>무엇을 재나</th><th>낮으면 원인</th></tr></thead>
+        <tbody>
+          <tr><td><strong>faithfulness</strong></td><td>답이 검색 문맥에 충실한가(환각 여부)</td><td>생성 프롬프트 문제</td></tr>
+          <tr><td><strong>answer_relevancy</strong></td><td>답이 질문에 맞는가</td><td>생성/질문 이해 문제</td></tr>
+          <tr><td><strong>context_precision</strong></td><td>검색된 문맥이 군더더기 없이 관련 있나</td><td>검색 노이즈 → Reranker(STEP7)</td></tr>
+          <tr><td><strong>context_recall</strong></td><td>정답 근거를 검색이 빠짐없이 가져왔나</td><td>검색 누락 → Hybrid(STEP6)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="label">🛠 할 일</div>
+      <p>1) 문서에서 답할 수 있는 질문–정답 쌍으로 <strong>골든셋</strong>을 만듭니다. 처음엔 5개로 시작해 <strong>20~50개</strong>까지 늘리세요.</p>
+      <div class="filename">eval_data.json</div>
+<pre><code>[
+  {"question": "질문 1?", "ground_truth": "문서 기준 정답 1"},
+  {"question": "질문 2?", "ground_truth": "문서 기준 정답 2"}
+]</code></pre>
+
+      <p>2) <code>answer()</code>를 골든셋 전체에 돌려 RAGAS로 채점합니다.</p>
+      <div class="filename">evaluate.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 5 · RAGAS 평가: '잘 되는 것 같다'를 숫자로 바꾼다.
+# 골든셋(eval_data.json의 질문·정답)에 answer()를 돌려, 4개 지표로 채점한다:
+#   faithfulness(환각 여부) · answer_relevancy(질문 적합) · context_precision(문맥 정확) · context_recall(누락 없음)
+# 실행:  uv run python evaluate.py baseline   (뒤에서 hybrid/rerank 태그로 재평가해 비교)
+# ═══════════════════════════════════════════════════════════════════
+import json, sys
+from datasets import Dataset                                   # RAGAS에 넣을 표(데이터셋) 형식
+from ragas import evaluate                                     # 채점 실행 함수
+from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall  # 지표 4종
+from ragas.llms import LangchainLLMWrapper                     # RAGAS가 LangChain LLM을 쓰게 감싸는 어댑터
+from ragas.embeddings import LangchainEmbeddingsWrapper        # RAGAS가 쓸 임베딩 어댑터
+from langchain.chat_models import init_chat_model
+from langchain_openai import OpenAIEmbeddings
+from rag import answer                                         # 평가 대상: 우리 RAG 파이프라인
+
+rows = json.load(open("eval_data.json", encoding="utf-8"))     # 골든셋 로드: [{question, ground_truth}, ...]
+records = []
+for r in rows:                                                 # 질문마다 실제로 RAG를 돌려 채점용 행을 만든다
+    out = answer(r["question"])
+    records.append({
+        "question": r["question"],                             # 질문
+        "answer": out["answer"],                               # 우리 시스템이 낸 답
+        "contexts": out["contexts"],                           # 검색된 문맥(정확/누락 지표 계산에 필요)
+        "ground_truth": r["ground_truth"],                     # 사람이 만든 정답(기준)
+    })
+
+result = evaluate(                                             # 4개 지표로 일괄 채점
+    Dataset.from_list(records),
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+    llm=LangchainLLMWrapper(init_chat_model("gpt-5-mini")),                       # 채점을 수행하는 심판 LLM
+    embeddings=LangchainEmbeddingsWrapper(OpenAIEmbeddings(model="text-embedding-3-small")),  # 유사도 계산용 임베딩
+)
+print(result)                                                 # 지표 평균을 화면에 출력
+tag = sys.argv[1] if len(sys.argv) &gt; 1 else "baseline"      # 실행 인자로 결과 태그 지정(없으면 baseline)
+result.to_pandas().to_csv(f"eval_{tag}.csv", index=False)     # 문항별 상세 점수를 CSV로 저장 → 설정 간 비교</code></pre>
+      <p>실행: <code>uv run python evaluate.py baseline</code></p>
+
+      <div class="callout callout-warn">
+        <strong>💡 팁</strong> RAGAS는 버전에 따라 <code>evaluate()</code> 인자/데이터 형식이 다를 수 있어요. 컬럼 이름은 <code>question · answer · contexts · ground_truth</code>가 기본이며, 에러가 나면 설치된 RAGAS 문서의 "EvaluationDataset" 예시에 맞춰 <code>records</code> 형식만 바꾸면 됩니다.
+      </div>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        4개 지표가 <strong>숫자</strong>로 출력되고 <code>eval_baseline.csv</code>가 생기면 통과.
+        이 숫자가 앞으로의 <strong>기준선</strong>입니다 — 잘 적어두세요.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>정량 평가 언어(recall/precision/faithfulness)와 평가셋 설계 — <strong>두 공고 모두</strong>의 핵심 요구. "지표 없이 개선 없다"를 체득.</p>
+    </section>
+
+    <!-- ===================== STEP 6 ===================== -->
+    <section class="step" id="step6">
+      <div class="step-head">
+        <div class="step-num">6</div>
+        <h2>검색 개선 ① Hybrid (BM25 + Dense)</h2>
+        <span class="badge badge-green">복습(BM25)</span> <span class="badge badge-yellow">+ 실험</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>키워드 검색(BM25)과 의미 검색(임베딩)을 <strong>앙상블</strong>해 <code>context_recall</code>을 끌어올린다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        임베딩 검색은 <em>의미</em>는 잘 잡지만 <strong>정확한 용어·수치·희귀 단어</strong>(약물명, 코드, 고유명사)에 약합니다.
+        BM25는 반대로 <em>정확한 단어 일치</em>에 강합니다. 둘을 <code>EnsembleRetriever</code>로 합치면 서로의 빈틈을 메웁니다 — 04에서 배운 Hybrid RAG.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <p><code>rag.py</code>의 <code>retriever</code>를 하이브리드로 교체합니다. BM25는 원문 청크가 필요하므로 STEP 1의 <code>build_chunks()</code>를 재사용합니다.</p>
+      <div class="filename">rag.py (retriever 교체)</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 6 · Hybrid 검색: 키워드 검색(BM25) + 의미 검색(임베딩)을 앙상블해 검색 누락을 줄인다.
+# 임베딩은 '의미'에 강하나 정확한 용어·수치·희귀 단어(약물명·조항번호 등)에 약하고,
+# BM25는 '정확한 단어 일치'에 강하다 → 둘을 합쳐 서로의 빈틈을 메운다. 목표 지표: context_recall↑
+# rag.py의 기존 retriever 정의를 아래 코드로 '교체'한다.
+# ═══════════════════════════════════════════════════════════════════
+from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever   # ImportError 시: from langchain.retrievers import EnsembleRetriever
+from ingest import build_chunks                              # STEP 1의 청크 생성 함수 재사용(BM25는 원문 청크가 필요)
+
+chunks = build_chunks()                 # 원문 청크(모듈 로드 시 1회만 — 매 요청 재호출은 느림)
+bm25 = BM25Retriever.from_documents(chunks)   # 키워드(단어 빈도) 기반 검색기
+bm25.k = 4                              # BM25가 돌려줄 청크 수
+dense = vs.as_retriever(search_kwargs={"k": 4})   # 기존 임베딩(의미) 검색기
+
+# 두 검색기를 가중 앙상블: 각자 top-4를 뽑아 점수를 weights로 섞어 최종 순위를 만든다
+retriever = EnsembleRetriever(retrievers=[bm25, dense], weights=[0.4, 0.6])   # 0.4=BM25, 0.6=의미. 값을 바꿔 실험</code></pre>
+
+      <div class="callout callout-warn">
+        <strong>💡 팁</strong> <code>build_chunks()</code>를 매 요청마다 부르면 느립니다. 지금은 학습이 목적이니 모듈 로드 시 한 번만 부르면 충분해요(위 코드처럼 파일 상단에서 1회). 성능 최적화는 STEP 8/README의 "개선 아이디어"로 남겨두세요.
+      </div>
+
+      <div class="label">✅ 검증 게이트 + 실험</div>
+      <div class="callout callout-result">
+        <strong>재평가로 baseline과 비교</strong>
+        <code>uv run python evaluate.py hybrid</code> 실행 후, 아래 표를 채우세요. <strong>context_recall이 baseline보다 오르면</strong> 하이브리드가 효과 있는 것.
+        <table>
+          <thead><tr><th>설정</th><th>faithfulness</th><th>answer_relevancy</th><th>context_precision</th><th>context_recall</th></tr></thead>
+          <tbody>
+            <tr><td>baseline</td><td>?</td><td>?</td><td>?</td><td>?</td></tr>
+            <tr><td>+ hybrid</td><td>?</td><td>?</td><td>?</td><td><strong>↑ 기대</strong></td></tr>
+          </tbody>
+        </table>
+        (weights <code>[0.4, 0.6]</code>를 <code>[0.5, 0.5]</code>, <code>[0.3, 0.7]</code>로 바꿔가며 비교해도 좋습니다.)
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>하이브리드 검색 원리 + <strong>가설→실험→지표 비교</strong> 사이클. "왜 recall이 올랐는지"를 설명할 수 있게 됩니다(면접 단골).</p>
+    </section>
+
+    <!-- ===================== STEP 7 ===================== -->
+    <section class="step new-step" id="step7">
+      <div class="step-head">
+        <div class="step-num">7</div>
+        <h2>검색 개선 ② Reranker (2-stage retrieval)</h2>
+        <span class="badge badge-yellow">신규</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>후보를 넉넉히 뽑은 뒤 <strong>Cross-Encoder</strong>로 재정렬해 <code>context_precision</code>을 끌어올린다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        검색은 빠르지만 정밀도가 낮고, Cross-Encoder(질문·문서를 함께 보는 모델)는 느리지만 정밀합니다.
+        그래서 <strong>1단계로 top-10을 빠르게 검색 → 2단계로 rerank해 상위 4개만</strong> 남기는 것이 실무 표준(2-stage retrieval).
+        노이즈 청크가 걸러져 생성 품질이 오릅니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">rag.py (reranker 적용)</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 7 · Reranker(2-stage retrieval): 후보를 넉넉히 뽑은 뒤 정밀 모델로 재정렬한다.
+# 1단계(빠름): 하이브리드로 top-10을 넓게 검색  →  2단계(정밀): Cross-Encoder가 질문·문서를
+# 함께 보며 다시 채점해 상위 4개만 남긴다. 노이즈 청크가 걸러져 목표 지표: context_precision↑
+# ═══════════════════════════════════════════════════════════════════
+from langchain_classic.retrievers import ContextualCompressionRetriever          # 검색 결과를 후처리(압축·재정렬)로 감싸는 검색기
+from langchain_classic.retrievers.document_compressors import CrossEncoderReranker  # rerank 로직
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder            # 로컬 Cross-Encoder 모델 래퍼
+# ImportError 시 경로 후보: langchain.retrievers / langchain.retrievers.document_compressors
+
+# 1단계: 후보를 넉넉히 (top-10) — 정밀도는 2단계에 맡기고, 여기선 '빠뜨리지 않기'가 목표
+bm25.k = 10
+dense = vs.as_retriever(search_kwargs={"k": 10})
+base = EnsembleRetriever(retrievers=[bm25, dense], weights=[0.4, 0.6])   # 1단계 검색기(하이브리드)
+
+# 2단계: rerank 후 상위 4개만 — bge-reranker-base가 질문과 각 청크의 관련도를 다시 채점
+reranker = CrossEncoderReranker(
+    model=HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base"),   # 무료 로컬 모델(첫 실행 시 자동 다운로드)
+    top_n=4,                                                              # 재정렬 후 남길 청크 수
+)
+# base로 넓게 검색 → reranker로 압축(재정렬). 이 retriever가 최종 검색기로 answer()에 쓰인다
+retriever = ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base)</code></pre>
+
+      <div class="callout callout-warn">
+        <strong>💡 대안</strong> 로컬 모델(sentence-transformers) 대신 API를 쓰고 싶으면 <code>langchain-cohere</code>의 <code>CohereRerank</code>도 좋습니다(키 필요). 처음엔 무료 로컬 모델 <code>bge-reranker-base</code>로 충분해요.
+      </div>
+
+      <div class="label">✅ 검증 게이트 + 실험</div>
+      <div class="callout callout-result">
+        <code>uv run python evaluate.py rerank</code> 실행 후 3단 비교표를 완성하세요. <strong>context_precision·faithfulness가 오르면</strong> 성공.
+        <table>
+          <thead><tr><th>설정</th><th>context_precision</th><th>context_recall</th><th>faithfulness</th></tr></thead>
+          <tbody>
+            <tr><td>baseline</td><td>?</td><td>?</td><td>?</td></tr>
+            <tr><td>+ hybrid</td><td>?</td><td>?</td><td>?</td></tr>
+            <tr><td>+ hybrid + rerank</td><td><strong>↑</strong></td><td>?</td><td><strong>↑</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>2-stage retrieval·reranking — RAG 정확도 개선의 대표 기법(카카오 "검색 정확도 고도화" 정조준). 속도↔정확도 트레이드오프 감각.</p>
+    </section>
+
+    <!-- ===================== STEP 8 ===================== -->
+    <section class="step" id="step8">
+      <div class="step-head">
+        <div class="step-num">8</div>
+        <h2>파라미터 튜닝 &amp; 실험 정리 (선택)</h2>
+        <span class="badge badge-gray">선택 · 심화</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>지금까지의 실험을 정리하고, 몇 개 파라미터를 바꿔 <strong>최적 설정</strong>을 근거와 함께 고른다.</p>
+
+      <div class="label">🛠 할 일</div>
+      <ul>
+        <li><code>chunk_size</code>(500 / 1000 / 1500), <code>top-k</code>(3 / 4 / 6), rerank <code>top_n</code>을 바꿔가며 <code>evaluate.py</code>로 점수를 남긴다.</li>
+        <li>결과를 하나의 표로 모아 <strong>"어떤 설정이 왜 최선인지"</strong> 한 문단으로 정리한다.</li>
+        <li>바꾼 설정마다 git commit — 커밋 히스토리가 곧 실험 로그가 된다.</li>
+      </ul>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong> 3가지 이상 설정의 지표를 한 표에 모으고, 최종 설정을 <strong>숫자 근거</strong>로 선택한 문장이 있으면 통과.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>실험 관리와 의사결정 — "감이 아니라 지표로 정했다"는 이력서/면접 서사.</p>
+    </section>
+
+    <!-- ===================== STEP 9 ===================== -->
+    <section class="step" id="step9">
+      <div class="step-head">
+        <div class="step-num">9</div>
+        <h2>마무리 — README &amp; 포트폴리오화</h2>
+        <span class="badge badge-green">완성</span> <span class="badge badge-gray">⏱ 2~3시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>남이 보고 이해할 수 있고, <strong>이력서에 바로 쓸</strong> 형태로 마감한다.</p>
+
+      <div class="label">🛠 할 일 — README 뼈대</div>
+      <div class="filename">README.md</div>
+<pre><code># P1 · RAG 문서 검색 서비스
+
+## 문제 정의
+- (어떤 도메인 문서에 대한 정확한 QA가 왜 필요한지)
+
+## 아키텍처
+- Load→Split→Embed→Store → Hybrid 검색 → Reranker → 생성(+citation) → FastAPI
+- 관측: Langfuse / 평가: RAGAS
+
+## 결과 (정량)
+| 설정 | faithfulness | context_precision | context_recall |
+|---|---|---|---|
+| baseline | 0.xx | 0.xx | 0.xx |
+| + hybrid | 0.xx | 0.xx | 0.xx |
+| + hybrid + rerank | 0.xx | 0.xx | 0.xx |
+
+## 실행 방법
+1. uv sync
+2. data/ 에 PDF 넣기 → uv run python ingest.py
+3. uv run uvicorn main:app --reload
+
+## 배운 점 / 개선 아이디어
+- (검색 품질을 무엇으로, 얼마나 개선했는지 / 다음에 할 것)</code></pre>
+
+      <div class="callout callout-analogy">
+        <strong>📝 이력서 3문장 템플릿 (토스 가이드 반영: 목적→접근→정량결과)</strong>
+        <p style="margin-top:6px">
+          "<strong>목적</strong> — 의료 문서에 대한 정확한 근거 기반 QA가 필요했다.
+          <strong>접근</strong> — LangChain으로 RAG 파이프라인을 구축하고 FastAPI로 서빙, RAGAS로 평가 체계를 세운 뒤 Hybrid+Reranker로 검색을 개선했다.
+          <strong>결과</strong> — context_recall 0.72 → 0.89, faithfulness 0.81 → 0.93으로 향상했고 Langfuse로 전 과정을 추적했다."
+        </p>
+      </div>
+
+      <div class="callout callout-result">
+        <strong>✅ 최종 검증 게이트 (= 완성 정의)</strong>
+        <a href="#dod">맨 위 Definition of Done</a>의 5개 항목에 모두 ✅. 그러면 Project 1은 완성이고, 아래 실무 감각이 손에 남습니다:
+        <strong>RAG 서빙 · 관측성 · 정량 평가 · 검색 품질 개선</strong>.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>"만들었다"를 <strong>"측정하고 개선했고 설명할 수 있다"</strong>로. 이게 튜토리얼과 실무 포트폴리오의 결정적 차이입니다.</p>
+    </section>
+
+    <hr />
+
+    <div class="callout callout-info">
+      <strong>▶ 다음</strong>
+      Project 1에서 만든 RAG를, 다음 <a href="./index.html#p2">P2 (Agent API 서비스)</a>에서 Agent의 <strong>Tool로 재사용</strong>합니다.
+      "검색 도구를 가진 비서"로 확장되면서 자연스럽게 이어져요.
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="./index.html"><small>← 로드맵</small> 실무 프로젝트 3선</a>
+      <a class="next" href="./index.html#p2"><small>다음 프로젝트 →</small> P2 · Agent API 서비스</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
