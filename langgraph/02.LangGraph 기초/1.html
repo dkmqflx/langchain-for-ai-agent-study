@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1. LangGraph 기초 — State · Node · Edge로 Agent 만들기</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 260px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .sub { padding-left: 20px; font-size: 12.5px; }
+
+    main {
+      margin-left: 260px; max-width: 920px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8d6e00; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── Python 문법 강조 (syntax highlighting) ── */
+    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
+    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
+    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
+    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
+    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
+    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
+    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
+    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Figure ── */
+    figure {
+      margin: 20px 0; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; background: var(--surface);
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption {
+      font-size: 12.5px; color: var(--text-secondary);
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
+    }
+
+    /* ── Trace box (실행 추적) ── */
+    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
+    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .trace-row:last-child { border-bottom: none; }
+    .trace-row .who {
+      flex: 0 0 150px; padding: 12px 14px; font-weight: 700;
+      background: var(--code-bg); border-right: 1px solid var(--border);
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
+    }
+    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
+    .trace-row .what p { margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a, .pager span.disabled {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+    .pager span.disabled { color: var(--text-secondary); text-align: right; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+      .trace-row { flex-direction: column; }
+      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">2강 · LangGraph 기초 (1)</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1-1. LangGraph 시작하기</div>
+      <a href="#what-is">LangGraph란 무엇인가</a>
+      <a href="#install" class="sub">패키지 설치</a>
+      <a href="#genai-vs-vertex" class="sub">GenAI vs Vertex AI</a>
+      <a href="#apikey" class="sub">API 키 등록</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">1-2. Agent 구축 기초</div>
+      <a href="#concept">4가지 핵심 개념</a>
+      <a href="#story" class="sub">공책 한 권이 도는 이야기</a>
+      <a href="#five-steps" class="sub">에이전트 구축 5단계</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">단계별 구현</div>
+      <a href="#step1">STEP 1. Model &amp; Tool 정의</a>
+      <a href="#step2">STEP 2. State 정의</a>
+      <a href="#step3">STEP 3. Node 정의</a>
+      <a href="#llm-call" class="sub">① llm_call 노드</a>
+      <a href="#tool-node" class="sub">② tool_node 노드</a>
+      <a href="#tool-call-id" class="sub">tool_call_id는 왜 필요할까</a>
+      <a href="#step4">STEP 4. 그래프 생성</a>
+      <a href="#conditional" class="sub">조건부 엣지</a>
+      <a href="#compile" class="sub">compile()</a>
+      <a href="#step5">STEP 5. 실행</a>
+      <a href="#gemini-vs-openai" class="sub">Gemini vs OpenAI 응답 차이</a>
+      <a href="#openai">보너스 · OpenAI로 갈아끼우기</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#full-code">전체 코드 한눈에 보기</a>
+      <a href="#pitfalls">자주 걸리는 함정 5가지</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>1. LangGraph 기초 — State · Node · Edge로 Agent 만들기</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>1.ipynb</code>
+      &nbsp;·&nbsp; 대상 범위: 1-1 LangGraph 시작하기 ~ 1-4 그래프 생성 및 실행
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 입문~초급</span>
+    </p>
+
+    <p class="lead">
+      이 자료는 실습 노트북(<code>1.ipynb</code>)을 <strong>열기 전에 먼저 읽는 강의 교재</strong>입니다.
+      LangChain에서 <code>create_agent()</code> 한 줄로 만들었던 에이전트를, 이번에는 LangGraph로
+      <strong>바닥부터 직접 조립</strong>해 봅니다. 그 과정에서 앞으로 이 강의가 끝날 때까지 계속 마주칠
+      네 가지 개념 — <strong>State · Node · Edge · Conditional Edge</strong> — 을 비유와 예시로 천천히 풀어봅니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      <p>지난 시간 LangChain에서는 <code>create_agent(model, tools)</code> 한 줄이면 에이전트가 만들어졌습니다.
+      편했지만, <strong>그 안에서 무슨 일이 일어나는지는 볼 수 없었습니다.</strong>
+      이번 장은 그 상자를 열어 <strong>똑같이 동작하는 에이전트를 부품 단위로 직접 조립</strong>합니다.
+      완성품은 같지만, 조립할 줄 알게 되면 <strong>원하는 대로 개조</strong>할 수 있게 됩니다.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 먼저 마음의 준비</strong>
+      <p>이 장의 개념은 <strong>한 번에 다 이해되지 않는 것이 정상</strong>입니다.
+      리스트 안에 딕셔너리가 있고, 그 딕셔너리 안에 또 리스트가 있는 구조를 계속 오가기 때문에
+      처음에는 인지 부조화가 생깁니다. 하지만 앞으로 만드는 모든 에이전트가 <strong>이 똑같은 5단계</strong>를
+      반복하기 때문에, 두세 번만 돌려보면 손에 익습니다. 지금은 <strong>"흐름"만 잡으면 충분</strong>합니다.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>개념</th><th>한 줄 요약</th><th>비유</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>State</strong></td><td>데이터를 기록해 두는 공용 데이터 구조</td><td>작업자들이 돌려 쓰는 <strong>공책</strong></td></tr>
+          <tr><td><strong>Node</strong></td><td>State를 읽고 일한 뒤 결과를 적어 넣는 함수</td><td>공책에 기록하는 <strong>작업자</strong></td></tr>
+          <tr><td><strong>Edge</strong></td><td>노드와 노드를 잇는 고정된 연결선</td><td>정해진 <strong>인수인계 순서</strong></td></tr>
+          <tr><td><strong>Conditional Edge</strong></td><td>상황을 보고 갈 곳을 고르는 연결선</td><td>갈림길의 <strong>교통 표지판</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 1-1 ══════════════ -->
+    <h2 id="what-is">1-1. LangGraph 시작하기 — LangGraph란 무엇인가</h2>
+
+    <p>
+      LangGraph는 <strong>에이전트를 구축하고, 관리하고, 배포할 때 사용하는 프레임워크</strong>입니다.
+      LangChain과 가장 크게 다른 점은 딱 하나로 요약됩니다 — <strong>저수준(low-level) 오케스트레이션</strong>이 가능하다는 것.
+      즉 "에이전트가 언제 어디로 움직일지"를 <strong>개발자가 직접 설계</strong>할 수 있습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 완성차 vs 레고 부품</strong>
+      <p>LangChain의 <code>create_agent()</code>는 <strong>완성차를 사는 것</strong>입니다. 키를 꽂으면 바로 굴러가죠.
+      빠르고 편합니다. 하지만 "여기서 좌회전 전에 확인 한 번 더 하게 해줘", "이 조건일 땐 사람한테 물어보고 가"
+      같은 요구가 생기면 <strong>보닛을 열 수 없어</strong> 막힙니다.</p>
+      <p>LangGraph는 <strong>레고 부품과 설계도</strong>입니다. 바퀴, 엔진, 핸들을 내가 직접 끼웁니다.
+      처음엔 손이 더 가지만, <strong>어디를 뜯어고쳐야 할지 정확히 알게 됩니다.</strong>
+      실무에서 에이전트가 복잡해질수록 이 차이가 결정적입니다.</p>
+    </div>
+
+    <h3 id="install">패키지 설치 — 3개면 됩니다</h3>
+
+    <p>
+      본격적으로 시작하기 전에 준비물부터 챙깁니다. 설치할 패키지는 세 개이고, 각각 역할이 명확히 다릅니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># ① LangGraph 본체 — 그래프(State/Node/Edge)를 만드는 도구
+!pip install langgraph
+
+# ② LangChain — 에이전트 안에 넣을 "언어 모델"과 "도구"를 가져다 쓰기 위해
+!pip install -U langchain
+
+# ③ Google GenAI 통합 패키지 — Gemini 모델을 LangChain 인터페이스로 쓰기 위해
+!pip install -qU langchain-google-genai</code></pre>
+
+    <p>
+      1번은 당연한데, <strong>2번 LangChain은 왜 필요할까요?</strong>
+      에이전트의 심장은 결국 <strong>추론을 담당하는 언어 모델</strong>입니다. 그런데 OpenAI·Google·Anthropic의
+      API를 직접 감싸는 객체를 우리가 처음부터 만들 이유는 없습니다. LangChain이 이미 다 만들어 뒀거든요.
+      그래서 <strong>LangGraph 개발팀도 공식 문서에서 LangChain을 함께 설치할 것을 권장</strong>합니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 정리</strong>
+      <p><strong>LangGraph = 흐름(뼈대)</strong>을 만드는 도구, <strong>LangChain = 부품(모델·도구·메시지)</strong>을 제공하는 창고.
+      물론 언어 모델 객체까지 직접 밑바닥부터 구현하겠다면 LangChain은 없어도 됩니다.
+      하지만 이 강의에서는 <strong>있는 부품은 가져다 쓰고, 흐름 설계에 집중</strong>합니다.</p>
+    </div>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/04.png" alt="LangChain 패키지 설치 슬라이드와 주요 provider 목록" />
+      <figcaption>LangChain은 provider별 통합 패키지를 제공합니다 — <code>langchain-openai</code>, <code>langchain-google-genai</code>, <code>langchain-anthropic</code> 등. 어떤 모델을 쓰든 사용법은 거의 동일합니다.</figcaption>
+    </figure>
+
+    <h3 id="genai-vs-vertex">잠깐 — Google은 왜 패키지가 두 개일까? (GenAI vs Vertex AI)</h3>
+
+    <p>
+      공식 문서를 열어보면 Google 통합 패키지가 <strong>두 개</strong> 보입니다.
+      <code>langchain-google-genai</code>와 <code>langchain-google-vertexai</code>. 헷갈리기 딱 좋은 지점이라 짚고 갑니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>Google GenAI <span class="badge badge-green">이 강의에서 사용</span></th><th>Google Vertex AI</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>패키지</td><td><code>langchain-google-genai</code></td><td><code>langchain-google-vertexai</code></td></tr>
+          <tr><td>용도</td><td>개인 학습 · 빠른 POC</td><td>엔터프라이즈 · 실제 프로덕션</td></tr>
+          <tr><td>준비물</td><td><strong>API 키 하나</strong></td><td>GCP 프로젝트, 결제 정보, 할당량 설정 등</td></tr>
+          <tr><td>진입 장벽</td><td>낮음 — 5분이면 시작</td><td>높음 — 인프라 설정 필요</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 개인 카드 vs 법인 카드</strong>
+      <p>GenAI는 <strong>개인 신용카드</strong> 같습니다. 발급받아 바로 긁으면 끝.
+      Vertex AI는 <strong>법인 카드</strong>입니다. 결제 정보, 사용 한도, 부서별 할당량… 챙길 게 많지만
+      그만큼 회사 단위로 통제·정산할 수 있죠. <strong>혼자 배우는 단계라면 GenAI가 정답</strong>입니다.</p>
+    </div>
+
+    <h3 id="apikey">API 키 등록</h3>
+
+    <p>
+      마지막으로 발급받은 Gemini API 키를 환경 변수에 올려둡니다. 이렇게 해두면 모델 객체를 만들 때
+      키를 코드에 직접 쓰지 않아도 라이브러리가 알아서 찾아 씁니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># os 환경 변수에 GEMINI API KEY 등록
+import os
+from dotenv import load_dotenv
+
+load_dotenv()   # .env 파일의 GOOGLE_API_KEY 등을 현재 프로세스 환경 변수로 로드</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ Colab에서 실습한다면</strong>
+      <p><code>.env</code> 파일 대신 <code>os.environ["GOOGLE_API_KEY"] = "..."</code> 로 직접 넣거나
+      Colab의 보안 비밀(Secrets) 기능을 쓰면 됩니다. <strong>API 키를 노트북에 그대로 적어 공유하지 마세요.</strong></p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 1-2 ══════════════ -->
+    <h2 id="concept">1-2. Agent 구축 기초 — 4가지 핵심 개념</h2>
+
+    <p>
+      우리가 만들 에이전트는 지난 LangChain 강의에서 만든 것과 <strong>완전히 똑같은 구조</strong>입니다.
+      사용자 요청이 들어오면 → 언어 모델이 판단해서 → 바로 답하거나, 도구를 부르거나 →
+      도구 결과를 다시 보고 최종 답을 만드는 구조죠. 결과물은 같고, <strong>만드는 방식만 다릅니다.</strong>
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/05.png" alt="LangChain 버전 Agent와 LangGraph 버전 Agent 구조 비교" />
+      <figcaption>왼쪽이 LangChain 버전, 오른쪽이 LangGraph 버전. <strong>하는 일은 똑같습니다.</strong> 다만 LangGraph에서는 <code>__start__</code> → <code>llm_call</code> → (<code>tool_node</code> ↔ <code>llm_call</code>) → <code>__end__</code> 라는 <strong>흐름이 눈에 보이게</strong> 드러납니다.</figcaption>
+    </figure>
+
+    <p>
+      이 그림을 코드로 옮기려면 딱 네 가지 단어를 알아야 합니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>개념</th><th>정의</th><th>위 그림에서</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>State</strong><br />(공책)</td>
+            <td>데이터를 작성할 <strong>공책</strong>. 노드들이 돌려 보며 읽고 적는 공용 기록장</td>
+            <td>그림에는 안 보이지만 <strong>화살표를 타고 함께 흐르는 것</strong>이 바로 State</td>
+          </tr>
+          <tr>
+            <td><strong>Node</strong><br />(작업자)</td>
+            <td>데이터를 작성하는 <strong>작업자</strong>. State를 받아 일하고 결과를 적어 반환</td>
+            <td>네모 상자 — <code>llm_call</code>, <code>tool_node</code></td>
+          </tr>
+          <tr>
+            <td><strong>Edge</strong><br />(선)</td>
+            <td>Node와 Node를 연결하는 <strong>선</strong>. 무조건 이쪽으로 간다</td>
+            <td><strong>실선</strong> 화살표 — <code>__start__ → llm_call</code></td>
+          </tr>
+          <tr>
+            <td><strong>Conditional Edge</strong><br />(갈림길)</td>
+            <td><strong>라우팅</strong> 기능이 있는 선. 상황을 보고 갈 곳을 고른다</td>
+            <td><strong>점선</strong> 화살표 — <code>llm_call</code>에서 <code>__end__</code>냐 <code>tool_node</code>냐</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/06.png" alt="State는 데이터를 작성할 공책, Node는 데이터를 작성하는 작업자, Edge는 Node를 연결하는 선, Conditional Edge는 라우팅 기능을 하는 선" />
+      <figcaption>이 네 줄이 앞으로의 모든 강의를 관통하는 핵심입니다. <strong>State = 공책, Node = 작업자, Edge = 선, Conditional Edge = 라우팅하는 선.</strong></figcaption>
+    </figure>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 공책 한 권을 돌려 쓰는 사무실</strong>
+      <p>작은 사무실을 상상해 봅시다. 책상마다 직원(<strong>Node</strong>)이 앉아 있고,
+      <strong>공책 한 권(State)</strong>이 책상 사이를 돌아다닙니다. 규칙은 단순합니다.</p>
+      <ul>
+        <li>직원은 공책을 받으면 <strong>앞 사람이 뭘 써놨는지 읽고</strong>, 자기 일을 한 뒤 <strong>그 밑에 이어 씁니다.</strong></li>
+        <li>공책을 다음 누구에게 넘길지는 <strong>바닥에 그려진 화살표(Edge)</strong>를 따릅니다.</li>
+        <li>어떤 화살표는 갈림길이라 <strong>표지판(Conditional Edge)</strong>을 보고 판단합니다.</li>
+      </ul>
+      <p>중요한 건 <strong>직원들은 서로 직접 대화하지 않는다</strong>는 점입니다. 오직 <strong>공책을 통해서만</strong> 소통합니다.
+      LangGraph의 노드가 정확히 이렇게 동작합니다.</p>
+    </div>
+
+    <h3 id="story">공책 한 권이 도는 이야기 — 한 바퀴 따라가 보기</h3>
+
+    <p>
+      개념만으로는 잘 안 와닿으니, <strong>"3과 4를 더해줘"</strong>라는 요청이 들어왔을 때
+      공책이 어떻게 돌고 어떻게 채워지는지 한 바퀴 따라가 봅시다.
+    </p>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">__start__</div>
+        <div class="what"><p><strong>빈 공책을 펼치고 사용자 입력을 적습니다.</strong>
+        공책의 <code>messages</code> 칸에 <code>HumanMessage("3과 4를 더해줘")</code>가 첫 줄로 들어갑니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">llm_call ①</div>
+        <div class="what"><p>공책을 읽고 언어 모델이 판단합니다. <strong>"이건 내가 암산할 게 아니라 계산기(도구)를 불러야겠다."</strong>
+        그래서 답변 내용은 비워두고, 대신 <strong>"add 도구를 a=3, b=4로 호출해줘"</strong>라는 요청서를 공책에 적습니다.
+        그리고 <code>llm_calls</code> 칸을 1 올립니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">(갈림길)</div>
+        <div class="what"><p>표지판이 공책의 <strong>마지막 줄</strong>을 봅니다.
+        "도구 호출 요청서가 적혀 있네? → <strong>tool_node로 가라</strong>."</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">tool_node</div>
+        <div class="what"><p>공책의 마지막 줄에서 요청서를 꺼내 <strong>진짜 <code>add(3, 4)</code> 함수를 실행</strong>합니다.
+        결과 <code>7</code>을 <strong>ToolMessage로 포장해 공책에 이어 적습니다.</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">llm_call ②</div>
+        <div class="what"><p>공책을 다시 읽습니다. 질문("3과 4를 더해줘")과 도구 결과("7")가 모두 보입니다.
+        <strong>"이제 답할 수 있겠다."</strong> → <code>"3과 4를 더하면 7입니다"</code>를 공책에 적습니다.
+        <code>llm_calls</code>는 2가 됩니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">(갈림길)</div>
+        <div class="what"><p>표지판이 마지막 줄을 봅니다. "도구 요청서가 없네? 그냥 답변이네 → <strong>__end__로 가라</strong>."</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">__end__</div>
+        <div class="what"><p>공책을 통째로 반환합니다. 우리는 그 <strong>마지막 줄</strong>만 꺼내 화면에 출력하면 됩니다.</p></div>
+      </div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 여기서 딱 하나만 기억한다면</strong>
+      <p><strong>모든 노드는 State를 입력으로 받아, State에 적을 내용을 반환한다.</strong>
+      축구로 치면 선수(노드)들이 공(State)을 패스하며 전진하는 것과 같습니다.
+      그리고 패스가 성립하려면 <strong>공의 규격(데이터 구조)이 정해져 있어야</strong> 하죠. 그게 State 클래스입니다.</p>
+    </div>
+
+    <h3 id="five-steps">에이전트 구축 5단계</h3>
+
+    <p>
+      LangGraph로 에이전트를 만드는 순서는 <strong>항상 이 다섯 단계</strong>입니다.
+      앞으로 만들 모든 에이전트가 이 순서를 반복하므로, 지금 통째로 외워두면 편합니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>Model &amp; Tool</strong><p>추론할 언어 모델과 사용할 도구를 정의하고 <strong>서로 연결</strong></p></div>
+      <div class="flow-step"><span class="n">2</span><strong>State</strong><p>노드들이 돌려 쓸 <strong>공책 양식</strong>을 클래스로 정의</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>Node</strong><p>실제로 일할 <strong>작업자를 함수</strong>로 작성</p></div>
+      <div class="flow-step"><span class="n">4</span><strong>Graph</strong><p>노드를 등록하고 <strong>선(Edge)</strong>으로 연결한 뒤 컴파일</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>Run</strong><p><code>invoke()</code>로 <strong>실행</strong>하고 결과 확인</p></div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ STEP 1 ══════════════ -->
+    <h2 id="step1">STEP 1. Model 및 Tool 정의</h2>
+
+    <h3>① 언어 모델 객체 만들기</h3>
+
+    <p>
+      앞서 말했듯 언어 모델은 직접 만들지 않고 <strong>LangChain의 통합 패키지를 가져다 씁니다.</strong>
+      Gemini를 쓸 것이므로 <code>langchain_google_genai</code>에서 <code>ChatGoogleGenerativeAI</code>를 가져옵니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 모델 객체 생성
+# https://docs.langchain.com/oss/python/integrations/providers/google
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+model = ChatGoogleGenerativeAI(
+    model="gemini-3.1-flash-preview",
+)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 Flash 모델인가</strong>
+      <p>Pro 계열은 더 똑똑하지만 느리고 비쌉니다. <strong>사칙연산 도구를 부르는 정도의 판단</strong>이라면
+      Flash로 충분하고, 실습 중 수십 번 호출해도 부담이 적습니다.
+      <code>temperature</code> 같은 하이퍼파라미터는 지금은 기본값으로 두겠습니다.</p>
+      <p>OpenAI를 쓰고 싶다면 <code>init_chat_model("gpt-5-nano")</code> 처럼 바꾸기만 하면 됩니다.
+      <strong>뒤에 나오는 그래프 코드는 한 글자도 바뀌지 않습니다.</strong>
+      실제로 갈아끼우는 과정은 맨 아래 <a href="#openai">보너스 — OpenAI로 갈아끼우기</a>에서 직접 해봅니다.</p>
+    </div>
+
+    <h3>② 도구(Tool) 정의하기</h3>
+
+    <p>
+      도구는 LangChain에서 배운 그대로입니다. 평범한 파이썬 함수에 <code>@tool</code> 데코레이터만 붙이면
+      LangChain·LangGraph가 인식하는 도구가 됩니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.tools import tool
+
+@tool
+def multiply(a: int, b: int) -&gt; int:
+    """Multiply `a` and `b`.
+
+    Args:
+        a: First int
+        b: Second int
+    """
+    return a * b
+
+
+@tool
+def add(a: int, b: int) -&gt; int:
+    """Adds `a` and `b`.
+
+    Args:
+        a: First int
+        b: Second int
+    """
+    return a + b
+
+
+@tool
+def divide(a: int, b: int) -&gt; float:
+    """Divide `a` and `b`.
+
+    Args:
+        a: First int
+        b: Second int
+    """
+    return a / b</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 도구는 "설명서가 붙은 공구"</strong>
+      <p>공구함에 드라이버를 넣어두기만 하면 남이 알 수 없습니다. <strong>"십자 드라이버 / 나사 조일 때 사용"</strong>이라는
+      라벨이 붙어야 쓸 사람이 고를 수 있죠.</p>
+      <ul>
+        <li><strong>타입 힌트</strong>(<code>a: int</code>, <code>-&gt; int</code>) = 공구의 <strong>규격</strong>. "여기엔 정수를 넣어야 해"</li>
+        <li><strong>docstring</strong>(<code>"""Adds a and b."""</code>) = 공구의 <strong>라벨</strong>. LLM은 이 문장을 읽고 도구를 고릅니다.</li>
+      </ul>
+      <p>즉 docstring은 주석이 아니라 <strong>LLM에게 보내는 사용설명서</strong>입니다. 대충 쓰면 도구를 엉뚱하게 고릅니다.</p>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># tools 정의 — 에이전트가 쓸 수 있는 도구 목록
+tools = [multiply, add, divide]</code></pre>
+
+    <h3>③ 모델과 도구 연결하기 — 여기가 LangChain과 갈리는 지점</h3>
+
+    <p>
+      지난 LangChain 강의에서는 여기서 <code>create_agent()</code>를 불렀습니다. 모델과 도구를 넣으면
+      <strong>에이전트가 통째로 완성</strong>됐죠.
+    </p>
+
+    <div class="io-label">📥 (참고) LangChain 방식 — 지금은 쓰지 않습니다</div>
+<pre class="code-block"><code>from langchain.agents import create_agent
+
+agent = create_agent(model, tools=[get_weather])   # 끝. 대신 이 안이 안 보인다.</code></pre>
+
+    <p>
+      LangGraph에서는 <code>create_agent()</code>를 쓰지 않습니다. 대신 <strong>모델에 도구를 "바인딩"만 해두고,
+      실제 실행 흐름은 우리가 직접 짭니다.</strong>
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># model - tool 바인딩
+model_with_tools = model.bind_tools(tools)</code></pre>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/08.png" alt="model에 bind_tools() 메서드로 tool이 연결된 model 객체 생성" />
+      <figcaption><code>bind_tools()</code>는 원래 모델을 바꾸지 않고, <strong>도구 목록이 붙은 새로운 모델 객체</strong>를 만들어 돌려줍니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — <code>create_agent</code>는 "직원 채용", <code>bind_tools</code>는 "명함 건네기"</strong>
+      <p><code>create_agent()</code>는 <strong>일 다 하는 직원을 한 명 뽑는 것</strong>입니다. 알아서 판단하고 도구도 쓰고 답도 만듭니다.
+      대신 그 사람이 어떤 순서로 일하는지 우리는 관여할 수 없습니다.</p>
+      <p><code>bind_tools()</code>는 <strong>"우리 회사엔 이런 부서들이 있어"라고 명함을 건네주는 것</strong>에 가깝습니다.
+      모델은 이제 <strong>어떤 도구가 있는지 알게 될 뿐</strong>, 도구를 직접 실행하지는 않습니다.
+      "add 부서에 3, 4를 넘겨주세요"라고 <strong>요청서만 작성</strong>하고, <strong>실제 전화는 우리가(tool_node가) 겁니다.</strong></p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 자주 하는 오해</strong>
+      <p><code>model_with_tools.invoke(...)</code>를 부르면 도구가 자동으로 실행될 것 같지만 <strong>아닙니다.</strong>
+      모델은 <strong>"이 도구를 이런 인자로 불러줘"라는 요청(<code>tool_calls</code>)만 돌려줍니다.</strong>
+      그 요청을 읽고 실제 함수를 돌리는 일은 STEP 3에서 우리가 만들 <code>tool_node</code>의 몫입니다.
+      <strong>이 분리가 LangGraph의 핵심</strong>이며, 덕분에 "도구 실행 전에 사람에게 확인받기" 같은 개입이 가능해집니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ STEP 2 ══════════════ -->
+    <h2 id="step2">STEP 2. State 정의 — 공책 양식 만들기</h2>
+
+    <p>
+      이제 노드들이 돌려 쓸 <strong>공책의 양식</strong>을 정합니다.
+      이번 에이전트가 기록해야 할 것은 두 가지입니다.
+    </p>
+
+    <ul>
+      <li><strong><code>messages</code></strong> — 사용자 입력, 모델의 답변, 도구 실행 결과가 <strong>차곡차곡 쌓이는 대화 기록</strong></li>
+      <li><strong><code>llm_calls</code></strong> — 언어 모델이 <strong>몇 번 호출됐는지</strong> 세는 카운터</li>
+    </ul>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># State 정의
+# https://docs.langchain.com/oss/python/langgraph/quickstart#2-define-state
+
+from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class State(TypedDict):
+    # 대화 기록은 리스트 형태로 '누적'되도록 add_messages 리듀서 적용
+    messages: Annotated[list[AnyMessage], add_messages]
+    # 모델 호출 횟수 기록용
+    llm_calls: int</code></pre>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/09.png" alt="State 정의 — Annotated[데이터 타입, 업데이트 규칙 함수]" />
+      <figcaption><code>Annotated[데이터 타입, 업데이트 규칙 함수]</code> — "State의 messages는 리스트이고, 새 메시지가 들어오면 <code>add_messages</code> 함수로 합쳐라"라는 뜻입니다.</figcaption>
+    </figure>
+
+    <h3>세 줄짜리 코드에 담긴 세 가지 개념</h3>
+
+    <h4>① <code>TypedDict</code> — 칸이 정해진 딕셔너리</h4>
+    <p>
+      State는 결국 <strong>딕셔너리</strong>입니다. 다만 아무 키나 넣을 수 있는 딕셔너리가 아니라,
+      <strong>"이 공책에는 messages 칸과 llm_calls 칸이 있다"</strong>고 미리 못 박아 둔 것이죠.
+      지난 강의에서 구조화된 답변을 만들 때 Pydantic 클래스로 스키마를 정의했던 것과 같은 발상입니다.
+    </p>
+
+    <h4>② <code>AnyMessage</code> — 어떤 메시지든 들어올 수 있다</h4>
+    <p>
+      <code>messages</code> 리스트에는 <strong>여러 종류의 메시지</strong>가 섞여 들어옵니다 —
+      <code>SystemMessage</code>(시스템 지시), <code>HumanMessage</code>(사용자 입력),
+      <code>AIMessage</code>(모델 응답), <code>ToolMessage</code>(도구 결과).
+      <code>AnyMessage</code>는 <strong>"이 넷 중 뭐가 와도 괜찮다"</strong>고 표시해 주는 타입입니다.
+    </p>
+
+    <h4>③ <code>add_messages</code> — 덮어쓰지 말고 <strong>이어 쓰라</strong>는 규칙</h4>
+    <p>
+      이게 가장 중요하고, 가장 처음 헷갈리는 부분입니다.
+      LangGraph에서 노드가 State를 반환하면 <strong>기본 동작은 "덮어쓰기"</strong>입니다.
+      그런데 대화 기록을 덮어쓰면 어떻게 될까요? 도구 결과가 들어오는 순간
+      <strong>사용자 질문이 통째로 사라집니다.</strong>
+    </p>
+    <p>
+      그래서 <code>Annotated</code>의 두 번째 자리에 <code>add_messages</code>라는 함수를 끼워 넣습니다.
+      이런 함수를 <strong>리듀서(reducer)</strong>라고 부르며, 뜻은 단순합니다 —
+      <strong>"이 칸에 새 값이 들어오면 덮어쓰지 말고, 기존 리스트 뒤에 append 해라."</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 화이트보드 vs 일기장</strong>
+      <p>일반 필드(<code>llm_calls</code>)는 <strong>화이트보드</strong>입니다. 새 값을 쓰면 앞의 값은 지워집니다.
+      호출 횟수는 최신 값만 알면 되니 이게 맞죠.</p>
+      <p><code>messages</code>는 <strong>일기장</strong>이어야 합니다. 오늘 일기를 쓴다고 어제 일기를 지우면 안 되니까요.
+      <code>add_messages</code>가 바로 <strong>"지우지 말고 다음 장에 이어 쓰기"</strong> 규칙입니다.
+      이 한 줄 덕분에 앞으로 모든 노드는 <strong>새로 생긴 메시지만 반환하면</strong> 되고,
+      누적은 LangGraph가 알아서 해줍니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 공식 문서와 살짝 다른 점</strong>
+      <p>LangGraph 공식 문서에는 <code>Annotated[list[AnyMessage], operator.add]</code> 처럼
+      파이썬 내장 <code>operator.add</code>를 쓰는 예시도 나옵니다. 동작은 비슷하지만,
+      <code>langgraph.graph.message</code>의 <strong><code>add_messages</code>가 메시지 병합 규칙(ID가 같으면 교체 등)까지
+      알아서 처리</strong>해 주기 때문에 더 안전하고 코드도 깔끔합니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ STEP 3 ══════════════ -->
+    <h2 id="step3">STEP 3. Node 정의 — 작업자 함수 만들기</h2>
+
+    <p>
+      이제 실제로 일할 작업자를 만듭니다. 앞의 그림에서 <code>__start__</code>와 <code>__end__</code>는
+      <strong>LangGraph가 이미 만들어 둔 것</strong>이므로, 우리가 만들 노드는 딱 두 개입니다 —
+      <code>llm_call</code>과 <code>tool_node</code>.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 노드의 계약(contract) — 딱 두 줄</strong>
+      <ol style="margin-bottom:0">
+        <li><strong>노드는 반드시 <code>state</code>를 입력 파라미터로 받는다.</strong> (공책을 건네받아야 하니까)</li>
+        <li><strong>노드는 State 양식에 맞는 딕셔너리를 반환한다.</strong> (공책에 적을 내용만 적어서 돌려주니까)</li>
+      </ol>
+    </div>
+
+    <!-- llm_call -->
+    <h3 id="llm-call">① <code>llm_call</code> 노드 — 판단하는 작업자</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># llm_call 노드
+
+from langchain.messages import SystemMessage
+
+def llm_call(state: State):
+    """LLM이 현재 상태를 보고 답변하거나, 도구 사용을 요청하는 작업자"""
+
+    # 시스템 메시지를 맨 앞에 추가하고 기존 대화 기록을 뒤에 붙여서 LLM에게 전송
+    response = model_with_tools.invoke(
+        [
+            SystemMessage(
+                content="당신은 사칙연산을 완벽하게 해내는 유능한 Agent입니다."
+            )
+        ] + state["messages"]
+    )
+
+    # 작업이 끝나면, 새로 생성된 메시지 1개와 카운터 1 증가분을 공책에 업데이트
+    return {
+        "messages": [response],
+        "llm_calls": state.get('llm_calls', 0) + 1  # 초기값이 없으면 0으로 시작
+    }</code></pre>
+
+    <p>한 줄씩 뜯어봅시다.</p>
+
+    <h4><code>[SystemMessage(...)] + state["messages"]</code> — 지시문을 맨 앞에 끼우기</h4>
+    <p>
+      <code>state["messages"]</code>에는 지금까지의 대화가 전부 들어 있습니다.
+      그 <strong>앞에</strong> 시스템 메시지를 하나 붙여서 모델에 전달합니다.
+      결과적으로 모델이 받는 리스트는 이런 모양이 됩니다.
+    </p>
+    <div class="io-label">▶ 모델이 실제로 받는 것</div>
+<pre class="result-block">[
+  SystemMessage("당신은 사칙연산을 완벽하게 해내는 유능한 Agent입니다."),
+  HumanMessage("3과 4를 더해줘"),
+  ... (턴이 쌓이면 AIMessage, ToolMessage 가 계속 뒤에 붙음)
+]</pre>
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 매번 붙였다 떼는 포스트잇</strong>
+      <p>시스템 메시지는 공책에 <strong>영구히 적어두는 게 아니라</strong>, 모델에게 넘기기 직전
+      맨 앞에 <strong>포스트잇으로 붙였다 떼는 것</strong>에 가깝습니다.
+      "너는 사칙연산 전문가야"라는 역할을 <strong>매 호출마다 상기시켜 주는</strong> 셈이죠.</p>
+    </div>
+
+    <h4><code>state.get('llm_calls', 0) + 1</code> — 왜 <code>state["llm_calls"] + 1</code>이 아닐까?</h4>
+    <p>
+      우리가 <code>agent.invoke({"messages": messages})</code>로 실행할 때
+      <strong><code>llm_calls</code>는 넘기지 않습니다.</strong> 그러면 첫 호출 시점에 그 칸은 비어 있죠.
+      이때 <code>state["llm_calls"]</code>로 접근하면 <strong><code>KeyError</code>가 납니다.</strong>
+    </p>
+    <p>
+      <code>.get('llm_calls', 0)</code>은 <strong>"있으면 그 값을 쓰고, 없으면 0으로 치자"</strong>는 딕셔너리 메서드입니다.
+      덕분에 첫 호출은 <code>0 + 1 = 1</code>, 두 번째 호출은 <code>1 + 1 = 2</code>로 자연스럽게 올라갑니다.
+    </p>
+
+    <h4>반환값 — 새로 생긴 것만 적는다</h4>
+    <p>
+      <code>{"messages": [response], "llm_calls": ...}</code>를 보면
+      <strong>기존 대화 기록은 하나도 안 넣었습니다.</strong> 왜냐하면 STEP 2에서 <code>add_messages</code>를 걸어뒀기 때문입니다.
+      <strong>새로 생긴 메시지 하나만 리스트에 담아 반환하면, 누적은 LangGraph가 알아서 합니다.</strong>
+      반면 <code>llm_calls</code>는 리듀서가 없으니 <strong>계산한 최종값을 통째로 반환</strong>해야 합니다.
+    </p>
+
+    <h4>이 노드가 만들어내는 두 가지 결과</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>상황</th><th><code>response</code>(AIMessage)의 모습</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>바로 답할 수 있을 때</strong></td>
+            <td><code>content</code>에 답변 텍스트가 채워지고, <code>tool_calls</code>는 <strong>빈 리스트</strong></td>
+          </tr>
+          <tr>
+            <td><strong>도구가 필요할 때</strong></td>
+            <td><code>content</code>는 <strong>비어 있고</strong>, <code>tool_calls</code>에
+            <code>{"name": "add", "args": {"a": 3, "b": 4}, "id": "call_xxx"}</code> 같은 <strong>요청서</strong>가 담김</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      이 두 가지 중 어느 쪽이냐가 <strong>바로 다음 갈림길의 판단 기준</strong>이 됩니다. 기억해 두세요.
+    </p>
+
+    <!-- tool_node -->
+    <h3 id="tool-node">② <code>tool_node</code> 노드 — 실제로 실행하는 작업자</h3>
+
+    <p>
+      <code>llm_call</code>이 <strong>"add를 3, 4로 불러줘"라고 요청서만 써준</strong> 상태입니다.
+      이제 <strong>그 요청서를 읽고 진짜 파이썬 함수를 실행</strong>할 작업자가 필요합니다.
+    </p>
+
+    <h4>준비물 — 이름 → 함수 전화번호부</h4>
+    <p>
+      모델이 준 요청서에는 도구 <strong>이름</strong>이 문자열로 적혀 있습니다(<code>"add"</code>).
+      그런데 우리가 가진 <code>tools</code>는 함수 객체의 <strong>리스트</strong>죠.
+      매번 리스트를 뒤져 이름을 비교하는 대신, <strong>이름으로 바로 찾을 수 있는 딕셔너리</strong>를 미리 만들어 둡니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 도구 이름을 키로, 실제 함수를 값으로 가지는 딕셔너리 준비
+tools_by_name = {tool.name: tool for tool in tools}</code></pre>
+
+    <div class="io-label">▶ 이렇게 생겼습니다</div>
+<pre class="result-block">{
+  'multiply': StructuredTool(name='multiply', ...),
+  'add':      StructuredTool(name='add', ...),
+  'divide':   StructuredTool(name='divide', ...)
+}</pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 전화번호부</strong>
+      <p>회사에 부서가 100개 있는데 매번 <strong>전 부서에 전화를 돌려 "혹시 add 부서세요?"</strong>라고 물을 순 없죠.
+      <code>tools_by_name</code>은 <strong>"부서 이름 → 내선번호"</strong> 전화번호부입니다.
+      모델이 <code>"add"</code>라고 적어주면 <strong>한 번에 그 함수로 연결</strong>됩니다.</p>
+    </div>
+
+    <h4>tool_node 본체</h4>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.messages import ToolMessage
+
+def tool_node(state: State):
+    """LLM이 도구 사용을 요청했을 때, 실제로 함수를 실행하는 작업자"""
+
+    result = []
+    # 공책의 맨 마지막 메시지(LLM의 요청장)에서 tool_calls 리스트 꺼내기
+    last_message = state["messages"][-1]
+
+    for tool_call in last_message.tool_calls:
+        # 1. 도구 이름으로 실제 파이썬 함수 찾기
+        tool = tools_by_name[tool_call["name"]]
+
+        # 2. 인자(args)를 넣고 함수 실행
+        tool_result = tool.invoke(tool_call["args"])
+
+        # 3. 실행 결과를 ToolMessage로 포장 (tool_call_id를 반드시 맞춰주어야 모델이 인식함)
+        result.append(ToolMessage(content=tool_result, tool_call_id=tool_call["id"]))
+
+    # 도구 실행 결과들을 공책에 업데이트
+    return {"messages": result}</code></pre>
+
+    <p>
+      코드가 <strong>리스트 → 딕셔너리 → 리스트</strong>를 오가서 어지럽게 느껴질 수 있습니다.
+      데이터가 어떻게 생겼는지 먼저 그림으로 잡아둡시다.
+    </p>
+
+    <div class="io-label">▶ 이 시점의 state 모습</div>
+<pre class="result-block">state = {
+  "messages": [
+      SystemMessage(content="당신은 사칙연산을 ..."),
+      HumanMessage(content="3과 4를 더해줘"),
+      AIMessage(                          ← [-1] 마지막 메시지가 바로 이것
+          content='',                     ← 비어 있음 (아직 답 못 만듦)
+          tool_calls=[                    ← 요청서가 "리스트" 안에 "딕셔너리"로
+              {"name": "add", "args": {"a": 3, "b": 4}, "id": "call_abc123"}
+          ]
+      )
+  ],
+  "llm_calls": 1
+}</pre>
+
+    <p>이 구조를 알고 코드를 다시 보면 흐름이 그대로 읽힙니다.</p>
+
+    <ol>
+      <li><code>state["messages"][-1]</code> → <strong>마지막 메시지</strong>(모델의 요청서)를 꺼낸다.</li>
+      <li><code>last_message.tool_calls</code> → 요청서 <strong>리스트</strong>를 for문으로 하나씩 돈다.</li>
+      <li><code>tool_call["name"]</code>(= <code>"add"</code>)으로 전화번호부를 조회해 <strong>진짜 함수</strong>를 얻는다.</li>
+      <li><code>tool_call["args"]</code>(= <code>{"a": 3, "b": 4}</code>)를 넣어 <strong>실행</strong>한다 → 결과 <code>7</code>.</li>
+      <li>결과를 <code>ToolMessage</code>로 <strong>포장</strong>해 <code>result</code> 리스트에 담는다.</li>
+      <li>모두 끝나면 <code>{"messages": result}</code>로 반환 → <code>add_messages</code>가 알아서 공책에 이어 붙인다.</li>
+    </ol>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 왜 for문으로 도는가</strong>
+      <p><code>tool_calls</code>가 <strong>리스트</strong>인 이유는 <strong>한 번에 여러 도구를 호출할 수 있기 때문</strong>입니다.
+      "서울이랑 도쿄 날씨 알려줘"라고 하면 모델은 <code>weather</code> 도구를 <strong>두 번</strong> 요청합니다.
+      그래서 요청서가 하나뿐일 때도 <strong>항상 리스트를 순회하도록</strong> 짜야 합니다.</p>
+    </div>
+
+    <!-- tool_call_id -->
+    <h3 id="tool-call-id">🔑 <code>tool_call_id</code>는 도대체 왜 필요할까</h3>
+
+    <p>
+      <code>ToolMessage(content=tool_result, tool_call_id=tool_call["id"])</code> —
+      결과만 담으면 될 것 같은데 <strong><code>tool_call_id</code>를 굳이 왜 같이 넘길까요?</strong>
+      빼면 에러도 납니다. 이유를 예시로 보면 단번에 이해됩니다.
+    </p>
+
+    <p>사용자가 이렇게 물었다고 해봅시다 — <strong>"서울이랑 도쿄 날씨 알려줘"</strong></p>
+
+    <div class="io-label">▶ 모델이 만든 요청서 (AIMessage.tool_calls)</div>
+<pre class="code-block"><code>tool_calls = [
+    {"name": "weather", "args": {"city": "Seoul"}, "id": "call_12345"},  # 서울 요청 (ID: 12345)
+    {"name": "weather", "args": {"city": "Tokyo"}, "id": "call_67890"}   # 도쿄 요청 (ID: 67890)
+]</code></pre>
+
+    <p>도구를 두 번 실행하면 결과도 두 개가 나옵니다. 그런데 <strong>ID 없이</strong> 결과만 돌려준다면?</p>
+
+    <div class="io-label">▶ ID가 없다면 — 모델의 입장</div>
+<pre class="result-block">ToolMessage(content="맑음")
+ToolMessage(content="비")
+
+→ 모델: "...어느 쪽이 서울이고 어느 쪽이 도쿄지?" 🤔</pre>
+
+    <p>ID를 붙이면 문제가 사라집니다.</p>
+
+    <div class="io-label">▶ ID가 있다면</div>
+<pre class="result-block">ToolMessage(content="맑음", tool_call_id="call_12345")   → 아, 서울이 맑음
+ToolMessage(content="비",   tool_call_id="call_67890")   → 도쿄는 비</pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 택배 송장 번호</strong>
+      <p>같은 날 택배 두 개를 주문했는데 <strong>송장 번호가 없다면</strong>, 배송 완료 문자 두 개가 와도
+      어느 게 어느 물건인지 알 수 없습니다. <code>tool_call_id</code>는 <strong>송장 번호</strong>입니다.
+      모델이 요청할 때 <strong>스스로 발급한 고유번호</strong>이고, 우리는 결과를 돌려줄 때
+      <strong>그 번호를 그대로 붙여서</strong> 돌려주는 것뿐입니다. 그래야 모델이 자기 요청과 대조할 수 있습니다.</p>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚫 빼먹으면 에러</strong>
+      <p><code>tool_call_id</code>는 <strong>선택이 아니라 필수</strong>입니다.
+      "요청한 tool_call에 대응하는 응답이 없다"며 에러가 납니다.
+      <strong><code>tool_call["id"]</code>를 그대로 복사해 넣는다</strong>고 외워두세요.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ STEP 4 ══════════════ -->
+    <h2 id="step4">STEP 4. 그래프 생성 — 작업자들을 배치하고 선 긋기</h2>
+
+    <p>
+      부품은 다 만들었습니다. 이제 <strong>도면 위에 작업자를 배치하고, 화살표를 긋는</strong> 단계입니다.
+      순서는 ① 그래프 초기화 → ② 노드 등록 → ③ 실선 연결 → ④ 점선(조건부) 연결 → ⑤ 컴파일 입니다.
+    </p>
+
+    <h3>① 그래프 초기화 + ② 노드 등록 + ③ 실선 엣지</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 그래프 생성
+
+from langgraph.graph import StateGraph, START
+
+# 1. 빈 작업장(그래프) 도면 펼치기 (공책 양식을 알려줌)
+agent_builder = StateGraph(State)
+
+# 2. add_node: 도면에 작업자(노드) 배치하기
+agent_builder.add_node("llm_call", llm_call)
+agent_builder.add_node("tool_node", tool_node)
+
+# 3. add_edge: 고정된 연결선(Edge) 긋기
+# 시작(START)하자마자 무조건 llm_call 작업자에게 최초로 공책을 넘깁니다.
+agent_builder.add_edge(START, "llm_call")
+# 도구 실행이 끝나면 결과값을 얻었으니 무조건 다시 llm_call 작업자에게 공책을 넘겨 최종 답변 생성
+agent_builder.add_edge("tool_node", "llm_call")</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>코드</th><th>의미</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>StateGraph(State)</code></td>
+            <td>"이 작업장에서 돌려 쓸 <strong>공책 양식은 State다</strong>"라고 알려주며 빈 도면을 편다</td>
+          </tr>
+          <tr>
+            <td><code>add_node("이름", 함수)</code></td>
+            <td>1번째 인자 = 도면에 적을 <strong>이름표</strong>, 2번째 인자 = 실제 <strong>함수</strong>.
+            이름은 마음대로 정해도 되며(<code>"tools"</code>로 해도 됨), <strong>이후 모든 연결에서 이 이름을 씁니다</strong></td>
+          </tr>
+          <tr>
+            <td><code>add_edge(출발, 도착)</code></td>
+            <td>1번째 = <strong>출발</strong> 노드, 2번째 = <strong>도착</strong> 노드. 조건 없이 <strong>무조건</strong> 흐르는 실선</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>START</code>는 왜 따로 있나</strong>
+      <p><code>START</code>와 <code>END</code>는 <strong>LangGraph가 미리 만들어 둔 특수 노드</strong>입니다.
+      <code>add_edge(START, "llm_call")</code>은 <strong>"입력이 들어오면 제일 먼저 llm_call에게 넘겨라"</strong>는 뜻이고,
+      <code>add_edge("tool_node", "llm_call")</code>은 <strong>"도구가 일을 끝냈으면 무조건 모델에게 돌려줘라"</strong>는 뜻입니다.
+      후자가 있어야 <strong>도구 → 모델 → 도구 → 모델…</strong> 하는 <strong>루프</strong>가 생깁니다.</p>
+    </div>
+
+    <!-- conditional -->
+    <h3 id="conditional">④ 조건부 엣지 — 점선 긋기</h3>
+
+    <p>
+      이제 남은 건 <code>llm_call</code>에서 나가는 <strong>점선</strong>입니다.
+      상황에 따라 <code>__end__</code>로 끝낼 수도, <code>tool_node</code>로 갈 수도 있죠.
+      이걸 만들려면 <strong>먼저 "판단하는 함수"부터</strong> 작성해야 합니다.
+    </p>
+
+    <div class="io-label">📥 코드 — (1) 라우팅 함수</div>
+<pre class="code-block"><code># 조건부 함수 작성
+
+from langgraph.graph import END
+
+def should_continue(state: State):
+    """
+    LLM의 응답을 보고 다음 단계로 어디를 갈지 결정하는 라우팅 함수
+    """
+    last_message = state["messages"][-1]
+
+    # LLM이 도구 호출(tool_calls) 요청장을 작성했다면? -> 도구 작업자(tool_node)에게 가라고 문자열 반환
+    if last_message.tool_calls:
+        return "tool_node"
+
+    # 도구 호출이 없고 최종 답변을 작성했다면? -> 작업 종료(END) 반환
+    return END</code></pre>
+
+    <p>
+      로직은 놀랄 만큼 단순합니다. <strong>공책의 마지막 줄을 열어보고, 도구 요청서가 있으면 도구로, 없으면 끝으로.</strong>
+      이 함수도 노드와 마찬가지로 <strong><code>state</code>를 입력으로 받는다</strong>는 점에 주목하세요.
+      공책을 봐야 판단할 수 있으니 당연합니다.
+    </p>
+
+    <div class="io-label">📥 코드 — (2) 그래프에 등록</div>
+<pre class="code-block"><code># 조건부 엣지 연결
+
+# 4. add_conditional_edges: 라우팅 기능을 하는 선 설치
+agent_builder.add_conditional_edges(
+    "llm_call",         # 1) 출발지: llm_call 작업이 끝나면 무조건 이 라우터 함수가 발동합니다.
+    should_continue,    # 2) 라우팅 함수: 위에서 만든 함수가 공책을 보고 어디로 갈지 판단합니다.
+    ["tool_node", END]  # 3) 도착지 목록: 갈 수 있는 목적지들을 리스트나 딕셔너리로 명시합니다.
+)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 갈림길의 표지판</strong>
+      <p><code>add_conditional_edges</code>의 세 인자를 표지판으로 옮기면 이렇습니다.</p>
+      <ul>
+        <li><strong>① 출발지</strong> — 표지판을 <strong>어느 갈림길에 세울지</strong> (<code>"llm_call"</code> 다음 지점)</li>
+        <li><strong>② 판단 함수</strong> — 표지판을 읽고 <strong>어디로 갈지 정하는 규칙</strong> (<code>should_continue</code>)</li>
+        <li><strong>③ 도착지 목록</strong> — 이 갈림길에서 <strong>갈 수 있는 길의 전체 목록</strong> (<code>["tool_node", END]</code>)</li>
+      </ul>
+      <p>③이 필요한 이유는 <strong>LangGraph가 "이 길이 실제로 존재하는지" 미리 검증</strong>하기 위해서입니다.
+      ②가 반환할 수 있는 값이 <strong>전부 ③ 안에 들어 있어야</strong> 합니다.
+      하나라도 빠지면 <strong>컴파일 단계에서 에러</strong>가 납니다.</p>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚫 실제 강의에서 에러가 났던 지점 — 문자열 vs 함수</strong>
+      <p>이 부분은 강의 중에도 한 번 에러가 났던 곳입니다. 두 가지를 조심하세요.</p>
+      <ol style="margin-bottom:0">
+        <li><strong>모든 분기에 <code>return</code>이 있어야 합니다.</strong>
+        <code>if</code>만 쓰고 <code>return END</code>를 빠뜨리면 함수가 <code>None</code>을 반환해 라우팅이 실패합니다.</li>
+        <li><strong>노드 <em>함수</em>가 아니라 노드 <em>이름 문자열</em>을 반환해야 합니다.</strong>
+        <code>return tool_node</code> (❌ 함수 객체) 가 아니라
+        <code>return "tool_node"</code> (✅ <code>add_node</code>에 등록한 이름) 입니다.
+        LangGraph는 <strong>이름표를 보고</strong> 작업자를 찾기 때문입니다.</li>
+      </ol>
+    </div>
+
+    <!-- compile -->
+    <h3 id="compile">⑤ 컴파일 — 도면을 실제 에이전트로</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 컴파일 (최종 에이전트 생성)
+agent = agent_builder.compile()
+
+agent   # 주피터/Colab에서 실행하면 그래프 그림이 그려집니다</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 여기서 말하는 "컴파일"의 뜻</strong>
+      <p>일반 프로그래밍에서 컴파일은 사람이 쓴 코드를 컴퓨터가 이해할 수 있는 형태로 바꾸는 것이죠.
+      <strong>LangGraph의 <code>compile()</code>은 두 가지 일</strong>을 합니다.</p>
+      <ul style="margin-bottom:0">
+        <li>지금까지 등록한 <strong>노드·엣지·조건부 엣지를 실행 가능한 에이전트 객체로 조립</strong></li>
+        <li><strong>그래프가 끊긴 곳은 없는지 검증</strong> — 갈 수 없는 노드, 목록에 없는 도착지 등을 잡아냄</li>
+      </ul>
+    </div>
+
+    <p>
+      <strong>컴파일에서 에러가 나지 않았다면, 설계한 대로 모든 노드가 제대로 연결됐다는 뜻입니다.</strong>
+      Colab에서 <code>agent</code>를 그냥 실행하면 앞에서 본 그 그래프 그림이 그려집니다.
+      머릿속으로 그린 도면과 같은지 <strong>눈으로 확인하는 습관</strong>을 들이면 디버깅이 훨씬 쉬워집니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════ STEP 5 ══════════════ -->
+    <h2 id="step5">STEP 5. 실행 — 공책을 던져 넣기</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 사용자 입력은 HumanMessage로 감싸 리스트에 담습니다
+from langchain.messages import HumanMessage
+
+messages = [HumanMessage(content="3과 4를 더해줘")]
+
+# State 양식({"messages": [...]})에 맞춰 그래프 실행
+# → 모든 노드를 거친 뒤 완성된 State(공책 전체)가 반환됩니다
+response = agent.invoke({"messages": messages})</code></pre>
+
+    <p>
+      <code>invoke()</code>에 넘기는 것은 <strong>State 양식에 맞는 딕셔너리</strong>입니다.
+      <code>llm_calls</code>는 넣지 않았죠? 앞서 <code>state.get('llm_calls', 0)</code>으로 방어해 뒀으니 괜찮습니다.
+    </p>
+
+    <h3>실행되면 안에서 벌어지는 일</h3>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">1. START</div>
+        <div class="what"><p>State 딕셔너리를 초기화하고, <code>invoke</code>로 들어온 <code>HumanMessage</code>를
+        <code>messages</code> 리스트에 넣습니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">2. llm_call</div>
+        <div class="what"><p>시스템 메시지 + 대화 기록을 <code>model_with_tools</code>에 <code>invoke</code>.
+        모델은 <strong><code>add(a=3, b=4)</code> 요청서</strong>를 만들어 반환.
+        <code>add_messages</code>가 이를 <code>messages</code> 뒤에 붙이고, <code>llm_calls</code>는 <strong>1</strong>이 됩니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">3. should_continue</div>
+        <div class="what"><p>마지막 메시지에 <code>tool_calls</code>가 있음 → <strong><code>"tool_node"</code> 반환</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">4. tool_node</div>
+        <div class="what"><p>요청서를 꺼내 <code>add(3, 4)</code> 실행 → <code>7</code>.
+        <code>ToolMessage(content=7, tool_call_id=...)</code>로 포장해 반환 → <strong>공책에 append</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">5. (실선 엣지)</div>
+        <div class="what"><p><code>add_edge("tool_node", "llm_call")</code>에 따라 <strong>무조건 llm_call로 복귀</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">6. llm_call</div>
+        <div class="what"><p>이번엔 도구 결과까지 다 보이므로 <strong>최종 답변</strong>을 생성.
+        <code>tool_calls</code>는 비어 있고 <code>content</code>만 채워집니다. <code>llm_calls</code>는 <strong>2</strong>.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">7. should_continue</div>
+        <div class="what"><p><code>tool_calls</code>가 없음 → <strong><code>END</code> 반환</strong> → 그래프 종료,
+        <strong>State 전체를 반환</strong></p></div>
+      </div>
+    </div>
+
+    <h3>반환값 확인하기</h3>
+
+    <p>
+      <code>agent.invoke()</code>가 돌려주는 것은 <strong>답변 문자열이 아니라 State 딕셔너리 전체</strong>입니다.
+      즉 <strong>공책을 통째로</strong> 받는 셈이죠.
+    </p>
+
+    <div class="io-label">▶ response 구조 (요약)</div>
+<pre class="result-block">{
+  'messages': [
+      HumanMessage(content='3과 4를 더해줘'),
+      AIMessage(content='', tool_calls=[{'name': 'add', 'args': {'a': 3, 'b': 4}, 'id': 'call_abc'}]),
+      ToolMessage(content='7', tool_call_id='call_abc'),
+      AIMessage(content=[{'type': 'text', 'text': '3과 4를 더하면 7입니다.'}])
+  ],
+  'llm_calls': 2
+}</pre>
+
+    <p>
+      대화가 <strong>Human → AI(요청) → Tool(결과) → AI(최종답변)</strong> 순서로 정확히 쌓여 있고,
+      <code>llm_calls</code>가 <strong>2</strong>인 것도 확인할 수 있습니다.
+      우리가 화면에 보여줄 것은 <strong>마지막 메시지</strong>뿐입니다.
+    </p>
+
+    <!-- gemini vs openai -->
+    <h3 id="gemini-vs-openai">⚠️ Gemini와 OpenAI의 응답 형태가 다릅니다</h3>
+
+    <p>
+      위 결과에서 <strong>이상한 점</strong>을 발견하셨나요? 마지막 <code>AIMessage</code>의 <code>content</code>가
+      <strong>문자열이 아니라 리스트</strong>이고, 그 안에 딕셔너리가 들어 있습니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>모델</th><th><code>AIMessage.content</code> 형태</th><th>텍스트 꺼내는 법</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>OpenAI</strong> (GPT)</td>
+            <td><code>'정답은 7입니다.'</code> <span class="badge badge-green">문자열</span></td>
+            <td><code>response["messages"][-1].content</code></td>
+          </tr>
+          <tr>
+            <td><strong>Gemini</strong></td>
+            <td><code>[{'type': 'text', 'text': '3과 4를 더하면 7입니다.'}]</code> <span class="badge badge-yellow">리스트</span></td>
+            <td><code>response["messages"][-1].content[-1]['text']</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 왜 이렇게 다를까 — 편지 봉투 vs 소포 상자</strong>
+      <p>OpenAI는 <strong>편지</strong>를 보내듯 텍스트를 그대로 담아 보냅니다. 열면 바로 글자죠.</p>
+      <p>Gemini는 <strong>소포 상자</strong>처럼 보냅니다. 상자를 열면 <strong>"이건 텍스트입니다"라는 라벨이 붙은 내용물</strong>이 들어 있어요.
+      번거로워 보이지만 이유가 있습니다. Gemini는 <strong>멀티모달</strong>을 표방하는 모델이라
+      텍스트뿐 아니라 <strong>이미지·음성·영상</strong>도 같은 자리에 담아 보낼 수 있어야 합니다.
+      그래서 <strong>"타입이 무엇인지"를 항상 함께</strong> 알려주도록 설계된 것입니다.</p>
+    </div>
+
+    <div class="io-label">📥 코드 — Gemini 응답 출력</div>
+<pre class="code-block"><code># Gemini 응답 출력
+response["messages"][-1].content[-1]['text']</code></pre>
+
+    <div class="io-label">▶ 출력</div>
+<pre class="result-block">'3과 4를 더하면 7입니다.'</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 꼭 기억하세요</strong>
+      <p><strong>어떤 언어 모델을 연결했느냐에 따라 최종 반환값의 형태가 달라질 수 있습니다.</strong>
+      그래프 코드(State·Node·Edge)는 하나도 안 바뀌는데 <strong>출력 파싱만 달라지는</strong> 것이죠.
+      모델을 교체했을 때 <code>TypeError: string indices must be integers</code> 같은 에러가 나면
+      대개 이 차이 때문입니다.</p>
+    </div>
+
+    <h3>도구가 두 번 불리는 경우</h3>
+
+    <p>
+      조금 더 복잡한 요청을 넣어보면 <strong>루프가 실제로 도는 것</strong>을 볼 수 있습니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 계산이 두 단계라 도구가 add → multiply 순서로 "두 번" 호출됩니다
+# (llm_call ↔ tool_node 루프가 두 바퀴 도는 셈)
+messages = [HumanMessage(content="3과 4를 더한 뒤 7을 곱해줘.")]
+response = agent.invoke({"messages": messages})</code></pre>
+
+    <div class="io-label">▶ messages에 쌓이는 순서</div>
+<pre class="result-block">HumanMessage : "3과 4를 더한 뒤 7을 곱해줘."
+AIMessage    : tool_calls = [add(a=3, b=4)]           ← 1차 도구 요청
+ToolMessage  : "7"                                     ← 덧셈 결과
+AIMessage    : tool_calls = [multiply(a=7, b=7)]       ← 2차 도구 요청 (앞 결과를 인자로!)
+ToolMessage  : "49"                                    ← 곱셈 결과
+AIMessage    : "3과 4를 더하면 7이고, 여기에 7을 곱하면 49입니다."   ← 최종 답변</pre>
+
+    <p>
+      주목할 부분은 <strong>4번째 줄</strong>입니다. 모델이 <strong>1차 도구 결과(7)를 읽고,
+      그것을 2차 도구의 인자로 넣었습니다.</strong> 우리가 "덧셈 먼저, 곱셈 나중"이라고 코딩한 적이 없는데도요.
+      이게 바로 <strong><code>tool_node → llm_call</code> 실선 엣지가 만들어낸 루프</strong>의 힘입니다.
+      <code>llm_calls</code>는 이 경우 <strong>3</strong>이 됩니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════ OpenAI ══════════════ -->
+    <h2 id="openai">보너스 — 똑같은 그래프를 OpenAI로 갈아끼우기</h2>
+
+    <p>
+      노트북 마지막에는 방금 만든 에이전트를 <strong>OpenAI 모델(GPT-5 nano)로 다시 돌려보는</strong> 실습이 이어집니다.
+      여기서 확인할 것은 단 하나입니다 — <strong>바뀌는 건 "모델을 만드는 줄"뿐, State · Node · Edge는 그대로</strong>라는 사실입니다.
+    </p>
+
+    <h3>① 패키지 설치 &amp; 모델만 교체</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># OpenAI 통합 패키지 설치
+!pip install -qU langchain-openai
+
+# 모델 생성 — 이 한 줄만 Gemini에서 OpenAI로 바뀝니다
+from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano")
+
+# 도구 바인딩은 앞과 똑같습니다
+model_with_tools = model.bind_tools(tools)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>init_chat_model</code> — provider를 문자열로 고르는 만능 생성자</strong>
+      <p>Gemini는 <code>ChatGoogleGenerativeAI(model="...")</code>처럼 <strong>provider 전용 클래스</strong>를 썼습니다.
+      OpenAI는 <code>init_chat_model("gpt-5-nano")</code>처럼 <strong>모델 이름 문자열만 넘기면</strong>
+      LangChain이 알아서 알맞은 객체를 만들어 줍니다. 어느 쪽이든 결과물은
+      <strong>도구를 바인딩할 수 있는 모델 객체</strong>로 똑같습니다.</p>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 엔진만 교체하고 차체는 그대로</strong>
+      <p>레고 자동차에서 <strong>엔진(모델) 하나만 다른 브랜드로 갈아 끼우는 것</strong>과 같습니다.
+      바퀴·핸들·차체(State · Node · Edge)는 손댈 필요가 없습니다.
+      노트북에서도 <code>llm_call</code> · <code>tool_node</code> · <code>should_continue</code> · 그래프 조립 코드를
+      <strong>그대로 다시 등록해 컴파일</strong>할 뿐입니다.</p>
+    </div>
+
+    <h3>② 실행 — 코드는 그대로인데 결과의 "형태"가 다르다</h3>
+
+    <p>
+      나머지 그래프 코드를 동일하게 다시 컴파일한 뒤, Gemini 때와 <strong>똑같은 질문</strong>을 던집니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 모델만 OpenAI로 바꿔 다시 컴파일한 agent를 사용합니다
+# (State·Node·Edge 코드는 앞과 동일)
+from langchain.messages import HumanMessage
+
+messages = [HumanMessage(content="3과 4를 더해줘")]
+response = agent.invoke({"messages": messages})
+
+response   # 반환된 State 전체 확인 → 마지막 AIMessage의 content "형태"에 주목</code></pre>
+
+    <p>
+      코드는 Gemini 때와 <strong>글자 하나 다르지 않은데</strong>, 돌아온 <code>response</code>를 열어 보면
+      마지막 <code>AIMessage</code>의 <code>content</code> 모양이 다릅니다.
+    </p>
+
+    <div class="io-label">▶ OpenAI 응답 (마지막 메시지 요약)</div>
+<pre class="result-block">AIMessage(content='정답은 7입니다.', ...)   ← content 가 그냥 "문자열"</pre>
+
+    <div class="io-label">▶ 앞서 본 Gemini 응답 (마지막 메시지 요약)</div>
+<pre class="result-block">AIMessage(content=[{'type': 'text', 'text': '3과 4를 더하면 7입니다.'}], ...)   ← content 가 "리스트"</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 그래서 "출력을 꺼내는 코드"는 모델마다 갈립니다</strong>
+      <p>OpenAI는 <code>response["messages"][-1].content</code>로 바로 문자열이 나오지만,
+      Gemini는 <code>response["messages"][-1].content[-1]['text']</code>처럼 <strong>리스트에서 한 번 더 꺼내야</strong> 합니다.
+      <strong>그래프 로직(State · Node · Edge)은 완전히 재사용되는데 "출력 파싱"만 갈라지는</strong> 것 —
+      이 점만 기억하면 어떤 모델로 바꿔도 <code>TypeError</code>에 당황할 일이 없습니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 이 보너스의 교훈 한 줄</strong>
+      <p>LangGraph로 흐름을 한 번 잘 설계해 두면, <strong>모델 제공사(Google ↔ OpenAI)는 부품처럼 갈아 끼울 수 있습니다.</strong>
+      이것이 앞에서 <code>create_agent()</code> 대신 굳이 <code>bind_tools</code> + 직접 조립을 택한 이유이기도 합니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 전체 코드 ══════════════ -->
+    <h2 id="full-code">전체 코드 한눈에 보기</h2>
+
+    <p>
+      흩어져 있던 조각을 5단계 순서대로 모으면 이렇습니다.
+      <strong>앞으로 만들 모든 에이전트가 이 골격을 반복</strong>합니다.
+    </p>
+
+    <div class="io-label">📥 전체 코드</div>
+<pre class="code-block"><code># ══ STEP 1. Model &amp; Tool ══════════════════════════════
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.tools import tool
+
+# 추론을 담당할 언어 모델(에이전트의 두뇌)
+model = ChatGoogleGenerativeAI(model="gemini-3.1-flash-preview")
+
+# @tool 데코레이터 + docstring = LLM이 읽고 고르는 "도구"
+@tool
+def multiply(a: int, b: int) -&gt; int:
+    """Multiply `a` and `b`."""
+    return a * b
+
+@tool
+def add(a: int, b: int) -&gt; int:
+    """Adds `a` and `b`."""
+    return a + b
+
+@tool
+def divide(a: int, b: int) -&gt; float:
+    """Divide `a` and `b`."""
+    return a / b
+
+tools = [multiply, add, divide]
+model_with_tools = model.bind_tools(tools)   # 모델에 도구 목록을 붙인 새 모델
+
+# ══ STEP 2. State ═════════════════════════════════════
+from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+# State = 노드들이 돌려 쓰는 "공책"
+class State(TypedDict):
+    # add_messages 리듀서 → 덮어쓰지 않고 뒤에 이어붙임
+    messages: Annotated[list[AnyMessage], add_messages]
+    llm_calls: int   # 모델 호출 횟수 카운터
+
+# ══ STEP 3. Node ══════════════════════════════════════
+from langchain.messages import SystemMessage, ToolMessage
+
+# 판단하는 작업자: 답하거나 / 도구 사용을 요청
+def llm_call(state: State):
+    response = model_with_tools.invoke(
+        # 시스템 지시문을 맨 앞에 붙여 매 호출마다 역할을 상기시킴
+        [SystemMessage(content="당신은 사칙연산을 완벽하게 해내는 유능한 Agent입니다.")]
+        + state["messages"]
+    )
+    return {
+        "messages": [response],                       # 새로 생긴 메시지만 반환(누적은 리듀서가)
+        "llm_calls": state.get('llm_calls', 0) + 1    # 없으면 0에서 시작
+    }
+
+tools_by_name = {tool.name: tool for tool in tools}   # 이름 → 함수 "전화번호부"
+
+# 실행하는 작업자: 요청서를 읽고 실제 함수를 돌림
+def tool_node(state: State):
+    result = []
+    last_message = state["messages"][-1]              # 모델이 남긴 마지막 요청서
+    for tool_call in last_message.tool_calls:         # 도구를 여러 번 부를 수 있어 순회
+        tool = tools_by_name[tool_call["name"]]       # 이름으로 실제 함수 찾기
+        tool_result = tool.invoke(tool_call["args"])  # 인자를 넣어 실행
+        # tool_call_id = 요청과 응답을 잇는 송장번호(필수)
+        result.append(ToolMessage(content=tool_result, tool_call_id=tool_call["id"]))
+    return {"messages": result}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+from langgraph.graph import StateGraph, START, END
+
+agent_builder = StateGraph(State)                     # 공책 양식(State)을 알려주며 도면 펼치기
+
+agent_builder.add_node("llm_call", llm_call)          # 작업자(노드) 배치
+agent_builder.add_node("tool_node", tool_node)
+
+agent_builder.add_edge(START, "llm_call")             # 시작하면 무조건 llm_call로
+agent_builder.add_edge("tool_node", "llm_call")       # 도구 실행 후 다시 모델로 → 루프
+
+# 마지막 메시지를 보고 다음 목적지를 고르는 라우팅 함수
+def should_continue(state: State):
+    last_message = state["messages"][-1]
+    if last_message.tool_calls:      # 도구 요청이 있으면
+        return "tool_node"           # → 도구 실행하러
+    return END                       # 없으면 → 종료
+
+agent_builder.add_conditional_edges(
+    "llm_call",          # 출발지
+    should_continue,     # 판단 함수
+    ["tool_node", END]   # 갈 수 있는 목적지 목록
+)
+
+agent = agent_builder.compile()      # 조립 + 연결 검증 → 실행 가능한 에이전트
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+from langchain.messages import HumanMessage
+
+response = agent.invoke({"messages": [HumanMessage(content="3과 4를 더해줘")]})
+# Gemini는 content가 리스트라 [-1]['text']로 한 번 더 꺼냄 (OpenAI는 .content가 문자열)
+print(response["messages"][-1].content[-1]['text'])</code></pre>
+
+    <hr />
+
+    <!-- ══════════════ 함정 ══════════════ -->
+    <h2 id="pitfalls">자주 걸리는 함정 5가지</h2>
+
+    <div class="info-card">
+      <div class="info-card-title">🕳️ 처음 짤 때 거의 모두가 밟는 지뢰</div>
+
+      <h4>1. 라우팅 함수에서 <strong>함수 객체</strong>를 반환한다</h4>
+      <p>
+        <code>return tool_node</code> ❌ → <code>return "tool_node"</code> ✅<br />
+        LangGraph는 <code>add_node("이름", 함수)</code>에서 등록한 <strong>이름 문자열</strong>로 노드를 찾습니다.
+      </p>
+
+      <h4>2. <code>should_continue</code>에 <code>return</code>을 하나 빠뜨린다</h4>
+      <p>
+        <code>if</code> 안쪽만 <code>return</code>하고 밖에서 안 하면 <strong><code>None</code>이 반환</strong>되어
+        "그런 목적지는 없다"는 에러가 납니다. <strong>모든 분기에 return</strong>이 있어야 합니다.
+      </p>
+
+      <h4>3. <code>add_conditional_edges</code> 세 번째 인자에 목적지를 빠뜨린다</h4>
+      <p>
+        라우팅 함수가 반환할 수 있는 값이 <strong>전부 목록에 들어 있어야</strong> 합니다.
+        <code>should_continue</code>가 <code>"tool_node"</code>와 <code>END</code>를 반환하니
+        목록도 <code>["tool_node", END]</code>여야 하죠. 빠지면 <strong>compile 단계</strong>에서 걸립니다.
+      </p>
+
+      <h4>4. <code>ToolMessage</code>에 <code>tool_call_id</code>를 안 넣는다</h4>
+      <p>
+        결과만 담고 ID를 빼면 모델이 <strong>어느 요청에 대한 답인지 대조하지 못해</strong> 에러가 납니다.
+        <code>tool_call["id"]</code>를 그대로 복사해 넣으세요.
+      </p>
+
+      <h4>5. State에 없는 키를 <code>state["..."]</code>로 꺼낸다</h4>
+      <p>
+        <code>invoke</code>에 넘기지 않은 필드는 <strong>처음엔 비어 있습니다.</strong>
+        <code>state["llm_calls"]</code> ❌ → <code>state.get("llm_calls", 0)</code> ✅
+      </p>
+
+      <div class="callout callout-info" style="margin-bottom:0">
+        <strong>💡 디버깅 요령</strong>
+        <p>에러가 나면 먼저 <code>agent</code>를 실행해 <strong>그래프 그림</strong>을 확인하세요.
+        선이 예상과 다르게 그려져 있다면 <code>add_edge</code>/<code>add_conditional_edges</code> 문제이고,
+        그림은 맞는데 실행이 깨진다면 <strong>노드 함수 안쪽(반환 딕셔너리 모양)</strong>을 의심하면 됩니다.</p>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 정리 ══════════════ -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심 한 문장</strong>
+      <p>LangGraph 에이전트란 <strong>공책(State)</strong>을 <strong>작업자(Node)</strong>들이 돌려 보며 이어 쓰고,
+      <strong>선(Edge)</strong>과 <strong>표지판(Conditional Edge)</strong>이 정한 순서대로 흐르는 <strong>작업장</strong>이다.</p>
+    </div>
+
+    <ul>
+      <li><strong>LangGraph vs LangChain</strong> — 완성차(<code>create_agent</code>) 대신 <strong>레고 부품</strong>.
+      손이 더 가지만 <strong>흐름을 내가 설계</strong>할 수 있다.</li>
+      <li><strong>State</strong> — 공책. <code>TypedDict</code>로 양식을 정의.
+      <code>Annotated[..., add_messages]</code>를 붙이면 <strong>덮어쓰기 대신 이어 쓰기</strong>(리듀서).</li>
+      <li><strong>Node</strong> — 작업자 함수. 계약은 두 줄: <strong>state를 받는다 / State 모양의 딕셔너리를 반환한다.</strong>
+        <ul>
+          <li><code>llm_call</code> — 판단만 한다. 도구가 필요하면 <strong>요청서(<code>tool_calls</code>)만</strong> 작성.</li>
+          <li><code>tool_node</code> — 요청서를 읽고 <strong>실제 함수를 실행</strong>, 결과를 <code>ToolMessage</code>로 포장.
+          <strong><code>tool_call_id</code>는 택배 송장 번호</strong> — 필수.</li>
+        </ul>
+      </li>
+      <li><strong>Edge</strong> — <code>add_edge(출발, 도착)</code>. 무조건 흐르는 실선.
+      <code>tool_node → llm_call</code> 실선이 <strong>루프를 만든다.</strong></li>
+      <li><strong>Conditional Edge</strong> — <code>add_conditional_edges(출발, 판단함수, 도착지목록)</code>.
+      판단 함수는 <strong>노드 이름 문자열</strong>을 반환해야 하고, 반환 가능한 값이 <strong>전부 목록에 있어야</strong> 한다.</li>
+      <li><strong><code>compile()</code></strong> — 조립 + <strong>연결 검증</strong>. 에러가 없으면 설계대로 연결된 것.</li>
+      <li><strong>모델별 응답 차이</strong> — OpenAI는 <code>content</code>가 문자열, Gemini는
+      <code>[{'type':'text','text':...}]</code> 리스트(<strong>멀티모달 철학</strong>).</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 마지막으로 한 번 더 — 5단계 주문처럼 외우기</strong>
+      <p><strong>모델·도구를 붙이고 → 공책 양식을 정하고 → 작업자를 만들고 → 선을 긋고 → 컴파일해서 실행한다.</strong><br />
+      앞으로 나올 메모리, 멀티 에이전트, Human-in-the-loop… 모두 <strong>이 다섯 단계 위에 살을 붙이는 것</strong>일 뿐입니다.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>지금 다 이해되지 않아도 괜찮습니다</strong>
+      <p>리스트 안의 딕셔너리, 딕셔너리 안의 리스트를 오가느라 머리가 복잡한 게 정상입니다.
+      <strong>노트북을 한 번 처음부터 끝까지 실행해 보고 이 문서를 다시 읽으면</strong> 훨씬 잘 붙습니다.
+      다음 장부터는 <strong>같은 5단계를 조금씩 응용할 뿐</strong>이라 금방 익숙해집니다.</p>
+    </div>
+
+    <div class="pager">
+      <span></span>
+      <span class="disabled">
+        <small>다음 →</small>
+        2. Agent 구축 실전
+      </span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 자체 포함 Python 문법 강조기 (외부 라이브러리·인터넷 불필요) ── -->
+<script>
+(function () {
+  var KEYWORDS = {'from':1,'import':1,'as':1,'def':1,'return':1,'class':1,'if':1,'elif':1,'else':1,'for':1,'while':1,'in':1,'not':1,'and':1,'or':1,'is':1,'with':1,'lambda':1,'pass':1,'break':1,'continue':1,'try':1,'except':1,'finally':1,'raise':1,'yield':1,'global':1,'nonlocal':1,'assert':1,'del':1,'async':1,'await':1,'None':1,'True':1,'False':1};
+  var BUILTINS = {'print':1,'len':1,'range':1,'int':1,'float':1,'str':1,'list':1,'dict':1,'set':1,'tuple':1,'bool':1,'self':1,'super':1,'isinstance':1,'enumerate':1,'zip':1,'map':1,'filter':1,'open':1,'type':1};
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function span(cls, s){ return '<span class="'+cls+'">'+esc(s)+'</span>'; }
+  function highlight(src){
+    var out='', i=0, n=src.length, expectName=false, m;
+    while(i<n){
+      var ch=src[i], rest=src.slice(i);
+      if(ch==='#'){ m=rest.match(/^#[^\n]*/); out+=span('tok-com',m[0]); i+=m[0].length; continue; }              // 주석
+      if((m=rest.match(/^("""[\s\S]*?"""|'''[\s\S]*?''')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 삼중따옴표 문자열
+      if((m=rest.match(/^("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 일반 문자열
+      if(ch==='!' && (i===0 || src[i-1]==='\n')){ m=rest.match(/^![^\n]*/); out+=span('tok-shell',m[0]); i+=m[0].length; continue; } // 셸 명령
+      if((m=rest.match(/^@[A-Za-z_]\w*/))){ out+=span('tok-dec',m[0]); i+=m[0].length; continue; }                 // 데코레이터
+      if((m=rest.match(/^\d[\d_]*\.?\d*/))){ out+=span('tok-num',m[0]); i+=m[0].length; continue; }                // 숫자
+      if((m=rest.match(/^[A-Za-z_]\w*/))){                                                                         // 식별자
+        var w=m[0];
+        if(expectName){ out+=span('tok-fn',w); expectName=false; }
+        else if(KEYWORDS[w]){ out+=span('tok-kw',w); if(w==='def'||w==='class') expectName=true; }
+        else if(BUILTINS[w]){ out+=span('tok-bi',w); }
+        else { out+=esc(w); }
+        i+=w.length; continue;
+      }
+      out+=esc(ch); i++;                                                                                           // 그 외 문자
+    }
+    return out;
+  }
+  function run(){
+    var blocks=document.querySelectorAll('pre.code-block > code');
+    for(var k=0;k<blocks.length;k++){ blocks[k].innerHTML=highlight(blocks[k].textContent); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+</script>
+
+</body>
+</html>
