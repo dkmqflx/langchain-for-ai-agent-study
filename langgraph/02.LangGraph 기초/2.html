@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2. Agent 구축 실전 — 기획부터 LLM·Tool 결합까지</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 260px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .sub { padding-left: 20px; font-size: 12.5px; }
+
+    main {
+      margin-left: 260px; max-width: 920px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8d6e00; }
+    .badge-red    { background: #fce8e8; color: #a01818; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── Python 문법 강조 (syntax highlighting) ── */
+    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
+    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
+    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
+    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
+    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
+    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
+    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
+    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Figure ── */
+    figure {
+      margin: 20px 0; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; background: var(--surface);
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption {
+      font-size: 12.5px; color: var(--text-secondary);
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
+    }
+
+    /* ── Trace box (실행 추적) ── */
+    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
+    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .trace-row:last-child { border-bottom: none; }
+    .trace-row .who {
+      flex: 0 0 150px; padding: 12px 14px; font-weight: 700;
+      background: var(--code-bg); border-right: 1px solid var(--border);
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
+    }
+    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
+    .trace-row .what p { margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a, .pager span.disabled {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+    .pager span.disabled { color: var(--text-secondary); text-align: right; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+      .trace-row { flex-direction: column; }
+      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">2강 · LangGraph 기초 (2)</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+
+    <div class="nav-section">
+      <div class="nav-title">2-1. 프로젝트 기획</div>
+      <a href="#why-plan">왜 코드보다 기획이 먼저인가</a>
+      <a href="#plan1" class="sub">기획 1 · 요구사항 분석 → Node</a>
+      <a href="#plan2" class="sub">기획 2 · 그래프 구성</a>
+      <a href="#plan3" class="sub">기획 3 · State 설계</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">실전 1 · 키워드 라우팅</div>
+      <a href="#p1-preview">완성 결과 미리보기</a>
+      <a href="#p1-step1">STEP 1. Model &amp; Tool</a>
+      <a href="#p1-step2">STEP 2. State</a>
+      <a href="#p1-step3">STEP 3. Node</a>
+      <a href="#p1-node1" class="sub">① read_email</a>
+      <a href="#p1-node2" class="sub">② classify_intent</a>
+      <a href="#p1-node3" class="sub">③ 뼈대만 있는 두 노드</a>
+      <a href="#p1-node4" class="sub">④ write_reply</a>
+      <a href="#p1-step4">STEP 4. 그래프 생성</a>
+      <a href="#p1-router" class="sub">라우팅 함수 · 조건부 엣지</a>
+      <a href="#p1-listdict" class="sub">리스트 vs 딕셔너리</a>
+      <a href="#p1-step5">STEP 5. 실행</a>
+      <a href="#p1-improve" class="sub">이관 트랙에도 답변 넣기</a>
+      <a href="#p1-limit">한계 — "환불"과 "환급"</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">실전 2 · LLM + Tool</div>
+      <a href="#p2-design">무엇이 달라지는가</a>
+      <a href="#p2-step1">STEP 1. Model &amp; Tool</a>
+      <a href="#p2-step2">STEP 2. State</a>
+      <a href="#p2-step3">STEP 3. Node</a>
+      <a href="#p2-classify" class="sub">① classify_node</a>
+      <a href="#p2-consultant" class="sub">② consultant_node</a>
+      <a href="#p2-escalate" class="sub">③ escalate_node</a>
+      <a href="#p2-toolnode" class="sub">④ tool_node</a>
+      <a href="#p2-step4">STEP 4. 그래프 생성</a>
+      <a href="#p2-step5">STEP 5. 실행</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#state-principles">State 설계 원칙 2가지</a>
+      <a href="#full-code">전체 코드 한눈에 보기</a>
+      <a href="#pitfalls">자주 걸리는 함정</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>2. Agent 구축 실전 — 기획부터 LLM·Tool 결합까지</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>2.ipynb</code>
+      &nbsp;·&nbsp; 대상 범위: 2-1 프로젝트 기획 ~ 2-2 실전 구현 (실전 1 · 실전 2)
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 초급~중급</span>
+    </p>
+
+    <p class="lead">
+      1장에서 <strong>State · Node · Edge · Conditional Edge</strong>라는 네 개의 부품을 손에 익혔습니다.
+      이번 장은 그 부품으로 <strong>진짜 프로젝트 하나를 처음부터 끝까지</strong> 만듭니다 —
+      <strong>고객 이메일 자동 응대 에이전트</strong>. 다만 바로 코드로 들어가지 않습니다.
+      실무에서 에이전트를 만들 때 <strong>코드보다 먼저 해야 하는 "기획 3단계"</strong>를 배우고,
+      그 기획서를 그대로 코드로 옮기는 과정을 두 번 반복합니다 —
+      <strong>실전 1(키워드 라우팅)</strong>로 뼈대를 잡고, <strong>실전 2(LLM + Tool)</strong>로 지능을 얹습니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      <p>1장에서는 "문법"을 배웠습니다. <code>add_node</code>는 이렇게 쓰고, <code>add_conditional_edges</code>는 인자가 셋이고…
+      그런데 실무에서 진짜 어려운 건 문법이 아닙니다. <strong>"내 프로젝트를 어떻게 노드로 쪼갤 것인가"</strong>죠.
+      이번 장의 절반은 <strong>그 쪼개는 방법(기획)</strong>에, 나머지 절반은 <strong>기획서를 코드로 옮기는 훈련</strong>에 씁니다.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>실전 1</th><th>실전 2</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>분기 판단</strong></td><td>파이썬 <code>if '환불' in email</code> — 키워드 매칭</td><td><strong>LLM이 읽고 판단</strong></td></tr>
+          <tr><td><strong>도구(Tool)</strong></td><td>없음 (노드 안에 <code>print</code>만)</td><td><strong><code>@tool</code> + <code>bind_tools</code></strong></td></tr>
+          <tr><td><strong>State</strong></td><td>평범한 문자열 4칸</td><td><code>messages</code> + <code>add_messages</code> 리듀서</td></tr>
+          <tr><td><strong>그래프 모양</strong></td><td>한 방향 (루프 없음)</td><td><strong>루프 있음</strong> (도구 ↔ 상담)</td></tr>
+          <tr><td><strong>배우는 핵심</strong></td><td>기획 → 코드 번역</td><td>지능과 도구를 붙이는 법</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 먼저 마음의 준비</strong>
+      <p>강사님 말씀 그대로 옮기면 — <strong>2강까지 오면 LangGraph 코드의 60~70%는 밟은 셈</strong>입니다.
+      뒤집어 말하면 <strong>이번 장이 이 강의에서 가장 빡센 구간</strong>입니다.
+      한 번에 다 이해될 리 없습니다. 3·4·5강은 여기서 배운 걸 <strong>조금씩 응용할 뿐</strong>이니,
+      막히면 1장으로 잠깐 돌아갔다 오세요.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 2-1. 프로젝트 기획 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="why-plan">2-1. 프로젝트 기획 — 왜 코드보다 기획이 먼저인가</h2>
+
+    <p>
+      회사에서 이런 업무를 하나 받았다고 해봅시다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/24.png" alt="고객 이메일 자동 응대 에이전트를 구축해 보자! — 에이전트가 어떤 기능을 해야 할까? (요구사항 분석)" />
+      <figcaption>이번 장의 프로젝트 — <strong>고객이 보낸 이메일을 읽고 자동으로 응대하는 에이전트</strong>. 제품 사용 중 불만이 있거나 질문이 있을 때, 사람이 직접 답하는 대신 우리가 만든 에이전트가 대응합니다.</figcaption>
+    </figure>
+
+    <p>
+      1장에서 배운 순서대로라면 <strong>①모델·도구 → ②State → ③Node → ④그래프 → ⑤실행</strong>이니
+      곧장 <code>class State(TypedDict):</code>부터 치고 싶어집니다. <strong>그런데 그러면 안 됩니다.</strong>
+    </p>
+
+    <div class="callout callout-danger">
+      <strong>🚫 기획 없이 시작하면 벌어지는 일</strong>
+      <p>State를 대충 두 칸으로 만들고 코딩을 시작합니다. 노드를 세 개쯤 짜다 보면
+      <strong>"아, 여기서 분류 결과도 State에 담아야 다음 노드가 쓸 수 있네"</strong>를 깨닫습니다.
+      State 클래스를 고칩니다. 그러면 <strong>이미 만든 노드들의 반환 딕셔너리도 전부 손봐야</strong> 합니다.
+      또 짜다 보면 또 필드가 필요해집니다. <strong>코드가 스파게티처럼 꼬입니다.</strong></p>
+      <p>기획을 먼저 하면 <strong>두 번 일하지 않고, 코드도 깔끔해집니다.</strong></p>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 집 짓기 전 설계도</strong>
+      <p>벽돌부터 쌓기 시작한 집을 상상해 보세요. 방 세 개를 다 만들고 나서
+      <strong>"화장실 배관을 어디로 빼지?"</strong>를 고민하면 이미 늦었습니다. 벽을 부숴야 하죠.</p>
+      <p>State는 정확히 <strong>배관</strong>입니다. 모든 노드가 State를 통해서만 데이터를 주고받기 때문에,
+      State를 나중에 바꾸면 <strong>모든 방의 벽을 뜯어야</strong> 합니다.
+      그래서 <strong>배관 도면(State 설계)을 벽 세우기(코딩) 전에</strong> 그리는 겁니다.</p>
+    </div>
+
+    <h3>기획도 3단계 — 코드 순서와 "일부러" 다릅니다</h3>
+
+    <p>
+      재미있는 건, 기획의 순서가 <strong>코딩 순서와 다르다</strong>는 점입니다.
+      코드는 State를 먼저 짜지만, <strong>기획은 State를 맨 마지막에</strong> 합니다.
+      이유는 간단합니다 — <strong>노드들이 무슨 일을 하는지 다 정해져야, 그 노드들이 뭘 주고받을지 알 수 있기 때문</strong>입니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>요구사항 분석</strong><p>이 에이전트가 <strong>어떤 기능</strong>을 해야 하나? → 기능 하나 = <strong>노드 하나</strong></p></div>
+      <div class="flow-step"><span class="n">2</span><strong>그래프 구성</strong><p>노드를 <strong>어떻게 배치</strong>하고 이을까? → 유저 플로우 그리기</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>State 설계</strong><p>노드끼리 <strong>뭘 주고받아야</strong> 하나? → 필드와 키 이름 확정</p></div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 기획 순서 vs 코딩 순서</strong>
+      <p><strong>기획:</strong> 요구사항 → 노드 → 그래프 → <strong>State</strong> &nbsp;(무슨 일을 할지 정하고, 그 일에 필요한 데이터를 뽑는다)<br />
+      <strong>코딩:</strong> 모델·도구 → <strong>State</strong> → 노드 → 그래프 → 실행 &nbsp;(데이터 양식이 있어야 노드 함수를 쓸 수 있다)</p>
+      <p>방향이 정반대인 게 헷갈릴 수 있는데, <strong>기획은 "무엇을 할까"에서 데이터로 내려가고, 코딩은 데이터에서 "무엇을 할까"로 올라간다</strong>고 생각하면 됩니다.</p>
+    </div>
+
+    <!-- ── 기획 1 ── -->
+    <h3 id="plan1">기획 1단계 · 요구사항 분석 — 기능 하나가 노드 하나</h3>
+
+    <p>
+      "고객 이메일 자동 응대 에이전트"가 <strong>어떤 기능을 해주면 좋을까?</strong>를 자유롭게 나열합니다.
+      아직 코드 생각은 하지 마세요. <strong>기획자 모드</strong>입니다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/25.png" alt="요구사항 분석 목록 — 이메일 읽기, 긴급성·주제 파악, 사내 문서 검색, 상담원 연결, 답변 초안 작성, 이슈 이관, 일정 예약 → 각각의 기능은 Node로 만든다!" />
+      <figcaption>떠오르는 기능을 전부 적습니다. 그리고 오른쪽 한 줄이 이 단계의 전부입니다 — <strong>"각각의 기능은 Node로 만든다!"</strong></figcaption>
+    </figure>
+
+    <p>
+      왜 기능이 그대로 노드가 될까요? 1장의 정의를 떠올려 보면 당연합니다.
+      <strong>노드는 State를 기반으로 일하는 "작업자"</strong>였죠. 그리고 우리가 방금 나열한 것들 —
+      이메일을 읽고, 긴급성을 판단하고, 문서를 검색하고, 상담원을 연결하고 — 이게 전부 <strong>"하나의 일"</strong>입니다.
+      <strong>일 하나 = 작업자 하나 = 노드 하나.</strong>
+    </p>
+
+    <p>
+      이제 각 기능에 <strong>노드 이름(함수 이름)</strong>을 붙입니다. 여기서 이름을 확정해 두면
+      나중에 <code>add_node</code>·<code>add_edge</code>·라우팅 함수까지 전부 이 이름을 재사용하게 됩니다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/26.png" alt="요구사항별 노드 이름 매핑 — read_email, classify_intent, search_manual, escalate_to_human, write_reply" />
+      <figcaption>기능 → 노드 이름 매핑. 이번 실습에서는 위 <strong>다섯 개</strong>만 구현합니다. "복잡한 이슈 이관"·"일정 예약"은 이름조차 붙이지 않았죠 — <strong>기획했다고 다 만들 필요는 없습니다.</strong></figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>요구사항</th><th>노드 이름</th><th>이번에 구현?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>고객의 이메일을 읽기</td><td><code>read_email</code></td><td><span class="badge badge-green">✅ 구현</span></td></tr>
+          <tr><td>긴급성과 주제를 파악(분류)</td><td><code>classify_intent</code></td><td><span class="badge badge-green">✅ 구현</span></td></tr>
+          <tr><td>사내 문서 검색 (RAG)</td><td><code>search_manual</code></td><td><span class="badge badge-yellow">🟡 뼈대만</span></td></tr>
+          <tr><td>상담원 연결</td><td><code>escalate_to_human</code></td><td><span class="badge badge-yellow">🟡 뼈대만</span></td></tr>
+          <tr><td>답변 초안 작성</td><td><code>write_reply</code></td><td><span class="badge badge-green">✅ 구현</span></td></tr>
+          <tr><td>복잡한 이슈 담당 부서 이관</td><td>—</td><td><span class="badge badge-red">❌ 이번엔 제외</span></td></tr>
+          <tr><td>후속 조치 일정 예약 (구글 캘린더 등)</td><td>—</td><td><span class="badge badge-red">❌ 이번엔 제외</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 "뼈대만"이라는 선택지</strong>
+      <p><code>search_manual</code>은 원래 <strong>RAG(검색 증강 생성)</strong>로 사내 문서를 뒤져야 합니다.
+      그런데 임베딩·청킹·벡터DB까지 지금 붙이면 <strong>정작 배우려던 그래프 구조가 안 보입니다.</strong>
+      그래서 이번엔 <code>print()</code> 한 줄만 넣고 넘어갑니다.</p>
+      <p>이건 대충 하는 게 아니라 <strong>의도적인 학습 전략</strong>입니다. 흐름을 먼저 완성해 두면
+      나중에 그 노드 안쪽만 진짜 RAG 코드로 갈아끼우면 되니까요. <strong>실전 2에서 실제로 그렇게 합니다.</strong></p>
+    </div>
+
+    <!-- ── 기획 2 ── -->
+    <h3 id="plan2">기획 2단계 · 그래프 구성 — 노드를 어떻게 배치할까</h3>
+
+    <p>
+      노드 이름표가 다섯 장 생겼습니다. 지금은 <strong>책상 위에 흩어져 있는 상태</strong>입니다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/27.png" alt="START, read_email, classify_intent, search_manual, escalate_to_human, write_reply, END 박스가 흩어져 배치된 슬라이드 — 노드를 어떻게 배치해 그래프를 만들어야 할까?" />
+      <figcaption>노드 이름표는 다 만들었지만 아직 선이 하나도 없습니다. 이 단계의 질문은 하나 — <strong>"노드를 어떻게 배치해 그래프를 만들어야 할까?"</strong></figcaption>
+    </figure>
+
+    <p>
+      순서대로 생각해 봅시다. <strong>사용자 입장에서 이야기를 만들어 보는 것</strong>이 요령입니다.
+    </p>
+
+    <ol>
+      <li><strong>이메일이 들어오면 먼저 읽는다.</strong> → <code>START</code> → <code>read_email</code></li>
+      <li><strong>읽은 메일의 의도와 주제를 파악한다(분류).</strong> → <code>read_email</code> → <code>classify_intent</code></li>
+      <li><strong>(Case A) 급하지 않은 문의라면</strong> — 매뉴얼을 검색한 뒤 답변을 작성한다.
+      → <code>search_manual</code> → <code>write_reply</code> → <code>END</code></li>
+      <li><strong>(Case B) 긴급한 메일이라면</strong> — 사람(상담원)에게 넘긴다.
+      → <code>escalate_to_human</code> → <code>END</code></li>
+    </ol>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/28.png" alt="유저 플로우 4단계와 완성된 그래프 다이어그램 — classify_intent에서 점선으로 escalate_to_human과 search_manual로 분기" />
+      <figcaption>이야기를 그림으로 옮기면 그래프가 나옵니다. <strong>3번과 4번이 갈라지는 지점</strong>이 곧 <code>classify_intent</code> 뒤의 <strong>점선(조건부 엣지)</strong>입니다. 이 그림 한 장이 곧 STEP 4의 코드가 됩니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 실선은 복도, 점선은 갈림길</strong>
+      <p>사무실 바닥에 화살표를 그린다고 생각해 보세요. <strong>실선</strong>은 <strong>"여기서 나가면 무조건 저기"</strong>인 복도입니다.
+      <code>read_email → classify_intent</code>가 그렇죠. 이메일을 읽었으면 분류는 <strong>무조건</strong> 합니다.</p>
+      <p><strong>점선</strong>은 <strong>갈림길에 세워둔 표지판</strong>입니다. <code>classify_intent</code>를 나오는 순간
+      "긴급하면 왼쪽, 아니면 오른쪽"을 <strong>그때그때 판단</strong>해야 하죠.
+      <strong>기획 단계에서 실선/점선을 구분해 두면, 코드에서 <code>add_edge</code>와 <code>add_conditional_edges</code>가 저절로 갈립니다.</strong></p>
+    </div>
+
+    <!-- ── 기획 3 ── -->
+    <h3 id="plan3">기획 3단계 · State 설계 — 노드끼리 뭘 주고받을까</h3>
+
+    <p>
+      마지막입니다. 그래프 그림을 보면서 화살표를 하나씩 따라가며 묻습니다 —
+      <strong>"이 노드가 다음 노드한테 뭘 넘겨줘야 하지?"</strong>
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/29.png" alt="상태 설계 — 1. 고객이 보낸 이메일 원문(str) 2. 고객이 이메일을 보낸 의도(str) 3. 분류 결과(str) 4. 답변(str)" />
+      <figcaption>먼저 <strong>"무엇을"</strong> 담을지 한글로 적고 타입만 정합니다. 이 단계에서는 아직 변수 이름을 안 짓습니다.</figcaption>
+    </figure>
+
+    <p>노드를 하나씩 짚어가며 State에 담을지 말지를 결정한 과정은 이렇습니다.</p>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">START</div>
+        <div class="what"><p>고객이 보낸 <strong>이메일 원문</strong>이 들어옵니다. 이건 뒤에 나오는 거의 모든 노드가 봐야 하죠.
+        → <strong>필드로 담는다 (str)</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">read_email</div>
+        <div class="what"><p>원래대로면 키워드를 뽑아 담을 수도 있지만, 이번엔 <strong>단순히 넘기기만 합니다.</strong>
+        → <strong>새로 담을 것 없음</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">classify_intent</div>
+        <div class="what"><p>① 고객이 메일을 보낸 <strong>의도(주제)</strong> → 담는다 (str)<br />
+        ② <strong>분류 결과</strong>(상담원 연결이냐, 매뉴얼 검색이냐) → <strong>반드시 담는다.</strong>
+        이 값이 있어야 다음 갈림길에서 <strong>분기 판단</strong>을 할 수 있으니까요. (str)</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">search_manual</div>
+        <div class="what"><p>RAG 검색 결과를 담아야 정석이지만, 이번엔 RAG를 구현하지 않으므로
+        → <strong>이번엔 담지 않음</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">write_reply</div>
+        <div class="what"><p>LLM이 만든 <strong>답변</strong> → 담는다 (str).
+        <strong>왜?</strong> <code>END</code>에서 반환되는 건 State 전체이고,
+        <strong>답변이 State에 들어 있어야 사용자가 그걸 받아볼 수 있기</strong> 때문입니다.</p></div>
+      </div>
+    </div>
+
+    <p>
+      "무엇을" 담을지가 정해졌으면 이제 <strong>키 이름(변수명)</strong>을 확정합니다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/30.png" alt="상태 설계 — email_content(str), category(str), next_step(str), response(str)로 키 이름 확정" />
+      <figcaption>키 이름 확정. 특히 세 번째가 포인트입니다 — 분류 결과를 <code>intent</code>라 부를 수도 있었지만, <strong>이 값에 따라 다음 스텝이 갈리므로 <code>next_step</code></strong>이라 이름 붙였습니다. <strong>이름이 곧 역할</strong>이 되도록 지은 겁니다.</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>키</th><th>타입</th><th>무엇을 담나</th><th>누가 채우나</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>email_content</code></td><td><code>str</code></td><td>고객이 보낸 이메일 원문</td><td><code>invoke()</code> 입력 → <code>read_email</code></td></tr>
+          <tr><td><code>category</code></td><td><code>str</code></td><td>메일의 의도/주제 (<code>inquiry</code> / <code>complaint</code>)</td><td><code>classify_intent</code></td></tr>
+          <tr><td><code>next_step</code></td><td><code>str</code></td><td><strong>분기 판단 기준</strong> — 다음에 갈 노드 이름</td><td><code>classify_intent</code></td></tr>
+          <tr><td><code>response</code></td><td><code>str</code></td><td>사용자에게 돌려줄 최종 답변</td><td><code>write_reply</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>next_step</code>의 값을 "노드 이름과 똑같이" 맞추는 이유</strong>
+      <p><code>next_step</code>에 담을 문자열은 자유입니다. <code>"긴급"</code>이라고 써도 되고 <code>"급함"</code>이라 써도 됩니다.
+      그런데 강의에서는 굳이 <strong><code>"escalate_to_human"</code>, <code>"search_manual"</code></strong> —
+      즉 <strong>실제 노드 이름과 글자 하나까지 똑같이</strong> 맞췄습니다.</p>
+      <p>이유는 뒤에서 드러납니다. 조건부 엣지의 라우팅 함수는 <strong>"갈 노드의 이름 문자열"</strong>을 반환해야 하는데,
+      <code>next_step</code> 값이 이미 노드 이름이면 <strong>그대로 <code>return</code>하기만 하면 되고</strong>,
+      오타로 인한 에러 확률이 확 줄어듭니다. <strong>기획 단계의 작은 결정이 코딩 단계의 버그를 미리 막은 셈</strong>입니다.</p>
+    </div>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/31.png" alt="프로젝트 기획이 충분히 이루어 졌다면, 이제 코드로 구현하러 가자!" />
+      <figcaption>기획 3단계 완료. 이제 이 기획서를 <strong>그대로 코드로 번역</strong>하면 됩니다.</figcaption>
+    </figure>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 실전 1 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="p1-preview">실전 1 · 키워드 라우팅 에이전트 — 완성 결과 미리보기</h2>
+
+    <p>
+      코드로 들어가기 전에 <strong>무엇이 완성되는지</strong> 먼저 봅시다.
+      입력에 따라 <strong>두 갈래로 갈라지는</strong> 것이 핵심입니다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/32.png" alt="Case 1(비밀번호 변경 문의 → search_manual)과 Case 2(당장 환불해줘 → escalate_to_human)의 실행 결과 비교" />
+      <figcaption><strong>Case 1</strong> — "비밀번호 변경 방법을 알려주세요."는 단순 문의로 분류(<code>inquiry</code>)되어 <strong>매뉴얼 검색 → 답변 작성</strong> 트랙을 탑니다. <strong>Case 2</strong> — "당장 환불해줘!"는 불만(<code>complaint</code>)으로 분류되어 <strong>상담원 이관</strong> 트랙을 탑니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 슬라이드와 실제 노트북 출력의 차이</strong>
+      <p>위 슬라이드는 <strong>완성형을 보여주기 위해 다듬은 예시</strong>입니다.
+      실제 <code>2.ipynb</code>를 돌리면 <code>[1] 이메일을 읽습니다...</code> 같은 로그는 나오지 않고
+      <code>3-A 진입... 메뉴얼을 검색합니다</code>만 찍힙니다. Case 2의 <code>'response': '티켓 #1234 생성됨...'</code>도
+      <strong>기본 코드에는 없습니다</strong>(뒤에서 직접 넣어봅니다).
+      <strong>슬라이드는 목표, 노트북은 최소 구현</strong>이라고 보면 됩니다.</p>
+    </div>
+
+    <!-- ── STEP 1 ── -->
+    <h2 id="p1-step1">STEP 1. Model 및 Tool 정의</h2>
+
+    <p>
+      1장과 똑같습니다. Gemini Flash 모델 객체를 하나 만듭니다.
+      <strong>도구(Tool)는 이번 실전 1에서는 만들지 않습니다.</strong>
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_google_genai import ChatGoogleGenerativeAI
+
+model = ChatGoogleGenerativeAI(model="gemini-3-flash-preview")</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 왜 실전 1에는 도구가 없을까</strong>
+      <p>도구를 붙이면 <code>tool_calls</code> 딕셔너리를 꺼내고 <code>ToolMessage</code>로 포장하는 코드가 따라붙습니다.
+      1장에서 이미 한 번 겪었듯 <strong>그 부분이 난이도의 대부분</strong>이죠.</p>
+      <p>실전 1의 목표는 <strong>"기획서를 코드로 옮기는 감각"</strong>을 익히는 것이므로,
+      도구는 <strong>실전 2로 미룹니다.</strong> 한 번에 한 가지씩만 새로 배우는 게 훨씬 빠릅니다.</p>
+    </div>
+
+    <!-- ── STEP 2 ── -->
+    <h2 id="p1-step2">STEP 2. State 정의 — 기획서를 그대로 옮기기</h2>
+
+    <p>
+      기획 3단계에서 확정한 <strong>네 개의 키</strong>를 그대로 <code>TypedDict</code>로 옮깁니다.
+      <strong>기획을 해두면 이 단계가 10초 만에 끝납니다.</strong>
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from typing_extensions import TypedDict
+
+class AgentState(TypedDict):
+    email_content: str   # 고객이 보낸 이메일 원문
+    category: str        # 분류된 주제/의도 (inquiry / complaint)
+    next_step: str       # 다음에 갈 노드 이름 → 분기 판단 기준
+    response: str        # LLM이 만든 최종 답변</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 1장의 State와 다른 점 — 리듀서가 없다</strong>
+      <p>1장에서는 <code>messages: Annotated[list[AnyMessage], add_messages]</code>처럼
+      <strong>리듀서(<code>add_messages</code>)</strong>를 붙였습니다. "덮어쓰지 말고 이어 쓰라"는 규칙이었죠.</p>
+      <p>이번 State에는 <strong>리듀서가 하나도 없습니다.</strong> 전부 <strong>덮어쓰기</strong>입니다.
+      그리고 그게 맞습니다 — <code>category</code>는 최신 분류 결과 하나만 있으면 되고,
+      <code>response</code>도 최종 답변 하나만 있으면 되니까요.
+      <strong>"누적해야 하는 값"에만 리듀서를 붙인다</strong>고 기억하면 됩니다.</p>
+    </div>
+
+    <!-- ── STEP 3 ── -->
+    <h2 id="p1-step3">STEP 3. Node 정의 — 다섯 명의 작업자</h2>
+
+    <p>
+      기획 1단계에서 이름까지 다 지어놨으니, 이제 <strong>함수 다섯 개</strong>를 씁니다.
+      1장에서 배운 <strong>노드의 계약</strong>은 그대로입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 노드의 계약(contract) — 딱 두 줄</strong>
+      <ol style="margin-bottom:0">
+        <li><strong><code>state</code>를 입력 파라미터로 받는다.</strong> (공책을 건네받아야 하니까)</li>
+        <li><strong>State 양식에 맞는 딕셔너리를 반환한다.</strong> (공책에 적을 내용만 적어서 돌려주니까)</li>
+      </ol>
+    </div>
+
+    <!-- read_email -->
+    <h3 id="p1-node1">① <code>read_email</code> — 이메일을 받아 공책에 옮겨 적기</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Node 1] 이메일 읽기
+def read_email(state: AgentState):
+    return {'email_content': state['email_content']}</code></pre>
+
+    <p>
+      코드가 <strong>너무 단순해서 오히려 당황스러운</strong> 노드입니다.
+      <code>state['email_content']</code>를 꺼내서 <strong>그대로 다시</strong> <code>email_content</code>에 넣고 있죠.
+      <strong>아무것도 안 바꾸는데 왜 있는 걸까요?</strong>
+    </p>
+
+    <p>
+      답은 <strong>"원래는 여기서 일을 해야 하기 때문"</strong>입니다.
+      원래 이 노드는 이메일을 읽고 키워드를 뽑거나 전처리를 해야 합니다.
+      이번엔 그걸 생략했기 때문에 <strong>"받은 걸 그대로 넘기는" 뼈대만 남은</strong> 겁니다.
+      실무에서는 이 자리에 로깅, 첨부파일 파싱, 발신자 조회 같은 게 들어갑니다.
+    </p>
+
+    <h4>더 중요한 것 — 이 노드가 <code>invoke()</code>의 입력 형식을 결정한다</h4>
+
+    <p>
+      1장에서는 <code>agent.invoke({"messages": [HumanMessage(...)]})</code>처럼 넣었습니다.
+      그런데 이번 State에는 <code>messages</code>가 없습니다. 그럼 <strong>뭘 넣어야 할까요?</strong>
+    </p>
+
+    <p>
+      <code>read_email</code>이 <code>state['email_content']</code>에 접근하고 있으니,
+      <strong>그 칸이 채워진 채로 들어와야</strong> 합니다. 즉 실행할 때 이렇게 넣어야 하죠.
+    </p>
+
+    <div class="io-label">▶ 그래서 실행은 이렇게 됩니다 (STEP 5 미리보기)</div>
+<pre class="result-block">inputs = {"email_content": "비밀번호 변경 방법을 알려주세요."}
+response = agent.invoke(inputs)</pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 접수 창구의 서식</strong>
+      <p>민원실에 가면 <strong>"성명 / 주소 / 용건"</strong> 칸이 있는 서식을 줍니다.
+      아무 종이에나 써 오면 접수가 안 되죠. <code>invoke()</code>에 넘기는 딕셔너리가 바로 <strong>그 서식</strong>입니다.</p>
+      <p>1장의 서식은 <code>{"messages": [...]}</code>였고, 이번 서식은 <code>{"email_content": "..."}</code>입니다.
+      <strong>서식(=State 클래스)이 바뀌면 접수 방법도 바뀐다</strong>는 것 — 이게 State를 먼저 설계해야 하는 또 하나의 이유입니다.</p>
+    </div>
+
+    <!-- classify_intent -->
+    <h3 id="p1-node2">② <code>classify_intent</code> — 갈림길의 판단 근거를 만드는 노드</h3>
+
+    <p>
+      이 그래프에서 <strong>가장 중요한 노드</strong>입니다. 여기서 만든 값에 따라 흐름이 갈라지니까요.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Node 2] 의도 분류 (Router 로직의 기준점)
+def classify_intent(state: AgentState):
+    email = state['email_content']
+
+    # 언어 모델 대신 "키워드"로 판단 — 실전 2에서 LLM으로 바꿉니다
+    if '환불' in email or '긴급' in email or '빨리' in email:
+        category = 'complaint'
+        next_step = 'escalate_to_human'
+    else:
+        category = 'inquiry'
+        next_step = 'search_manual'
+
+    return {'category': category, 'next_step': next_step}</code></pre>
+
+    <p>한 줄씩 뜯어봅시다.</p>
+
+    <h4><code>email = state['email_content']</code> — 앞 노드가 남긴 것을 읽는다</h4>
+    <p>
+      <code>read_email</code>이 <code>email_content</code>를 채워서 넘겼기 때문에,
+      이 노드는 그 칸에 접근하기만 하면 이메일 원문을 얻습니다.
+      <strong>두 노드는 서로 직접 대화하지 않았습니다.</strong> 오직 <strong>공책(State)을 통해서만</strong> 소통했죠.
+    </p>
+
+    <h4>키워드 매칭 — 지금은 "지능"이 없습니다</h4>
+    <p>
+      <code>'환불' in email</code>은 그냥 <strong>파이썬 문자열 포함 검사</strong>입니다.
+      언어 모델은 여기에 관여하지 않습니다. 이건 <strong>의도된 단순화</strong>이고,
+      <strong>바로 이 지점이 실전 1의 한계</strong>가 됩니다. (뒤에서 직접 깨뜨려 봅니다.)
+    </p>
+
+    <h4>반환값 두 개 — 왜 <code>next_step</code>까지 담을까</h4>
+    <p>
+      <code>category</code>는 <strong>"이 메일이 무엇인가"</strong>를 기록하는 값입니다. 사람이 보는 라벨이죠.<br />
+      <code>next_step</code>은 <strong>"그래서 어디로 갈 것인가"</strong>를 기록하는 값입니다. <strong>기계가 보는 표지판</strong>이죠.
+    </p>
+    <p>
+      둘을 나눈 이유는, <strong>같은 <code>complaint</code>라도 상황에 따라 갈 곳이 달라질 수 있기</strong> 때문입니다.
+      지금은 1:1로 대응하지만, 나중에 "complaint 중에서도 VIP 고객은 다른 노드로" 같은 규칙이 생기면
+      <strong><code>category</code>는 그대로 두고 <code>next_step</code>만 바꾸면</strong> 됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 진료 접수증의 두 칸</strong>
+      <p>병원 접수증에는 <strong>"증상: 복통"</strong>과 <strong>"안내: 내과 3번 진료실"</strong>이 따로 적힙니다.
+      증상이 판단의 <strong>근거</strong>라면, 진료실 번호는 <strong>지시</strong>죠.</p>
+      <p><code>category</code>가 증상, <code>next_step</code>이 진료실 번호입니다.
+      그리고 <strong>진료실 번호는 실제로 존재하는 방 번호와 정확히 일치</strong>해야 합니다 —
+      그래서 <code>next_step</code> 값을 노드 이름과 똑같이 맞춰 둔 겁니다.</p>
+    </div>
+
+    <!-- 3-A / 3-B -->
+    <h3 id="p1-node3">③ <code>search_manual</code> / <code>escalate_to_human</code> — 뼈대만 있는 두 노드</h3>
+
+    <p>
+      갈림길에서 갈라지는 두 노드입니다. 진짜 RAG와 진짜 상담원 API는 지금 붙일 수 없으니
+      <strong><code>print</code>로 "여기 지나갔다"는 것만 표시</strong>합니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Node 3-A] 매뉴얼 검색 (AI 자동 처리 트랙)
+def search_manual(state: AgentState):
+    print('3-A 진입... 메뉴얼을 검색합니다')
+    return
+
+
+# [Node 3-B] 상담원 이관 (긴급 이슈 트랙)
+def escalate_to_human(state: AgentState):
+    print('3-B 진입... 상담원 인관합니다')
+    return</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>return</code>만 쓰고 아무것도 안 돌려줘도 되나요?</strong>
+      <p>됩니다. 값 없는 <code>return</code>은 파이썬에서 <code>None</code>을 반환하고,
+      LangGraph는 이를 <strong>"이 노드는 State를 하나도 바꾸지 않았다"</strong>로 해석합니다.
+      공책을 받아서 <strong>아무것도 안 적고 그대로 다음 사람에게 넘긴</strong> 셈이죠.</p>
+      <p>덕분에 <strong>흐름은 완성해 두고 내용물은 나중에 채우는</strong> 개발이 가능합니다.
+      그래프 구조를 먼저 검증하고 싶을 때 아주 쓸모 있는 패턴입니다.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 이 단순화가 남긴 구멍 — 검색 결과가 답변에 반영되지 않는다</strong>
+      <p><code>search_manual</code>이 State에 아무것도 안 쓰기 때문에,
+      바로 다음 <code>write_reply</code>는 <strong>매뉴얼 검색 결과를 볼 방법이 없습니다.</strong>
+      결국 <code>write_reply</code>는 <strong>이메일 원문만 보고</strong> 답을 만듭니다.</p>
+      <p>즉 지금 그래프에서 <strong>"RAG로 증강된 답변"은 아직 흉내만 낸 상태</strong>입니다.
+      이걸 제대로 이으려면 State에 <code>manual_result</code> 같은 필드를 추가하거나,
+      <strong>실전 2처럼 <code>messages</code> 기반으로 바꿔야</strong> 합니다. (실전 2에서 실제로 해결합니다.)</p>
+    </div>
+
+    <!-- write_reply -->
+    <h3 id="p1-node4">④ <code>write_reply</code> — 언어 모델이 답변을 만드는 노드</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Node 4] 답변 생성
+def write_reply(state: AgentState):
+    email = state['email_content']
+    response = model.invoke(email)      # 언어 모델 호출
+    return {'response': response}</code></pre>
+
+    <p>
+      드디어 <strong>언어 모델이 실제로 일하는</strong> 첫 노드입니다. 흐름은 세 줄이 전부입니다 —
+      <strong>이메일을 꺼내고 → 모델에 넘기고 → 결과를 <code>response</code> 칸에 적는다.</strong>
+    </p>
+
+    <h4>왜 <code>response</code>를 State에 담아야 할까</h4>
+    <p>
+      그래프가 <code>END</code>에 도달하면 <strong>State 딕셔너리 전체가 반환</strong>됩니다.
+      즉 <strong>State에 적히지 않은 것은 사용자에게 도달하지 않습니다.</strong>
+      모델이 아무리 멋진 답을 만들어도 그냥 지역 변수에 두고 끝내면 <strong>증발</strong>합니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 눈여겨볼 함정 — 타입이 <code>str</code>이 아니다</strong>
+      <p>State에는 <code>response: str</code>이라고 선언했지만, <code>model.invoke(email)</code>이 돌려주는 것은
+      <strong>문자열이 아니라 <code>AIMessage</code> 객체</strong>입니다. 그런데 <strong>에러가 나지 않습니다.</strong></p>
+      <p><code>TypedDict</code>의 타입은 <strong>실행 시점에 검사되지 않는</strong> "메모"에 가깝기 때문입니다.
+      개발자와 편집기를 위한 힌트일 뿐, 파이썬이 강제하지는 않습니다.
+      그래서 실제 출력에서 <code>'response': AIMessage(content=[...])</code>가 튀어나와도 놀라지 마세요.</p>
+      <p>깔끔하게 하려면 <code>response.content</code>(Gemini는 <code>response.content[-1]['text']</code>)로
+      <strong>문자열만 꺼내서 담는</strong> 편이 낫습니다. 이게 뒤에 나올
+      <a href="#state-principles">State 설계 원칙</a>과도 이어지는 이야기입니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 시스템 메시지를 안 넣었습니다</strong>
+      <p><code>model.invoke(email)</code>은 이메일 원문만 던집니다. 모델 입장에서는
+      <strong>"이걸 나보고 어쩌라는 거지?"</strong> 싶을 수 있죠.
+      실제로 노트북 출력을 보면 <strong>"어떤 서비스의 비밀번호인가요?"</strong>라고 되묻는,
+      고객 응대 메일이라기엔 어색한 답이 나옵니다.</p>
+      <p>원래는 <code>[SystemMessage(content="당신은 고객센터 상담원입니다...")]</code>를 앞에 붙여야 합니다.
+      <strong>실전 2에서 실제로 시스템 메시지를 사용합니다.</strong></p>
+    </div>
+
+    <!-- ── STEP 4 ── -->
+    <h2 id="p1-step4">STEP 4. 그래프 생성 — 기획서의 그림을 코드로</h2>
+
+    <p>
+      기획 2단계에서 그린 그림을 그대로 옮기면 됩니다. 순서는 1장과 동일합니다 —
+      <strong>①초기화 → ②노드 등록 → ③실선 → ④점선 → ⑤컴파일.</strong>
+    </p>
+
+    <div class="io-label">📥 코드 — ① 초기화 + ② 노드 등록 + ③ 실선 엣지</div>
+<pre class="code-block"><code>from langgraph.graph import StateGraph, START, END
+
+# 1. 워크플로우(그래프) 생성 — 공책 양식(AgentState)을 알려주며 도면 펼치기
+agent_builder = StateGraph(AgentState)
+
+
+# 2. 노드(작업자) 배치 — 이름표와 함수 이름을 똑같이 맞춥니다
+agent_builder.add_node('read_email', read_email)
+agent_builder.add_node('classify_intent', classify_intent)
+agent_builder.add_node('search_manual', search_manual)
+agent_builder.add_node('escalate_to_human', escalate_to_human)
+agent_builder.add_node('write_reply', write_reply)
+
+# 3. 엣지(연결선) 연결 — 조건 없이 무조건 흐르는 실선 두 개
+agent_builder.add_edge(START, 'read_email')
+agent_builder.add_edge('read_email', 'classify_intent')</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 이름표와 함수 이름을 똑같이 맞추는 습관</strong>
+      <p><code>add_node('read_email', read_email)</code>에서 첫 인자는 <strong>도면에 적을 이름표(문자열)</strong>,
+      둘째 인자는 <strong>실제 함수 객체</strong>입니다. 둘은 달라도 됩니다 —
+      <code>add_node('첫번째작업', read_email)</code>도 동작합니다.</p>
+      <p>하지만 <strong>똑같이 맞추면</strong> 라우팅 함수를 쓸 때 <code>return 'search_manual'</code>처럼
+      <strong>머릿속에서 이름을 한 번 더 변환할 필요가 없어집니다.</strong>
+      기획 단계에서 <code>next_step</code> 값까지 이 이름으로 통일해 둔 게 여기서 빛을 봅니다.</p>
+    </div>
+
+    <!-- 라우팅 -->
+    <h3 id="p1-router">④ 조건부 엣지 — 갈림길 만들기</h3>
+
+    <p>
+      먼저 <strong>판단하는 함수</strong>를 씁니다. 이 함수도 노드처럼 <strong><code>state</code>를 입력으로 받습니다</strong> —
+      공책을 봐야 판단할 수 있으니 당연하죠.
+    </p>
+
+    <div class="io-label">📥 코드 — (1) 라우팅 함수</div>
+<pre class="code-block"><code># 라우팅 함수: State의 정보를 보고 어디로 갈지 "문자열"로 반환
+def route_email(state: AgentState):
+    if state['next_step'] == 'escalate_to_human':
+        return 'escalate_to_human'
+    else:
+        return 'search_manual'</code></pre>
+
+    <p>
+      <code>classify_intent</code>가 <code>next_step</code>에 이미 <strong>정답을 적어 놨기 때문에</strong>,
+      이 함수는 <strong>그 값을 읽어 그대로 돌려주는</strong> 게 전부입니다.
+      기획 단계에서 이름을 맞춰 둔 덕분에 <strong>변환 로직이 아예 없죠.</strong>
+    </p>
+
+    <div class="io-label">📥 코드 — (2) 그래프에 등록</div>
+<pre class="code-block"><code># 4. 조건부 엣지 연결
+agent_builder.add_conditional_edges(
+    'classify_intent',                        # 1) 출발지
+    route_email,                              # 2) 판단 함수
+    ['escalate_to_human', 'search_manual']    # 3) 갈 수 있는 목적지 목록
+)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 갈림길의 표지판 (1장 복습)</strong>
+      <ul style="margin-bottom:0">
+        <li><strong>① 출발지</strong> — 표지판을 <strong>어느 갈림길에 세울지</strong> (<code>classify_intent</code> 다음 지점)</li>
+        <li><strong>② 판단 함수</strong> — 표지판을 읽고 <strong>어디로 갈지 정하는 규칙</strong> (<code>route_email</code>)</li>
+        <li><strong>③ 목적지 목록</strong> — 이 갈림길에서 <strong>갈 수 있는 길의 전체 목록</strong></li>
+      </ul>
+      <p style="margin-top:8px">③이 필요한 이유는 LangGraph가 <strong>"이 길이 실제로 존재하는지" 미리 검증</strong>하기 위해서입니다.
+      ②가 반환할 수 있는 값이 <strong>전부 ③ 안에 들어 있어야</strong> 하고, 하나라도 빠지면 <strong>컴파일에서 에러</strong>가 납니다.</p>
+    </div>
+
+    <!-- 리스트 vs 딕셔너리 -->
+    <h3 id="p1-listdict">🔑 세 번째 인자, 리스트로 쓸까 딕셔너리로 쓸까</h3>
+
+    <p>
+      위 코드에서 목적지 목록을 <strong>리스트</strong>로 넘겼습니다.
+      그런데 <strong>딕셔너리</strong>로도 쓸 수 있습니다. 언제 무엇을 쓸까요?
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>라우팅 함수의 반환값</th><th>세 번째 인자</th><th>이유</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>노드 이름과 같음</strong><br /><code>return 'search_manual'</code></td>
+            <td><strong>리스트</strong><br /><code>['escalate_to_human', 'search_manual']</code></td>
+            <td>반환값이 곧 노드 이름이니 <strong>번역표가 필요 없음</strong></td>
+          </tr>
+          <tr>
+            <td><strong>별칭을 씀</strong><br /><code>return 'node_A'</code></td>
+            <td><strong>딕셔너리</strong><br /><code>{'node_A': 'escalate_to_human', ...}</code></td>
+            <td>"이 반환값이 나오면 저 노드로" <strong>번역표가 필요함</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="io-label">📥 (참고) 딕셔너리로 쓰는 경우 — 지금 노트북 코드는 고치지 마세요</div>
+<pre class="code-block"><code># 라우팅 함수가 노드 이름이 아닌 "별칭"을 반환한다면
+def route_email(state: AgentState):
+    if state['next_step'] == 'escalate_to_human':
+        return 'node_A'          # ← 노드 이름이 아님
+    else:
+        return 'node_B'          # ← 노드 이름이 아님
+
+# 그러면 "별칭 → 실제 노드 이름" 번역표를 딕셔너리로 넘겨야 합니다
+agent_builder.add_conditional_edges(
+    'classify_intent',
+    route_email,
+    {
+        'node_A': 'escalate_to_human',
+        'node_B': 'search_manual'
+    }
+)</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 출입 명단 vs 좌석 배치표</strong>
+      <p><strong>리스트</strong>는 <strong>출입 가능자 명단</strong>입니다. "이 문으로는 A와 B만 나갈 수 있다"고 적어두면,
+      경비원은 <strong>이름이 명단에 있는지만</strong> 확인하면 됩니다. 이름이 곧 목적지니까요.</p>
+      <p><strong>딕셔너리</strong>는 <strong>좌석 배치표</strong>입니다. "1번 티켓 → A구역, 2번 티켓 → B구역".
+      티켓 번호와 구역 이름이 다르기 때문에 <strong>대조표가 있어야</strong> 안내가 됩니다.</p>
+      <p>강의에서는 <strong>실전 1은 리스트로, 실전 2는 두 방식을 하나씩</strong> 써보며 둘 다 익힙니다.</p>
+    </div>
+
+    <h3>⑤ 나머지 엣지 + 컴파일</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 5. 나머지 엣지(연결선) 연결
+agent_builder.add_edge('search_manual', 'write_reply')   # 매뉴얼 검색 후 → 답변 작성
+agent_builder.add_edge('write_reply', END)               # 답변 작성 후 → 종료
+agent_builder.add_edge('escalate_to_human', END)         # 상담원 이관 후 → 종료
+
+# 6. 컴파일 (최종 에이전트 생성)
+agent = agent_builder.compile()
+
+agent   # 주피터/Colab에서 실행하면 그래프 그림이 그려집니다</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 그림으로 검증하는 습관</strong>
+      <p>컴파일이 에러 없이 끝났다면 <strong>모든 노드가 설계대로 연결됐다는 뜻</strong>입니다.
+      마지막에 <code>agent</code>를 그냥 실행해 <strong>기획 2단계에서 그린 그림과 같은지 눈으로 대조</strong>하세요.</p>
+      <p>선이 다르게 그려져 있으면 <code>add_edge</code>/<code>add_conditional_edges</code> 문제,
+      그림은 맞는데 실행이 깨지면 <strong>노드 함수 안쪽(반환 딕셔너리 모양)</strong> 문제입니다.</p>
+    </div>
+
+    <!-- ── STEP 5 ── -->
+    <h2 id="p1-step5">STEP 5. 실행 — 두 갈래를 확인하기</h2>
+
+    <h3>Case A · 단순 문의</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>inputs = {"email_content": "비밀번호 변경 방법을 알려주세요."}
+response = agent.invoke(inputs)</code></pre>
+
+    <div class="io-label">▶ 출력 (터미널)</div>
+<pre class="result-block">3-A 진입... 메뉴얼을 검색합니다</pre>
+
+    <p>
+      "환불"·"긴급"·"빨리" 중 어느 키워드도 없으므로 <code>inquiry</code>로 분류되어
+      <strong>3-A(매뉴얼 검색) 트랙</strong>을 탔습니다. 반환된 State를 열어봅시다.
+    </p>
+
+    <div class="io-label">▶ response (State 전체)</div>
+<pre class="result-block">{'email_content': '비밀번호 변경 방법을 알려주세요.',
+ 'category': 'inquiry',
+ 'next_step': 'search_manual',
+ 'response': AIMessage(content=[{'type': 'text', 'text': "비밀번호를 변경하시려는 서비스나 기기(예: 구글, 네이버 ...)가 무엇인지 알려주시면 ..."}])}</pre>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">email_content</div>
+        <div class="what"><p><code>invoke()</code>로 넣은 값이 그대로. <code>read_email</code>이 옮겨 적었습니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">category / next_step</div>
+        <div class="what"><p><strong><code>classify_intent</code>가 채운 두 칸.</strong> <code>next_step</code>이 <code>'search_manual'</code>이라
+        갈림길에서 3-A로 갔다는 증거입니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">response</div>
+        <div class="what"><p><strong><code>write_reply</code>가 채운 칸.</strong> 앞서 말한 대로 <strong>문자열이 아니라 <code>AIMessage</code> 객체</strong>이고,
+        Gemini라서 <code>content</code>가 <strong>리스트</strong>입니다. 텍스트만 꺼내려면 <code>response['response'].content[-1]['text']</code>.</p></div>
+      </div>
+    </div>
+
+    <h3>Case B · 긴급 불만</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>inputs = {"email_content": "당장 환불해줘!"}
+response = agent.invoke(inputs)</code></pre>
+
+    <div class="io-label">▶ 출력 + response</div>
+<pre class="result-block">3-B 진입... 상담원 인관합니다
+
+{'email_content': '당장 환불해줘!',
+ 'category': 'complaint',
+ 'next_step': 'escalate_to_human'}</pre>
+
+    <p>
+      <strong>"환불"</strong> 키워드가 걸려 <code>complaint</code>로 분류되었고, 3-B 트랙으로 갔습니다.
+      그런데 <strong>Case A와 결정적으로 다른 점</strong>이 하나 보이시나요?
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>response</code> 키가 아예 없습니다</strong>
+      <p>Case B는 <code>escalate_to_human → END</code>로 끝나기 때문에 <strong><code>write_reply</code>를 거치지 않습니다.</strong>
+      그리고 <code>escalate_to_human</code>은 <code>print</code>만 하고 <code>return</code>했으니
+      <strong><code>response</code> 칸은 끝까지 비어 있는</strong> 겁니다.</p>
+      <p>사용자 입장에서는 <strong>아무 답도 못 받은 셈</strong>이죠. 실제 서비스라면 이건 버그입니다.</p>
+    </div>
+
+    <!-- improve -->
+    <h3 id="p1-improve">고쳐보기 — 이관 트랙에도 안내 문구 돌려주기</h3>
+
+    <p>
+      해결은 간단합니다. <code>escalate_to_human</code>도 <strong>노드의 계약(딕셔너리 반환)</strong>을 지키게 하면 됩니다.
+    </p>
+
+    <div class="io-label">📥 코드 — 수정 후</div>
+<pre class="code-block"><code># [Node 3-B] 상담원 이관 — 고정된 안내 문구를 response에 담아 반환
+def escalate_to_human(state: AgentState):
+    print('3-B 진입... 상담원 인관합니다')
+    return {
+        'response': '불편을 드려 죄송합니다. 상담원에게 이관하였으니 잠시 대기해 주시기 바랍니다.'
+    }</code></pre>
+
+    <div class="callout callout-danger">
+      <strong>🚫 노드를 고쳤으면 그래프도 다시 만들어야 합니다</strong>
+      <p>노트북에서 <strong>노드 함수 셀만 다시 실행하면 반영되지 않습니다.</strong>
+      <code>agent_builder</code>에는 <strong>수정 전 함수 객체가 이미 등록</strong>되어 있고,
+      <code>agent</code>는 그 상태로 <strong>컴파일된 사본</strong>이기 때문입니다.</p>
+      <p>노드를 고쳤다면 <strong><code>StateGraph(AgentState)</code>부터 <code>compile()</code>까지 전부 다시 실행</strong>하세요.
+      강의에서도 이 순서로 다시 돌립니다.</p>
+    </div>
+
+    <div class="io-label">▶ 다시 실행한 결과</div>
+<pre class="result-block">3-B 진입... 상담원 인관합니다
+
+{'email_content': '당장 환불해줘!',
+ 'category': 'complaint',
+ 'next_step': 'escalate_to_human',
+ 'response': '불편을 드려 죄송합니다. 상담원에게 이관하였으니 잠시 대기해 주시기 바랍니다.'}</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 여기가 이해되면 그래프 전체가 이해된 것</strong>
+      <p>이 한 번의 수정에 <strong>LangGraph의 전부</strong>가 들어 있습니다 —
+      <strong>각 노드가 State에 접근해 일한 결과를 다시 State에 담아 반환하고, 그것이 END에서 통째로 나온다.</strong></p>
+      <p>이게 잘 안 잡히면 1장의 <strong>"공책 한 권이 도는 사무실"</strong> 비유로 잠깐 돌아갔다 오세요.</p>
+    </div>
+
+    <!-- limit -->
+    <h2 id="p1-limit">실전 1의 한계 — "환불"은 걸리고 "환급"은 안 걸린다</h2>
+
+    <p>
+      이제 이 에이전트를 <strong>일부러 깨뜨려</strong> 봅시다. 단어 하나만 바꿉니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>inputs = {"email_content": "당장 환급해줘!"}   # '환불' → '환급'
+response = agent.invoke(inputs)</code></pre>
+
+    <div class="io-label">▶ 출력</div>
+<pre class="result-block">3-A 진입... 메뉴얼을 검색합니다
+
+{'email_content': '당장 환급해줘!',
+ 'category': 'inquiry',              ← 불만인데 "단순 문의"로 분류됨
+ 'next_step': 'search_manual',       ← 상담원이 아니라 매뉴얼 검색으로 감
+ 'response': AIMessage(content=[...])}</pre>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/33.png" alt="당장 환급해줘! 입력이 inquiry로 잘못 분류되어 search_manual로 흐른 결과 — 지능이 탑재되지 않은 현재의 Agent → LLM과 Tool을 구현해 해결하자!" />
+      <figcaption>누가 봐도 화난 고객인데 <strong>"단순 문의"</strong>로 분류되어 매뉴얼 검색 트랙을 탔습니다. 원인은 하나 — <strong><code>classify_intent</code>에 지능이 없기 때문</strong>입니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 금지어 목록만 보는 경비원</strong>
+      <p>정문 경비원에게 <strong>"'폭탄'이라는 단어가 적힌 사람만 막으세요"</strong>라고 지시했다고 해봅시다.
+      그러면 <strong>'폭발물'</strong>이라 적어온 사람은 그냥 통과합니다. 경비원이 멍청한 게 아니라,
+      <strong>우리가 "판단"이 아니라 "단어 대조"를 시켰기</strong> 때문이죠.</p>
+      <p><code>if '환불' in email</code>이 딱 그 지시입니다. 해결책은 목록을 늘리는 게 아니라 —
+      <strong>"글을 읽고 화가 났는지 판단할 수 있는 사람"으로 경비원을 바꾸는 것</strong>입니다.
+      그 사람이 바로 <strong>LLM</strong>입니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 그래도 실전 1은 헛수고가 아닙니다</strong>
+      <p>지금 만든 그래프는 <strong>구조가 이미 완성</strong>돼 있습니다.
+      실전 2에서 바꾸는 건 <strong>"판단하는 부분"과 "검색하는 부분"</strong>이고,
+      <strong>기획 → State → Node → Graph라는 골격은 그대로 재사용</strong>됩니다.
+      이게 흐름을 먼저 세워두는 개발의 이점입니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 실전 2 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="p2-design">실전 2 · LLM + Tool 결합 — 무엇이 달라지는가</h2>
+
+    <p>
+      같은 프로젝트(고객 질문 자동 응대)를 <strong>지능과 도구를 얹어</strong> 다시 만듭니다.
+    </p>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/34.png" alt="고객 질문 자동 응대 에이전트를 구축해 보자! (with LLM, Tools) — classify_node, escalate_node, consultant_node, tool_node로 구성된 그래프" />
+      <figcaption>실전 2의 목표 그래프. 노드가 <strong>4개</strong>로 줄었고(<code>read_email</code> 없음), 대신 <strong><code>consultant_node</code> ↔ <code>tool_node</code> 사이에 루프</strong>가 생겼습니다.</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th></th><th>실전 1</th><th>실전 2</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>입력 받기</td><td><code>read_email</code> 노드</td><td><strong>노드 없이 <code>START</code>에서 바로</strong></td></tr>
+          <tr><td>분류</td><td><code>classify_intent</code> — 키워드 <code>if</code></td><td><code>classify_node</code> — <strong>LLM이 판단</strong></td></tr>
+          <tr><td>매뉴얼 검색</td><td><code>search_manual</code> <strong>노드</strong> (print만)</td><td><code>search_manual</code> <strong>도구(<code>@tool</code>)</strong> + <code>tool_node</code></td></tr>
+          <tr><td>답변 생성</td><td><code>write_reply</code> — 항상 실행</td><td><code>consultant_node</code> — <strong>도구가 필요한지 스스로 판단</strong></td></tr>
+          <tr><td>이관</td><td><code>escalate_to_human</code></td><td><code>escalate_node</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>기획 2단계 다시 — 새 그래프의 유저 플로우</h3>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/35.png" alt="그래프 구성 — 1. 고객의 질문이 들어온다(START) 2. 질문의 의도를 파악한다(classify_node) 3. 단순 문의는 consultant_node → 필요시 tool_node, 환불/불만은 escalate_node" />
+      <figcaption>플로우는 실전 1과 거의 같지만 <strong>3-1의 화살표 하나</strong>가 새롭습니다 — <strong>"답변 생성을 위해 매뉴얼 검색이 필요하면 <code>tool_node</code>로"</strong>. 이 판단을 사람이 아니라 <strong>언어 모델이 스스로</strong> 합니다.</figcaption>
+    </figure>
+
+    <ol>
+      <li>고객의 질문이 들어온다. (<code>START</code>)</li>
+      <li>질문의 의도를 파악한다. (<code>classify_node</code>) — <strong>LLM이 읽고 판단</strong></li>
+      <li>질문 의도가…
+        <ul>
+          <li><strong>단순 문의·정보 요청</strong>이면 → <code>consultant_node</code>
+          → 답변에 매뉴얼이 필요하면 <code>tool_node</code>로 갔다가 <strong>다시 돌아온다</strong></li>
+          <li><strong>환불 요청·불만 제기</strong>면 → <code>escalate_node</code> (관리자 인계)</li>
+        </ul>
+      </li>
+    </ol>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 접수 담당자 → 상담원 → 자료실</strong>
+      <p><code>classify_node</code>는 <strong>접수 담당자</strong>입니다. 민원을 읽고 "이건 상담 건, 이건 관리자 건"을 나눕니다.</p>
+      <p><code>consultant_node</code>는 <strong>상담원</strong>입니다. 아는 건 바로 답하고,
+      규정을 확인해야 하면 <strong>자료실(<code>tool_node</code>)에 요청서를 넣고 기다립니다.</strong>
+      자료가 오면 <strong>그걸 읽고 다시 답변을 씁니다</strong> — 그래서 자료실에서 상담원으로 돌아오는 화살표가 필요하죠.</p>
+      <p><strong>중요한 건, 자료실에 갈지 말지를 상담원이 스스로 정한다</strong>는 점입니다. 우리가 코딩하지 않습니다.</p>
+    </div>
+
+    <!-- ── STEP 1 ── -->
+    <h2 id="p2-step1">STEP 1. Model 및 Tool 정의</h2>
+
+    <h3>① 모델 — 실전 1과 동일</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_google_genai import ChatGoogleGenerativeAI
+
+model = ChatGoogleGenerativeAI(model="gemini-3-flash-preview")</code></pre>
+
+    <h3>② 도구 — RAG "흉내"를 내는 <code>search_manual</code></h3>
+
+    <p>
+      실전 1에서는 <strong>노드</strong>였던 <code>search_manual</code>이, 이번에는 <strong>도구(Tool)</strong>가 됩니다.
+      1장에서 배운 그대로 <strong>평범한 함수 + <code>@tool</code> 데코레이터 + docstring</strong>입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.tools import tool
+
+@tool
+def search_manual(query: str) -&gt; str:
+    """
+    고객의 질문에 답변하기 위해 참고할만한 규정이나 메뉴얼을 검색할 때 사용하는 도구
+    """
+    if '비밀번호' in query:
+        return '비밀번호 변경은 마이페이지 - 보안 설정에 있음'
+    elif '배송' in query:
+        return '00택배에서 3일 내 배송 예정임'
+    else:
+        return '해당 내용 관련 메뉴얼은 찾을 수 없습니다'</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 진짜 RAG 대신 하드코딩한 이유</strong>
+      <p>제대로 하려면 문서 로딩 → 청킹 → 임베딩 → 벡터DB 저장 → 유사도 검색까지 붙여야 합니다.
+      코드가 길어져 <strong>정작 배우려던 "도구를 그래프에 끼우는 법"이 묻힙니다.</strong></p>
+      <p>중요한 건 <strong>인터페이스</strong>입니다 — <code>query</code>(str)를 받아 <code>str</code>을 돌려주는 함수.
+      나중에 이 함수 <strong>안쪽만</strong> 진짜 벡터 검색으로 갈아끼우면 <strong>그래프는 한 글자도 안 바뀝니다.</strong></p>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — docstring은 LLM에게 보내는 사용설명서 (1장 복습)</strong>
+      <p>모델은 이 도구를 <strong>docstring을 읽고</strong> 고릅니다.
+      <strong>"고객의 질문에 답변하기 위해 참고할만한 규정이나 메뉴얼을 검색할 때 사용"</strong>이라는 한 문장이
+      <strong>"언제 이 도구를 부를지"의 유일한 근거</strong>입니다.</p>
+      <p>여기를 <code>"검색"</code>처럼 대충 쓰면 모델이 엉뚱한 상황에 도구를 부르거나, 불러야 할 때 안 부릅니다.
+      <strong>docstring은 주석이 아니라 사양서</strong>입니다.</p>
+    </div>
+
+    <h3>③ 모델에 도구 바인딩</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>tools = [search_manual]
+
+# 도구 목록이 붙은 "새로운" 모델 객체가 만들어집니다
+model_with_tools = model.bind_tools(tools)</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>model</code>과 <code>model_with_tools</code>를 구분해서 씁니다</strong>
+      <p>실전 2에는 <strong>모델 객체가 두 개</strong>가 됩니다. 어느 노드에서 무엇을 쓰는지가 중요합니다.</p>
+      <ul style="margin-bottom:0">
+        <li><code>classify_node</code> → <strong><code>model</code></strong> (도구 없음).
+        분류는 <strong>단어 하나만 답하면 되는 일</strong>이라 도구를 알 필요가 없습니다.</li>
+        <li><code>consultant_node</code> → <strong><code>model_with_tools</code></strong>.
+        답변 도중 <strong>매뉴얼 검색을 요청할 수 있어야</strong> 하니까요.</li>
+      </ul>
+      <p style="margin-top:8px">여기를 반대로 쓰면, 분류 노드가 <code>"consultant"</code> 대신 <strong>도구 호출 요청서를 돌려주는</strong> 이상한 일이 벌어집니다.</p>
+    </div>
+
+    <!-- ── STEP 2 ── -->
+    <h2 id="p2-step2">STEP 2. State 정의 — 다시 <code>messages</code>로</h2>
+
+    <p>
+      실전 1은 <code>email_content</code>·<code>category</code>·<code>response</code>처럼
+      <strong>칸을 잘게 나눈</strong> State였습니다. 실전 2는 <strong>1장에서 쓰던 <code>messages</code> 방식</strong>으로 돌아옵니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class AgentState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]   # 대화 기록 (누적)
+    next_step: str                                        # 분기 판단 기준</code></pre>
+
+    <h3>왜 <code>messages</code>로 돌아왔을까</h3>
+
+    <p>
+      <strong>도구를 쓰기 때문</strong>입니다. 도구를 쓰는 순간 이런 것들을 담아야 합니다.
+    </p>
+
+    <ul>
+      <li><strong>사용자 질문</strong> (<code>HumanMessage</code>)</li>
+      <li><strong>모델의 도구 호출 요청서</strong> (<code>AIMessage.tool_calls</code>)</li>
+      <li><strong>도구 실행 결과</strong> (<code>ToolMessage</code>)</li>
+      <li><strong>모델의 최종 답변</strong> (<code>AIMessage.content</code>)</li>
+    </ul>
+
+    <p>
+      이걸 각각 별도 필드로 만들면 <strong>순서와 대응 관계가 깨집니다.</strong>
+      게다가 모델에 다시 물어볼 때는 <strong>지금까지의 대화를 순서대로</strong> 넘겨야 하죠.
+      그래서 <strong>한 줄로 쌓이는 리스트 하나</strong>가 정답입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 항목별 서류함 vs 시간순 대화록</strong>
+      <p>실전 1의 State는 <strong>서류함</strong>입니다. "이메일 원문 칸", "분류 결과 칸"처럼 <strong>종류별로</strong> 나뉘어 있죠.
+      단계가 한 번씩만 지나가는 <strong>일직선 흐름</strong>에는 이게 깔끔합니다.</p>
+      <p>실전 2는 <strong>대화록</strong>이 필요합니다. 상담원이 자료실에 두 번, 세 번 물어볼 수도 있고,
+      그때마다 <strong>"누가 언제 무슨 말을 했는지 순서대로"</strong> 남아야 하니까요.
+      <strong>루프가 생기는 순간 서류함으로는 감당이 안 됩니다.</strong></p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>next_step</code>은 왜 남겨뒀나</strong>
+      <p>분류 결과는 <strong>대화의 일부가 아니라 "제어 신호"</strong>이기 때문입니다.
+      <code>"consultant"</code>라는 단어를 <code>messages</code>에 <code>AIMessage</code>로 넣어버리면,
+      나중에 상담 모델이 그 메시지를 읽고 <strong>혼란스러워합니다.</strong></p>
+      <p><strong>대화에 남길 것과 흐름 제어에만 쓸 것을 분리</strong>한 설계입니다. 좋은 습관이에요.</p>
+    </div>
+
+    <!-- ── STEP 3 ── -->
+    <h2 id="p2-step3">STEP 3. Node 정의 — 네 명의 작업자</h2>
+
+    <!-- classify_node -->
+    <h3 id="p2-classify">① <code>classify_node</code> — LLM에게 분류를 맡기는 노드</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Node 1] 분류 노드 (Manager)
+from langchain.messages import SystemMessage
+
+
+def classify_node(state: AgentState):
+    print("\n--- [1] 분류 단계 (LLM 판단) ---")
+    last_message = state["messages"][-1]      # 사용자의 질문(HumanMessage)
+
+    # 분류를 위한 프롬프트 (System Prompt)
+    prompt = """
+    당신은 고객 센터 관리자입니다. 고객의 이메일을 분석해서 다음 단계를 결정하세요.
+
+    1. 단순 문의나 정보 요청이라면 -&gt; 'consultant' 반환
+    2. 환불 요청, 불만 제기, 화난 고객이라면 -&gt; 'escalate' 반환
+
+    답변은 오직 단어 하나만 하세요.
+    """
+
+    # LLM 호출 — 도구가 붙지 않은 model 사용
+    response = model.invoke([SystemMessage(content=prompt), last_message])
+    raw_content = response.content
+
+    if isinstance(raw_content, list):
+        # Gemini 등: 리스트로 오는 경우 텍스트 블록만 추출해서 합침
+        decision = "".join([block['text'] for block in raw_content if block.get('type') == 'text'])
+    else:
+        # OpenAI 등: 문자열로 오는 경우 그대로 사용
+        decision = str(raw_content)
+
+    # 공백 제거 및 소문자 변환
+    decision = decision.strip().lower()
+    print(f"   -&gt; LLM 판단 결과: {decision}")
+
+    # 다음 단계(next_step)를 상태에 저장
+    if "escalate" in decision:
+        return {"next_step": "escalate"}
+    else:
+        return {"next_step": "consultant"}</code></pre>
+
+    <p>길어 보이지만 하는 일은 <strong>딱 세 덩어리</strong>입니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>덩어리</th><th>하는 일</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>① 물어보기</strong></td><td>시스템 프롬프트 + 사용자 질문을 모델에 넘겨 <strong>단어 하나</strong>를 받아온다</td></tr>
+          <tr><td><strong>② 꺼내기</strong></td><td>모델마다 다른 <code>content</code> 형태에서 <strong>텍스트만 안전하게 추출</strong>한다</td></tr>
+          <tr><td><strong>③ 기록하기</strong></td><td>추출한 단어를 보고 <code>next_step</code>에 <code>escalate</code> / <code>consultant</code>를 적는다</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>① 프롬프트가 곧 "판단 기준"이 되었다</h4>
+    <p>
+      실전 1에서 <code>if '환불' in email</code>이 하던 일을,
+      이번엔 <strong>한국어로 쓴 지시문</strong>이 대신합니다.
+      <strong>"환불 요청, 불만 제기, 화난 고객이라면"</strong> — 이제 <strong>"환급"이든 "돈 돌려줘"든
+      모델이 의미로 이해</strong>합니다. 실전 1의 한계가 이 세 줄로 해결됩니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>"답변은 오직 단어 하나만 하세요."</code>가 중요한 이유</strong>
+      <p>이 문장이 없으면 모델은 <strong>"이 고객은 환불을 요청하고 있으므로 escalate로 처리하는 것이 적절합니다"</strong>처럼
+      친절하게 설명해 버립니다. 그러면 뒤에서 값을 비교하기가 지저분해지죠.</p>
+      <p>물론 이 코드는 <code>if "escalate" in decision</code>처럼 <strong>포함 검사</strong>를 쓰기 때문에
+      문장이 와도 어느 정도 버팁니다. <strong>"출력 형식을 지시하고, 코드에서도 방어한다"</strong>는 이중 안전장치입니다.</p>
+    </div>
+
+    <h4>② <code>isinstance(raw_content, list)</code> — 모델 갈아끼우기 대비</h4>
+    <p>
+      1장에서 배운 그 차이입니다. <strong>Gemini는 <code>content</code>가 리스트</strong>
+      (<code>[{'type':'text','text':'consultant'}]</code>), <strong>OpenAI는 문자열</strong>(<code>'consultant'</code>).
+      <code>isinstance</code>로 갈라놓으면 <strong>모델을 바꿔도 이 노드는 안 고쳐도 됩니다.</strong>
+    </p>
+
+    <h4>③ <code>.strip().lower()</code> — 사소하지만 자주 터지는 곳</h4>
+    <p>
+      모델이 <code>" Consultant\n"</code>처럼 <strong>앞뒤 공백이나 대문자</strong>를 섞어 보낼 수 있습니다.
+      <code>strip()</code>으로 공백을 털고 <code>lower()</code>로 소문자로 맞춘 뒤에 비교해야 안전합니다.
+      <strong>LLM 출력은 항상 "지저분할 수 있다"고 가정</strong>하세요.
+    </p>
+
+    <div class="callout callout-danger">
+      <strong>🚫 강의 중 실제로 에러가 났던 지점 — <code>+</code>인가 <code>,</code>인가</strong>
+      <p>강의에서는 처음에 이렇게 썼다가 에러가 났습니다.</p>
+      <p><code>model.invoke([SystemMessage(content=prompt)] + last_message)</code> &nbsp;❌</p>
+      <p><strong>왜 틀렸을까요?</strong> <code>last_message</code>는 <strong>메시지 객체 하나</strong>이지 리스트가 아닙니다.
+      리스트에 <code>+</code>로 이어붙이려면 <strong>양쪽이 다 리스트</strong>여야 하죠.
+      (1장에서 <code>[SystemMessage(...)] + state["messages"]</code>가 됐던 건
+      <code>state["messages"]</code>가 <strong>리스트</strong>였기 때문입니다.)</p>
+      <p>고치는 방법은 둘 중 하나입니다.</p>
+      <ul style="margin-bottom:0">
+        <li><code>[SystemMessage(content=prompt), last_message]</code> &nbsp;✅ <strong>쉼표로 한 리스트 안에</strong> (강의에서 택한 방법)</li>
+        <li><code>[SystemMessage(content=prompt)] + [last_message]</code> &nbsp;✅ 굳이 <code>+</code>를 쓰려면 오른쪽도 리스트로</li>
+      </ul>
+      <p style="margin-top:8px"><strong>📌 노트북 확인:</strong> 배포된 <code>2.ipynb</code>의 해당 셀에는 아직
+      <code>+ last_message</code> 버전이 남아 있습니다. 그대로 실행하면 <code>TypeError</code>가 나므로
+      <strong>위 코드처럼 쉼표로 고친 뒤 실행</strong>하세요.</p>
+    </div>
+
+    <!-- consultant_node -->
+    <h3 id="p2-consultant">② <code>consultant_node</code> — 답할지 도구를 부를지 스스로 정하는 노드</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Node 2] 상담 AI 노드 (Worker)
+def consultant_node(state: AgentState):
+    print("\n--- [2-A] 상담 AI 답변 생성 중 ---")
+    response = model_with_tools.invoke(state['messages'])
+    return {'messages': [response]}</code></pre>
+
+    <p>
+      코드는 두 줄인데 <strong>이 그래프에서 가장 "에이전트다운" 노드</strong>입니다.
+      1장의 <code>llm_call</code>과 사실상 같은 역할이죠.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 여기서 도구가 "실행"되지는 않습니다</strong>
+      <p><code>model_with_tools.invoke(...)</code>를 부르면 도구가 자동 실행될 것 같지만 <strong>아닙니다.</strong>
+      모델은 <strong>"search_manual을 query='비밀번호 변경 방법'으로 불러줘"라는 요청서(<code>tool_calls</code>)만</strong> 돌려줍니다.</p>
+      <p>실제로 함수를 돌리는 건 <strong><code>tool_node</code>의 몫</strong>입니다.
+      <strong>이 분리가 LangGraph의 핵심</strong>이고, 덕분에 "도구 실행 전에 사람에게 확인받기" 같은 개입이 가능해집니다.</p>
+    </div>
+
+    <p>따라서 이 노드가 만들어내는 <code>AIMessage</code>는 <strong>두 가지 얼굴</strong>을 가집니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>상황</th><th><code>AIMessage</code>의 모습</th><th>다음 행선지</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>바로 답할 수 있을 때</strong></td>
+            <td><code>content</code>에 답변이 차 있고 <code>tool_calls</code>는 <strong>빈 리스트</strong></td>
+            <td><code>END</code></td>
+          </tr>
+          <tr>
+            <td><strong>매뉴얼을 봐야 할 때</strong></td>
+            <td><code>content</code>는 <strong>비어 있고</strong> <code>tool_calls</code>에 <strong>요청서</strong>가 담김</td>
+            <td><code>tool_node</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 이 노드는 "두 번" 실행됩니다</strong>
+      <p>도구를 쓰는 경우 흐름이 이렇게 흐릅니다 —
+      <strong><code>consultant_node</code>(요청서 작성) → <code>tool_node</code>(실행) → <code>consultant_node</code>(결과 보고 답변 작성)</strong>.</p>
+      <p>두 번째로 들어올 때는 <code>state['messages']</code>에 <strong><code>ToolMessage</code>가 이미 추가되어 있으므로</strong>
+      모델이 검색 결과를 읽고 최종 답변을 만들 수 있습니다. <strong>같은 함수인데 State가 달라져서 결과가 달라지는</strong> 것 —
+      이게 <code>add_messages</code> 리듀서가 만들어내는 효과입니다.</p>
+    </div>
+
+    <!-- escalate_node -->
+    <h3 id="p2-escalate">③ <code>escalate_node</code> — 고정 답변을 돌려주는 노드</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain_core.messages import AIMessage
+
+# [Node 3] 상담원 이관 노드
+def escalate_node(state: AgentState):
+    return {'messages': [AIMessage(content='해당 메일은 전문 상담원에게 이관되었습니다.')]}</code></pre>
+
+    <p>
+      실전 1에서 <code>escalate_to_human</code>을 고쳐 안내 문구를 넣었던 것과 <strong>같은 발상</strong>입니다.
+      다만 이번 State는 <code>messages</code>이므로 <strong>문자열이 아니라 <code>AIMessage</code>로 감싸서</strong> 넣습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 LLM을 부르지 않는 노드도 <code>AIMessage</code>를 만들 수 있습니다</strong>
+      <p><code>AIMessage</code>는 <strong>"AI 쪽에서 온 메시지"라는 자리표</strong>일 뿐, 반드시 모델이 생성해야 하는 건 아닙니다.
+      고정 문구를 넣어도 <strong>대화 기록상으로는 똑같이 취급</strong>되고,
+      <code>add_messages</code> 리듀서가 알아서 <code>messages</code> 뒤에 이어 붙입니다.</p>
+      <p>덕분에 <strong>API 호출 비용 0원, 응답 지연 0초</strong>로 확정된 안내를 돌려줄 수 있습니다.
+      "모든 걸 LLM에게 시킬 필요는 없다"는 실무 감각이기도 합니다.</p>
+    </div>
+
+    <!-- tool_node -->
+    <h3 id="p2-toolnode">④ <code>tool_node</code> — 요청서를 읽고 실제로 실행하는 노드</h3>
+
+    <p>
+      <strong>1장에서 만든 것과 글자 하나 다르지 않습니다.</strong> 도구 목록만 바뀌었을 뿐이죠.
+      먼저 <strong>이름 → 함수 전화번호부</strong>를 만듭니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>tools = [search_manual]
+tools_by_name = {tool.name: tool for tool in tools}</code></pre>
+
+    <div class="io-label">▶ 이렇게 생겼습니다</div>
+<pre class="result-block">{'search_manual': StructuredTool(name='search_manual',
+                                 description='고객의 질문에 답변하기 위해 참고할만한 규정이나 메뉴얼을 검색할 때 사용하는 도구',
+                                 ...)}</pre>
+
+    <div class="io-label">📥 코드 — tool_node 본체</div>
+<pre class="code-block"><code>from langchain.messages import ToolMessage
+
+# [Node 4] Tool Node
+def tool_node(state: AgentState):
+    print("\n--- [Tool Node] 도구 직접 실행 ---")
+    result = []
+    # 가장 최근 메시지에서 도구 호출 요청 꺼내기
+    last_message = state["messages"][-1]
+
+    for tool_call in last_message.tool_calls:
+        # 1. 도구 이름으로 실제 함수 찾기
+        tool = tools_by_name[tool_call["name"]]
+
+        # 2. 함수를 실행하여 결과를 얻기
+        print(f"   -&gt; 실행 중: {tool_call['name']}")
+        tool_result = tool.invoke(tool_call["args"])
+
+        # 3. 결과를 ToolMessage 형태로 포장 (tool_call_id 필수!)
+        result.append(ToolMessage(content=str(tool_result), tool_call_id=tool_call["id"]))
+
+    # 실행 결과를 대화 기록에 추가
+    return {"messages": result}</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 이 코드가 1장과 똑같다는 게 포인트입니다</strong>
+      <p>도구가 <code>add</code>·<code>multiply</code>에서 <code>search_manual</code>로 바뀌었는데도
+      <strong><code>tool_node</code>는 손댈 게 없습니다.</strong> "마지막 메시지에서 <code>tool_calls</code>를 꺼내
+      이름으로 함수를 찾아 인자를 넣고 실행한 뒤 <code>ToolMessage</code>로 포장한다"는 <strong>절차가 도구와 무관</strong>하기 때문이죠.</p>
+      <p>그래서 강사님도 말합니다 — <strong>LangGraph 개발자들이 이걸 <code>ToolNode</code>라는 이름으로 이미 만들어 뒀다</strong>고요.
+      (다음 강의에서 다룹니다.) 지금은 <strong>안이 어떻게 생겼는지 알고 넘어가는</strong> 단계입니다.</p>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚫 <code>tool_call_id</code>는 택배 송장 번호 (1장 복습)</strong>
+      <p><code>ToolMessage</code>에 <code>tool_call_id</code>를 안 넣으면
+      모델이 <strong>"어느 요청에 대한 답인지 대조하지 못해"</strong> 에러가 납니다.
+      모델이 요청할 때 <strong>스스로 발급한 고유번호</strong>를 <strong>그대로 복사해 붙여서</strong> 돌려주는 것뿐입니다.</p>
+    </div>
+
+    <!-- ── STEP 4 ── -->
+    <h2 id="p2-step4">STEP 4. 그래프 생성 — 라우터 두 개, 루프 하나</h2>
+
+    <div class="io-label">📥 코드 — ① 초기화 + ② 노드 등록 + ③ 첫 실선</div>
+<pre class="code-block"><code>from langgraph.graph import StateGraph, START, END
+
+# 1. 워크플로우(그래프) 생성
+agent_builder = StateGraph(AgentState)
+
+
+# 2. 노드(작업자) 배치
+agent_builder.add_node('classify_node', classify_node)
+agent_builder.add_node('consultant_node', consultant_node)
+agent_builder.add_node('escalate_node', escalate_node)
+agent_builder.add_node('tool_node', tool_node)
+
+
+# 3. 엣지(연결선) 연결 — 시작하면 무조건 분류부터
+agent_builder.add_edge(START, 'classify_node')</code></pre>
+
+    <p>
+      실전 1과 달리 <code>read_email</code>이 없으므로 <strong><code>START</code>에서 바로 <code>classify_node</code></strong>로 갑니다.
+      사용자가 <code>invoke({"messages": [...]})</code>로 넣은 <code>HumanMessage</code>가
+      <strong><code>add_messages</code> 리듀서 덕분에 자동으로 <code>messages</code>에 담기기</strong> 때문에,
+      "받아서 옮겨 적는" 노드가 아예 필요 없어진 겁니다.
+    </p>
+
+    <h3>라우터 두 개 — 갈림길이 두 군데</h3>
+
+    <div class="io-label">📥 코드 — 라우터 1: 분류 결과에 따른 분기</div>
+<pre class="code-block"><code>def route_after_classify(state: AgentState):
+    if state['next_step'] == 'escalate':
+        return 'escalate'          # ← 노드 이름이 아닌 "별칭"
+    else:
+        return 'consultant'        # ← 노드 이름이 아닌 "별칭"</code></pre>
+
+    <div class="io-label">📥 코드 — 라우터 2: 도구 사용 여부 판단 (1장과 동일)</div>
+<pre class="code-block"><code>def should_continue(state: AgentState):
+    last_message = state["messages"][-1]
+
+    # LLM이 도구 호출(tool_calls)을 포함한 응답을 보낸 경우
+    if last_message.tool_calls:
+        return "tool_node"
+
+    # 도구 호출이 없으면 종료
+    return END</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th></th><th><code>route_after_classify</code></th><th><code>should_continue</code></th></tr>
+        </thead>
+        <tbody>
+          <tr><td>어디에 세우나</td><td><code>classify_node</code> 뒤</td><td><code>consultant_node</code> 뒤</td></tr>
+          <tr><td>무엇을 보나</td><td><code>state['next_step']</code> — <strong>제어 신호</strong></td><td><code>messages[-1].tool_calls</code> — <strong>메시지 내용</strong></td></tr>
+          <tr><td>누가 정했나</td><td><strong>LLM이 분류한 결과</strong></td><td><strong>LLM이 도구를 부를지 정한 결과</strong></td></tr>
+          <tr><td>반환값</td><td><code>'escalate'</code> / <code>'consultant'</code> (별칭)</td><td><code>'tool_node'</code> / <code>END</code> (실제 이름)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="io-label">📥 코드 — ④ 조건부 엣지 두 개</div>
+<pre class="code-block"><code># 4-1. 분류 결과에 따른 분기 → 반환값이 별칭이므로 "딕셔너리"로 번역표를 넘김
+agent_builder.add_conditional_edges(
+    'classify_node',
+    route_after_classify,
+    {
+        'escalate': 'escalate_node',
+        'consultant': 'consultant_node'
+    }
+)
+
+# 4-2. 상담 AI 후 도구 사용 여부 → 반환값이 실제 이름이므로 "리스트"면 충분
+agent_builder.add_conditional_edges(
+    'consultant_node',
+    should_continue,
+    ['tool_node', END]
+)</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 한 그래프 안에서 리스트와 딕셔너리를 하나씩 써봤습니다</strong>
+      <p>4-1은 라우터가 <code>'escalate'</code>라는 <strong>별칭</strong>을 반환하는데 노드 이름은 <code>'escalate_node'</code>이므로
+      <strong>번역표(딕셔너리)</strong>가 필요합니다.</p>
+      <p>4-2는 라우터가 <code>'tool_node'</code>라는 <strong>실제 이름</strong>을 반환하므로 <strong>명단(리스트)</strong>이면 충분합니다.</p>
+      <p>강의에서 일부러 두 방식을 섞은 이유가 이겁니다 — <strong>실무에서는 둘 다 만나게 되니까요.</strong></p>
+    </div>
+
+    <div class="io-label">📥 코드 — ⑤ 나머지 엣지 + 컴파일</div>
+<pre class="code-block"><code># 5. 나머지 엣지(연결선) 연결
+agent_builder.add_edge('tool_node', 'consultant_node')   # ★ 도구 실행 후 무조건 상담원에게 복귀 → 루프!
+agent_builder.add_edge('escalate_node', END)             # 이관 후 종료
+
+# 6. 컴파일 (최종 에이전트 생성)
+agent = agent_builder.compile()
+
+agent</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 별표 친 한 줄이 "루프"를 만듭니다</strong>
+      <p><code>add_edge('tool_node', 'consultant_node')</code> — 겨우 한 줄인데,
+      이 줄이 있어야 <strong>자료실에서 가져온 자료를 상담원이 읽고 답변을 쓸 수</strong> 있습니다.</p>
+      <p>이 줄이 없으면 도구는 실행되지만 <strong>그 결과를 아무도 안 읽고 그래프가 멈춥니다.</strong>
+      1장의 <code>tool_node → llm_call</code>과 정확히 같은 역할이에요.</p>
+      <p>그리고 이 루프는 <strong>여러 바퀴 돌 수도 있습니다.</strong>
+      모델이 "검색 결과가 부족하네, 한 번 더 찾아보자"고 판단하면 <code>tool_calls</code>를 또 만들고,
+      <code>should_continue</code>가 다시 <code>tool_node</code>로 보냅니다. <strong>우리가 횟수를 코딩하지 않았는데도요.</strong></p>
+    </div>
+
+    <!-- ── STEP 5 ── -->
+    <h2 id="p2-step5">STEP 5. 실행 — 지능이 붙은 에이전트</h2>
+
+    <h3>Case A · 단순 문의 (도구 사용)</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.messages import HumanMessage, SystemMessage
+
+inputs = {"messages": [HumanMessage(content="비밀번호 변경은 어디서 해?")]}
+response = agent.invoke(inputs)</code></pre>
+
+    <div class="io-label">▶ 출력 (터미널)</div>
+<pre class="result-block">--- [1] 분류 단계 (LLM 판단) ---
+   -> LLM 판단 결과: consultant
+
+--- [2-A] 상담 AI 답변 생성 중 ---
+
+--- [Tool Node] 도구 직접 실행 ---
+   -> 실행 중: search_manual
+
+--- [2-A] 상담 AI 답변 생성 중 ---</pre>
+
+    <p>
+      <strong><code>[2-A]</code>가 두 번</strong> 찍힌 것에 주목하세요. 루프가 실제로 한 바퀴 돌았다는 증거입니다.
+      내부에서 벌어진 일을 따라가 봅시다.
+    </p>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">START</div>
+        <div class="what"><p><code>HumanMessage("비밀번호 변경은 어디서 해?")</code>가
+        <code>add_messages</code> 리듀서를 통해 <code>messages</code>에 담깁니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">classify_node</div>
+        <div class="what"><p>시스템 프롬프트 + 질문을 <code>model</code>에 넘겨 <strong><code>"consultant"</code></strong>를 받습니다.
+        → <code>{"next_step": "consultant"}</code></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">route_after_classify</div>
+        <div class="what"><p><code>next_step</code>이 <code>escalate</code>가 아니므로 <strong><code>'consultant'</code> 반환</strong>
+        → 번역표를 거쳐 <code>consultant_node</code>로.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">consultant_node ①</div>
+        <div class="what"><p><code>model_with_tools</code>가 판단합니다 — <strong>"내가 아는 게 아니라 매뉴얼을 봐야겠다."</strong>
+        <code>content</code>는 비우고 <code>tool_calls=[{'name':'search_manual', 'args':{'query':'비밀번호 변경 방법 및 위치'}, 'id':'...'}]</code>를
+        만들어 <code>messages</code>에 추가. <strong>query 문구는 AI가 스스로 작성한 것</strong>입니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">should_continue</div>
+        <div class="what"><p>마지막 메시지에 <code>tool_calls</code>가 있음 → <strong><code>"tool_node"</code> 반환</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">tool_node</div>
+        <div class="what"><p>전화번호부에서 <code>search_manual</code>을 찾아 <code>query='비밀번호 변경 방법 및 위치'</code>로 실행 →
+        <code>'비밀번호 변경은 마이페이지 - 보안 설정에 있음'</code>.
+        <code>ToolMessage</code>로 포장(+ <code>tool_call_id</code>)해 <code>messages</code>에 추가.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">(실선 엣지)</div>
+        <div class="what"><p><code>add_edge('tool_node', 'consultant_node')</code>에 따라 <strong>무조건 상담원에게 복귀</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">consultant_node ②</div>
+        <div class="what"><p>이번엔 <code>messages</code>에 <strong><code>ToolMessage</code>가 보이므로</strong> 그걸 참고해
+        <strong>최종 답변</strong>을 만듭니다. <code>tool_calls</code>는 비어 있습니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">should_continue</div>
+        <div class="what"><p><code>tool_calls</code>가 없음 → <strong><code>END</code> 반환</strong> → 종료, State 전체 반환</p></div>
+      </div>
+    </div>
+
+    <div class="io-label">▶ response["messages"]에 쌓인 순서</div>
+<pre class="result-block">HumanMessage : "비밀번호 변경은 어디서 해?"
+AIMessage    : content=[]  tool_calls=[{'name': 'search_manual',
+                                        'args': {'query': '비밀번호 변경 방법 및 위치'},
+                                        'id': '...'}]        ← 요청서 (query는 AI가 작성)
+ToolMessage  : "비밀번호 변경은 마이페이지 - 보안 설정에 있음"   ← 우리가 하드코딩한 값
+AIMessage    : content=[{'type': 'text',
+                         'text': '비밀번호 변경은 마이페이지의 보안 설정에서 하실 수 있습니다.'}]  ← 최종 답변</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 실전 1의 구멍이 여기서 메워졌습니다</strong>
+      <p>실전 1에서는 <code>search_manual</code>이 State에 아무것도 안 써서
+      <strong>검색 결과가 답변에 반영되지 않았습니다.</strong></p>
+      <p>실전 2에서는 검색 결과가 <code>ToolMessage</code>로 <strong><code>messages</code>에 남고</strong>,
+      상담 모델이 <strong>그 전체를 다시 읽기</strong> 때문에 자연스럽게 반영됩니다.
+      <strong>이게 RAG(검색 증강 생성)의 최소 형태</strong>입니다.</p>
+    </div>
+
+    <div class="io-label">📥 코드 — 최종 답변만 꺼내기 (Gemini)</div>
+<pre class="code-block"><code># Gemini는 content가 리스트라 한 번 더 꺼냅니다 (OpenAI는 .content가 그냥 문자열)
+response["messages"][-1].content[-1]['text']</code></pre>
+
+    <h3>Case B · 불만 제기 (이관)</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>inputs = {"messages": [HumanMessage(content="당장 환불해줘!")]}
+response = agent.invoke(inputs)</code></pre>
+
+    <div class="io-label">▶ 출력 + messages</div>
+<pre class="result-block">--- [1] 분류 단계 (LLM 판단) ---
+   -> LLM 판단 결과: escalate
+
+HumanMessage : "당장 환불해줘!"
+AIMessage    : "해당 메일은 전문 상담원에게 이관되었습니다."   ← escalate_node가 넣은 고정 문구</pre>
+
+    <p>
+      <code>consultant_node</code>도 <code>tool_node</code>도 거치지 않았습니다.
+      <code>classify_node</code>가 <code>escalate</code>로 판단해 <strong>곧장 이관 트랙</strong>을 탔기 때문이죠.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 그리고 "환급"도 이제 걸립니다</strong>
+      <p>실전 1을 무너뜨렸던 <strong>"당장 환급해줘!"</strong>를 넣어보세요.
+      키워드 목록에 <code>'환급'</code>을 추가하지 않았는데도 <strong><code>escalate</code>로 분류</strong>됩니다.</p>
+      <p>모델이 <strong>단어가 아니라 의미</strong>를 보기 때문입니다.
+      <strong>실전 1 → 실전 2의 업그레이드가 실제로 문제를 해결했다는 증거</strong>죠.
+      (물론 LLM 판단은 100% 결정적이지 않아 같은 입력에도 결과가 달라질 수 있습니다 —
+      그래서 <code>if "escalate" in decision</code> 같은 방어 코드를 함께 둡니다.)</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ State 설계 원칙 ══════════════ -->
+    <h2 id="state-principles">State 설계 원칙 2가지 — LangGraph 개발팀의 권고</h2>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/36.png" alt="State 설계 원칙 — AI Agent의 성능, 유지보수성, 비용 효율성을 위한 State 설계 원칙 2가지" />
+      <figcaption>기획 3단계에서 "State에 뭘 담을까"를 고민했었죠. LangGraph 공식 문서는 그 고민의 <strong>기준 두 가지</strong>를 제시합니다. (출처: <a href="https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph#what-belongs-in-state">LangGraph 공식 문서 — What belongs in state</a>)</figcaption>
+    </figure>
+
+    <h3>원칙 1 · 꼭 필요한 것만 저장하라</h3>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/37.png" alt="원칙 1 — 저장할 것: 이 필드에 해당하는 데이터가 다음 혹은 다다음 노드에서 필요한 값인가? 저장하지 말아야 할 것: 이미 있는 데이터로 금방 계산할 수 있는가?" />
+      <figcaption>판단 기준은 질문 두 개입니다 — <strong>"다음(또는 다다음) 노드가 이 값을 쓰는가?"</strong> / <strong>"이미 있는 데이터로 금방 계산되는가?"</strong></figcaption>
+    </figure>
+
+    <p>
+      슬라이드의 나쁜 예를 보면 <code>email_content_length: 4</code>가 있습니다.
+      이메일 원문이 이미 State에 있는데 <strong>그 길이를 굳이 따로 저장</strong>한 거죠.
+      <code>len(state["email_content"])</code>로 <strong>언제든 즉시 계산</strong>되는 값입니다.
+      <code>llm_token_usage</code>도 마찬가지로, <strong>다음 노드가 쓰지 않는다면</strong> 뺍니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 매번 들고 다니는 배낭</strong>
+      <p>State는 <strong>노드에서 노드로 계속 실려 다니는 배낭</strong>입니다.
+      들어갈 때마다 꺼내 읽고, 나올 때마다 다시 싸서 넘기죠.</p>
+      <p>배낭에 <strong>안 쓰는 짐을 넣어두면</strong> 이동할 때마다 그 무게를 그대로 짊어집니다 —
+      <strong>연산이 늘고 메모리를 더 먹습니다.</strong> 체크포인트를 켜면 <strong>저장 용량</strong>까지 늘죠.</p>
+      <p>실전 1에서 <strong>RAG 검색 결과 필드를 만들지 않은 것</strong>도 이 원칙과 통합니다 —
+      쓰지도 않을 필드를 미리 만들어 둘 이유가 없으니까요.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 이 원칙으로 우리 State를 되짚어 보면</strong>
+      <p><strong><code>next_step</code></strong> — 바로 다음 라우터가 씁니다. <strong>✅ 유지</strong><br />
+      <strong><code>email_content</code></strong> — <code>classify_intent</code>도, <code>write_reply</code>도 씁니다(<strong>다다음</strong> 노드). <strong>✅ 유지</strong><br />
+      <strong><code>category</code></strong> — 솔직히 <strong>지금 그래프에서는 어떤 노드도 읽지 않습니다.</strong>
+      분기는 <code>next_step</code>이 담당하니까요. 원칙대로라면 <strong>뺄 후보</strong>지만,
+      "왜 이렇게 분류됐는지"를 사람이 확인하는 <strong>로그·감사 용도</strong>로는 가치가 있습니다.
+      <strong>원칙은 규칙이 아니라 판단 기준</strong>이라는 좋은 예입니다.</p>
+    </div>
+
+    <h3>원칙 2 · 가공되지 않은 '날 것(Raw)'을 저장하라</h3>
+
+    <figure>
+      <img src="../images/02.LangGraph%20기초/38.png" alt="원칙 2 — Formatting하지 않은 날것의 데이터 그대로 저장. Good Case는 딕셔너리로 grade/status 분리, Bad Case는 사람이 읽기 좋은 문장으로 저장" />
+      <figcaption><strong>Good Case</strong>는 <code>{"grade": "VIP", "status": "Angry"}</code> 딕셔너리, <strong>Bad Case</strong>는 <code>"이 고객은 VIP 등급이며 매우 화가 난 상태입니다."</code> 문장. 사람에겐 오른쪽이 읽기 좋지만, <strong>코드에겐 왼쪽이 훨씬 편합니다.</strong></figcaption>
+    </figure>
+
+    <p>차이는 <strong>라우팅 함수를 써보면</strong> 즉시 드러납니다.</p>
+
+    <div class="io-label">📥 Good Case — 구조화된 데이터</div>
+<pre class="code-block"><code>state["customer_info"] = {
+    "grade": "VIP",
+    "status": "Angry"
+}
+
+def route(state):
+    if state["customer_info"]["grade"] == "VIP":   # 정확하게 한 번에 꺼냄
+        return "vip_service"</code></pre>
+
+    <div class="io-label">📥 Bad Case — 사람이 읽기 좋게 가공한 문장</div>
+<pre class="code-block"><code>state["customer_info"] = "이 고객은 VIP 등급이며 매우 화가 난 상태입니다."
+
+def route(state):
+    if "VIP" in state["customer_info"]:            # 문자열을 뒤져야 함 (불안정)
+        return "vip_service"</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ Bad Case가 왜 나쁜가</strong>
+      <ul style="margin-bottom:0">
+        <li><strong>추출 비용이 다시 든다</strong> — 문장에서 등급을 뽑으려면 키워드 검색을 하거나,
+        심하면 <strong>언어 모델을 한 번 더 호출</strong>해야 합니다. <strong>돈과 시간이 두 번 나갑니다.</strong></li>
+        <li><strong>깨지기 쉽다</strong> — 문구가 <code>"VIP등급"</code>으로 바뀌거나 <code>"non-VIP"</code>가 되면
+        <code>"VIP" in ...</code>이 <strong>조용히 잘못 걸립니다.</strong></li>
+        <li><strong>이미 아는 정보를 버린 것</strong> — 처음엔 구조화된 데이터였는데
+        <strong>일부러 문장으로 뭉개서</strong> 저장한 셈이죠.</li>
+      </ul>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 엑셀 표 vs 줄글 보고서</strong>
+      <p>같은 매출 데이터를 <strong>엑셀 표</strong>로 받으면 정렬·필터·합계가 즉시 됩니다.
+      <strong>줄글 보고서</strong>로 받으면 사람이 읽기엔 좋지만, 숫자를 다시 쓰려면 <strong>하나씩 옮겨 적어야</strong> 하죠.</p>
+      <p>State는 <strong>사람이 읽는 보고서가 아니라 노드가 처리하는 데이터</strong>입니다.
+      <strong>보기 좋게 만드는 건 맨 마지막, 사용자에게 보여줄 때</strong> 하면 됩니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 실전 1의 <code>response</code>를 다시 보면</strong>
+      <p>앞에서 <code>write_reply</code>가 <code>AIMessage</code> 객체를 통째로 <code>response</code>에 넣는다고 했죠.
+      원칙 2 관점에서는 <strong>오히려 "날 것"에 가까운 선택</strong>입니다 —
+      토큰 사용량, 메타데이터가 다 살아 있으니까요.</p>
+      <p>다만 <strong>State에 <code>str</code>이라고 선언해 놓고 객체를 넣은 것</strong>은 별개의 문제입니다.
+      <strong>타입 선언과 실제 값을 일치</strong>시키거나, 아예 <code>response: AIMessage</code>로 선언을 고치는 게 정직합니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 전체 코드 ══════════════ -->
+    <h2 id="full-code">전체 코드 한눈에 보기</h2>
+
+    <h3>실전 1 · 키워드 라우팅 에이전트</h3>
+
+    <div class="io-label">📥 전체 코드</div>
+<pre class="code-block"><code># ══ STEP 1. Model &amp; Tool ══════════════════════════════
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+model = ChatGoogleGenerativeAI(model="gemini-3-flash-preview")
+# (실전 1은 도구를 쓰지 않습니다)
+
+# ══ STEP 2. State ═════════════════════════════════════
+from typing_extensions import TypedDict
+
+class AgentState(TypedDict):
+    email_content: str   # 고객 이메일 원문
+    category: str        # 분류 결과 라벨 (inquiry / complaint)
+    next_step: str       # 다음에 갈 노드 이름 → 분기 기준
+    response: str        # 최종 답변
+
+# ══ STEP 3. Node ══════════════════════════════════════
+# [1] 이메일 읽기 — 지금은 그대로 넘기기만
+def read_email(state: AgentState):
+    return {'email_content': state['email_content']}
+
+# [2] 의도 분류 — 키워드 매칭 (실전 2에서 LLM으로 교체)
+def classify_intent(state: AgentState):
+    email = state['email_content']
+    if '환불' in email or '긴급' in email or '빨리' in email:
+        category, next_step = 'complaint', 'escalate_to_human'
+    else:
+        category, next_step = 'inquiry', 'search_manual'
+    return {'category': category, 'next_step': next_step}
+
+# [3-A] 매뉴얼 검색 — 뼈대만 (State 변경 없음)
+def search_manual(state: AgentState):
+    print('3-A 진입... 메뉴얼을 검색합니다')
+    return
+
+# [3-B] 상담원 이관 — 고정 안내 문구를 response에 담아 반환
+def escalate_to_human(state: AgentState):
+    print('3-B 진입... 상담원 인관합니다')
+    return {'response': '불편을 드려 죄송합니다. 상담원에게 이관하였으니 잠시 대기해 주시기 바랍니다.'}
+
+# [4] 답변 생성 — 언어 모델 호출
+def write_reply(state: AgentState):
+    email = state['email_content']
+    response = model.invoke(email)
+    return {'response': response}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+from langgraph.graph import StateGraph, START, END
+
+agent_builder = StateGraph(AgentState)
+
+agent_builder.add_node('read_email', read_email)
+agent_builder.add_node('classify_intent', classify_intent)
+agent_builder.add_node('search_manual', search_manual)
+agent_builder.add_node('escalate_to_human', escalate_to_human)
+agent_builder.add_node('write_reply', write_reply)
+
+agent_builder.add_edge(START, 'read_email')
+agent_builder.add_edge('read_email', 'classify_intent')
+
+# next_step 값을 그대로 반환 (값 = 노드 이름으로 맞춰 뒀기 때문)
+def route_email(state: AgentState):
+    if state['next_step'] == 'escalate_to_human':
+        return 'escalate_to_human'
+    else:
+        return 'search_manual'
+
+agent_builder.add_conditional_edges(
+    'classify_intent',
+    route_email,
+    ['escalate_to_human', 'search_manual']   # 반환값 = 노드 이름 → 리스트로 충분
+)
+
+agent_builder.add_edge('search_manual', 'write_reply')
+agent_builder.add_edge('write_reply', END)
+agent_builder.add_edge('escalate_to_human', END)
+
+agent = agent_builder.compile()
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+response = agent.invoke({"email_content": "비밀번호 변경 방법을 알려주세요."})   # → 3-A 트랙
+response = agent.invoke({"email_content": "당장 환불해줘!"})                 # → 3-B 트랙</code></pre>
+
+    <h3>실전 2 · LLM + Tool 결합 에이전트</h3>
+
+    <div class="io-label">📥 전체 코드</div>
+<pre class="code-block"><code># ══ STEP 1. Model &amp; Tool ══════════════════════════════
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.tools import tool
+
+model = ChatGoogleGenerativeAI(model="gemini-3-flash-preview")
+
+@tool
+def search_manual(query: str) -&gt; str:
+    """
+    고객의 질문에 답변하기 위해 참고할만한 규정이나 메뉴얼을 검색할 때 사용하는 도구
+    """
+    if '비밀번호' in query:
+        return '비밀번호 변경은 마이페이지 - 보안 설정에 있음'
+    elif '배송' in query:
+        return '00택배에서 3일 내 배송 예정임'
+    else:
+        return '해당 내용 관련 메뉴얼은 찾을 수 없습니다'
+
+tools = [search_manual]
+model_with_tools = model.bind_tools(tools)   # 분류용 model / 상담용 model_with_tools 를 구분해 씁니다
+
+# ══ STEP 2. State ═════════════════════════════════════
+from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class AgentState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]   # 대화 기록 (덮어쓰지 않고 누적)
+    next_step: str                                        # 제어 신호 (대화에는 남기지 않음)
+
+# ══ STEP 3. Node ══════════════════════════════════════
+from langchain.messages import SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage
+
+# [1] 분류 — LLM이 읽고 판단
+def classify_node(state: AgentState):
+    print("\n--- [1] 분류 단계 (LLM 판단) ---")
+    last_message = state["messages"][-1]
+
+    prompt = """
+    당신은 고객 센터 관리자입니다. 고객의 이메일을 분석해서 다음 단계를 결정하세요.
+
+    1. 단순 문의나 정보 요청이라면 -&gt; 'consultant' 반환
+    2. 환불 요청, 불만 제기, 화난 고객이라면 -&gt; 'escalate' 반환
+
+    답변은 오직 단어 하나만 하세요.
+    """
+
+    # 주의: [SystemMessage(...)] + last_message 는 TypeError (오른쪽이 리스트가 아님)
+    response = model.invoke([SystemMessage(content=prompt), last_message])
+    raw_content = response.content
+
+    if isinstance(raw_content, list):
+        decision = "".join([b['text'] for b in raw_content if b.get('type') == 'text'])   # Gemini
+    else:
+        decision = str(raw_content)                                                      # OpenAI
+
+    decision = decision.strip().lower()
+    print(f"   -&gt; LLM 판단 결과: {decision}")
+
+    if "escalate" in decision:
+        return {"next_step": "escalate"}
+    else:
+        return {"next_step": "consultant"}
+
+# [2] 상담 — 바로 답할지 도구를 부를지 모델이 스스로 판단
+def consultant_node(state: AgentState):
+    print("\n--- [2-A] 상담 AI 답변 생성 중 ---")
+    response = model_with_tools.invoke(state['messages'])
+    return {'messages': [response]}
+
+# [3] 이관 — LLM 호출 없이 고정 메시지
+def escalate_node(state: AgentState):
+    return {'messages': [AIMessage(content='해당 메일은 전문 상담원에게 이관되었습니다.')]}
+
+# [4] 도구 실행 — 1장에서 만든 것과 동일
+tools_by_name = {tool.name: tool for tool in tools}
+
+def tool_node(state: AgentState):
+    print("\n--- [Tool Node] 도구 직접 실행 ---")
+    result = []
+    last_message = state["messages"][-1]
+    for tool_call in last_message.tool_calls:
+        tool = tools_by_name[tool_call["name"]]
+        print(f"   -&gt; 실행 중: {tool_call['name']}")
+        tool_result = tool.invoke(tool_call["args"])
+        result.append(ToolMessage(content=str(tool_result), tool_call_id=tool_call["id"]))
+    return {"messages": result}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+from langgraph.graph import StateGraph, START, END
+
+agent_builder = StateGraph(AgentState)
+
+agent_builder.add_node('classify_node', classify_node)
+agent_builder.add_node('consultant_node', consultant_node)
+agent_builder.add_node('escalate_node', escalate_node)
+agent_builder.add_node('tool_node', tool_node)
+
+agent_builder.add_edge(START, 'classify_node')
+
+# 라우터 1 — 별칭을 반환하므로 딕셔너리(번역표) 필요
+def route_after_classify(state: AgentState):
+    if state['next_step'] == 'escalate':
+        return 'escalate'
+    else:
+        return 'consultant'
+
+# 라우터 2 — 실제 노드 이름을 반환하므로 리스트면 충분
+def should_continue(state: AgentState):
+    last_message = state["messages"][-1]
+    if last_message.tool_calls:
+        return "tool_node"
+    return END
+
+agent_builder.add_conditional_edges(
+    'classify_node',
+    route_after_classify,
+    {'escalate': 'escalate_node', 'consultant': 'consultant_node'}
+)
+
+agent_builder.add_conditional_edges(
+    'consultant_node',
+    should_continue,
+    ['tool_node', END]
+)
+
+agent_builder.add_edge('tool_node', 'consultant_node')   # ★ 이 한 줄이 루프를 만든다
+agent_builder.add_edge('escalate_node', END)
+
+agent = agent_builder.compile()
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+from langchain.messages import HumanMessage
+
+response = agent.invoke({"messages": [HumanMessage(content="비밀번호 변경은 어디서 해?")]})
+# Gemini는 content가 리스트라 한 번 더 꺼냄
+print(response["messages"][-1].content[-1]['text'])
+
+response = agent.invoke({"messages": [HumanMessage(content="당장 환불해줘!")]})   # → escalate 트랙</code></pre>
+
+    <hr />
+
+    <!-- ══════════════ 함정 ══════════════ -->
+    <h2 id="pitfalls">자주 걸리는 함정 6가지</h2>
+
+    <div class="info-card">
+      <div class="info-card-title">🕳️ 이번 장에서 실제로 밟게 되는 지뢰</div>
+
+      <h4>1. <code>[SystemMessage(...)] + last_message</code> — 리스트에 객체를 더한다</h4>
+      <p>
+        <code>+</code>는 <strong>리스트끼리만</strong> 됩니다. <code>last_message</code>는 객체 하나이므로 <code>TypeError</code>.<br />
+        <code>[SystemMessage(...), last_message]</code> ✅ 또는 <code>[SystemMessage(...)] + [last_message]</code> ✅
+      </p>
+
+      <h4>2. 노드를 고쳐놓고 그래프를 다시 컴파일하지 않는다</h4>
+      <p>
+        <code>agent</code>는 <strong>컴파일 시점의 함수를 붙들고 있는 사본</strong>입니다.
+        노드 함수 셀만 다시 실행해도 <strong>동작은 그대로</strong>입니다.
+        <strong><code>StateGraph(...)</code>부터 <code>compile()</code>까지 전부 다시</strong> 실행하세요.
+      </p>
+
+      <h4>3. <code>invoke()</code>에 넘기는 딕셔너리 모양을 State와 안 맞춘다</h4>
+      <p>
+        실전 1은 <code>{"email_content": "..."}</code>, 실전 2는 <code>{"messages": [HumanMessage(...)]}</code>입니다.
+        <strong>State 클래스가 바뀌면 입력 서식도 바뀝니다.</strong>
+        1장 습관대로 <code>{"messages": ...}</code>를 넣으면 실전 1에서는 <code>KeyError: 'email_content'</code>가 납니다.
+      </p>
+
+      <h4>4. 라우팅 함수 반환값과 세 번째 인자를 안 맞춘다</h4>
+      <p>
+        반환값이 <strong>노드 이름 그대로</strong>면 <strong>리스트</strong>,
+        <strong>별칭</strong>이면 <strong>딕셔너리(번역표)</strong>.
+        <code>return 'escalate'</code>인데 <code>['escalate_node', ...]</code>를 넘기면 <strong>목적지를 못 찾습니다.</strong>
+      </p>
+
+      <h4>5. 분기해서 끝나는 트랙에 답변을 안 담는다</h4>
+      <p>
+        <code>escalate_to_human</code>이 <code>return</code>만 하면 <code>response</code>가 <strong>영영 비어 있습니다.</strong>
+        <strong>모든 종료 경로가 사용자에게 돌려줄 값을 남기는지</strong> 확인하세요.
+      </p>
+
+      <h4>6. 분류용 모델에 도구를 바인딩한다</h4>
+      <p>
+        <code>classify_node</code>에서 <code>model_with_tools</code>를 쓰면
+        <strong><code>"consultant"</code> 대신 도구 호출 요청서가 돌아올 수</strong> 있습니다.
+        <strong>판단만 시킬 모델에는 도구를 붙이지 마세요.</strong>
+      </p>
+
+      <div class="callout callout-info" style="margin-bottom:0">
+        <strong>💡 디버깅 요령</strong>
+        <p>에러가 나면 먼저 <code>agent</code>를 실행해 <strong>그래프 그림</strong>을 확인하세요.
+        그림이 기획서와 다르면 <code>add_edge</code>/<code>add_conditional_edges</code> 문제,
+        그림은 맞는데 실행이 깨지면 <strong>노드 함수의 반환 딕셔너리</strong>를 의심하면 됩니다.
+        노드마다 <code>print</code>를 하나씩 심어두면(실전 2처럼) <strong>어디까지 갔는지</strong>가 바로 보입니다.</p>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 정리 ══════════════ -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심 한 문장</strong>
+      <p>에이전트 개발은 <strong>코드가 아니라 기획에서 시작</strong>한다 —
+      <strong>요구사항을 노드로 쪼개고 → 그래프로 잇고 → 그제서야 State를 설계</strong>하면,
+      코드는 그 기획서를 <strong>기계적으로 번역</strong>하는 일이 된다.</p>
+    </div>
+
+    <ul>
+      <li><strong>기획 3단계</strong> — ①요구사항 분석(기능 하나 = 노드 하나) → ②그래프 구성(실선/점선 구분) → ③State 설계(다음 노드가 쓸 것만).
+      <strong>코딩 순서와 정반대</strong>인 이유는, <strong>일이 정해져야 데이터가 정해지기</strong> 때문.</li>
+      <li><strong>이름 통일의 힘</strong> — <code>next_step</code> 값 = 노드 이름 = <code>add_node</code> 이름표.
+      맞춰 두면 라우팅 함수가 <strong>값을 그대로 <code>return</code>하는 한 줄</strong>이 된다.</li>
+      <li><strong>실전 1 (키워드)</strong> — State는 <strong>칸 나눈 서류함</strong>(리듀서 없음), 분기는 <code>if '환불' in email</code>.
+      <strong>"환급"에서 무너진다</strong> — 단어를 볼 뿐 의미를 못 보기 때문.</li>
+      <li><strong>실전 2 (LLM + Tool)</strong> — 분류를 <strong>프롬프트</strong>가 맡고, 검색을 <strong><code>@tool</code></strong>이 맡는다.
+        <ul>
+          <li>State가 <strong><code>messages</code> + <code>add_messages</code></strong>로 돌아온 이유는 <strong>루프가 생겼기 때문</strong>. 대화록이 필요하다.</li>
+          <li><code>model</code>(분류)과 <code>model_with_tools</code>(상담)를 <strong>구분해서</strong> 쓴다.</li>
+          <li><code>consultant_node</code>는 <strong>요청서만</strong> 쓰고, 실제 실행은 <code>tool_node</code>가 한다. <strong>이 분리가 LangGraph의 핵심.</strong></li>
+          <li><code>add_edge('tool_node', 'consultant_node')</code> <strong>한 줄이 루프</strong>를 만들고, 그 덕분에 검색 결과가 답변에 반영된다.</li>
+        </ul>
+      </li>
+      <li><strong>조건부 엣지의 세 번째 인자</strong> — 반환값이 <strong>노드 이름이면 리스트</strong>(출입 명단),
+      <strong>별칭이면 딕셔너리</strong>(좌석 배치표).</li>
+      <li><strong>State 설계 원칙</strong> —
+        ① <strong>꼭 필요한 것만</strong>(다음/다다음 노드가 쓰는가? 금방 계산되는 값 아닌가?) ·
+        ② <strong>날 것(Raw)으로</strong>(사람이 읽기 좋은 문장이 아니라 <strong>컴퓨터가 처리하기 좋은 dict/list/number</strong>).</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 마지막으로 — 실전 1과 실전 2의 관계</strong>
+      <p>실전 2는 실전 1을 <strong>버리고 다시 만든 게 아닙니다.</strong>
+      <strong>골격(기획 → State → Node → Graph)은 그대로 두고, "판단하는 부분"과 "검색하는 부분"만 갈아끼운</strong> 겁니다.</p>
+      <p>이게 LangGraph로 흐름을 먼저 세워두는 이유입니다 —
+      <strong>부품은 갈아끼울 수 있지만, 골격을 잘못 세우면 전부 다시 지어야</strong> 하니까요.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>지금 다 이해되지 않아도 괜찮습니다</strong>
+      <p>강사님 말씀대로, <strong>2강까지 오면 LangGraph 코드의 60~70%는 밟은 셈</strong>입니다.
+      3·4·5강은 오늘 배운 것을 <strong>조금씩 응용할 뿐</strong>이에요.
+      막히면 <strong>1장의 "공책 한 권이 도는 사무실" 비유</strong>로 돌아갔다가,
+      노트북을 처음부터 끝까지 한 번 돌려본 뒤 이 문서를 다시 읽어보세요. 훨씬 잘 붙습니다.</p>
+      <p><strong>다음 장 예고</strong> — 대망의 <strong>오케스트레이션(Orchestration)</strong>입니다.
+      감독관 노드가 작업을 보고 <strong>"이건 세 명이 나눠 하자"</strong>며 워커 노드를 <strong>동적으로 생성</strong>하고,
+      결과를 종합해 반환하는 구조를 만듭니다.
+      오늘까지가 <strong>미리 그려둔 도면대로 흐르는 에이전트</strong>였다면, 다음은 <strong>도면을 실행 중에 그리는 에이전트</strong>입니다.</p>
+    </div>
+
+    <div class="pager">
+      <a href="1.html">
+        <small>← 이전</small>
+        1. LangGraph 기초 — State · Node · Edge로 Agent 만들기
+      </a>
+      <span class="disabled">
+        <small>다음 →</small>
+        3. 오케스트레이션
+      </span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 자체 포함 Python 문법 강조기 (외부 라이브러리·인터넷 불필요) ── -->
+<script>
+(function () {
+  var KEYWORDS = {'from':1,'import':1,'as':1,'def':1,'return':1,'class':1,'if':1,'elif':1,'else':1,'for':1,'while':1,'in':1,'not':1,'and':1,'or':1,'is':1,'with':1,'lambda':1,'pass':1,'break':1,'continue':1,'try':1,'except':1,'finally':1,'raise':1,'yield':1,'global':1,'nonlocal':1,'assert':1,'del':1,'async':1,'await':1,'None':1,'True':1,'False':1};
+  var BUILTINS = {'print':1,'len':1,'range':1,'int':1,'float':1,'str':1,'list':1,'dict':1,'set':1,'tuple':1,'bool':1,'self':1,'super':1,'isinstance':1,'enumerate':1,'zip':1,'map':1,'filter':1,'open':1,'type':1};
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function span(cls, s){ return '<span class="'+cls+'">'+esc(s)+'</span>'; }
+  function highlight(src){
+    var out='', i=0, n=src.length, expectName=false, m;
+    while(i<n){
+      var ch=src[i], rest=src.slice(i);
+      if(ch==='#'){ m=rest.match(/^#[^\n]*/); out+=span('tok-com',m[0]); i+=m[0].length; continue; }              // 주석
+      if((m=rest.match(/^("""[\s\S]*?"""|'''[\s\S]*?''')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 삼중따옴표 문자열
+      if((m=rest.match(/^("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 일반 문자열
+      if(ch==='!' && (i===0 || src[i-1]==='\n')){ m=rest.match(/^![^\n]*/); out+=span('tok-shell',m[0]); i+=m[0].length; continue; } // 셸 명령
+      if((m=rest.match(/^@[A-Za-z_]\w*/))){ out+=span('tok-dec',m[0]); i+=m[0].length; continue; }                 // 데코레이터
+      if((m=rest.match(/^\d[\d_]*\.?\d*/))){ out+=span('tok-num',m[0]); i+=m[0].length; continue; }                // 숫자
+      if((m=rest.match(/^[A-Za-z_]\w*/))){                                                                         // 식별자
+        var w=m[0];
+        if(expectName){ out+=span('tok-fn',w); expectName=false; }
+        else if(KEYWORDS[w]){ out+=span('tok-kw',w); if(w==='def'||w==='class') expectName=true; }
+        else if(BUILTINS[w]){ out+=span('tok-bi',w); }
+        else { out+=esc(w); }
+        i+=w.length; continue;
+      }
+      out+=esc(ch); i++;                                                                                           // 그 외 문자
+    }
+    return out;
+  }
+  function run(){
+    var blocks=document.querySelectorAll('pre.code-block > code');
+    for(var k=0;k<blocks.length;k++){ blocks[k].innerHTML=highlight(blocks[k].textContent); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+</script>
+
+</body>
+</html>
