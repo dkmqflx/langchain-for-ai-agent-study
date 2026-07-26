@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3-1. 기초 아키텍처 패턴 — Prompt Chaining · Parallelization</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 260px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .sub { padding-left: 20px; font-size: 12.5px; }
+
+    main {
+      margin-left: 260px; max-width: 920px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8d6e00; }
+    .badge-red    { background: #fce8e8; color: #a01818; }
+    .badge-blue   { background: #e8f4fd; color: #0b4a86; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── Python 문법 강조 (syntax highlighting) ── */
+    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
+    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
+    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
+    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
+    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
+    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
+    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
+    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Figure ── */
+    figure {
+      margin: 20px 0; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; background: var(--surface);
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption {
+      font-size: 12.5px; color: var(--text-secondary);
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
+    }
+
+    /* ── Trace box (실행 추적) ── */
+    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
+    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .trace-row:last-child { border-bottom: none; }
+    .trace-row .who {
+      flex: 0 0 170px; padding: 12px 14px; font-weight: 700;
+      background: var(--code-bg); border-right: 1px solid var(--border);
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
+    }
+    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
+    .trace-row .what p { margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a, .pager span.disabled {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+    .pager span.disabled { color: var(--text-secondary); text-align: right; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+      .trace-row { flex-direction: column; }
+      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">3강 · LangGraph 응용 (1)</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+    <a href="#why-shape">왜 "그래프 모양"을 배우나</a>
+    <a href="#pattern-map" class="sub">아키텍처 패턴 지도 5종</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1-1. Prompt Chaining</div>
+      <a href="#chain-concept">개념 · 줄을 세운다</a>
+      <a href="#chain-when" class="sub">언제 쓰는가 — 3가지 신호</a>
+      <a href="#chain-attention" class="sub">Before / After · 어텐션 분산</a>
+      <a href="#chain-plan">기획 3단계</a>
+      <a href="#chain-plan3" class="sub">State 설계</a>
+      <a href="#chain-step1">STEP 1. Model 정의</a>
+      <a href="#chain-step2">STEP 2. State 정의</a>
+      <a href="#chain-step3">STEP 3. Node 정의</a>
+      <a href="#chain-node1" class="sub">① generate_joke</a>
+      <a href="#chain-node2" class="sub">② critique_and_improve</a>
+      <a href="#chain-node3" class="sub">③ polish_joke</a>
+      <a href="#chain-step4">STEP 4. 그래프 생성</a>
+      <a href="#chain-step5">STEP 5. 실행</a>
+      <a href="#chain-trace" class="sub">공책이 채워지는 과정</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">1-2. Parallelization</div>
+      <a href="#par-concept">개념 · 펼쳐서 동시에</a>
+      <a href="#par-when" class="sub">속도 · 정확도 두 가지 목적</a>
+      <a href="#par-independent" class="sub">전제조건 — 독립성</a>
+      <a href="#par-plan">기획 · 그래프와 State</a>
+      <a href="#par-step1">STEP 1~2. Model &amp; State</a>
+      <a href="#par-step3">STEP 3. Worker 3 + Aggregator</a>
+      <a href="#par-step4">STEP 4. Fan-out / Fan-in</a>
+      <a href="#par-step5">STEP 5. 실행</a>
+      <a href="#par-barrier" class="sub">Aggregator는 전원을 기다린다</a>
+      <a href="#par-conflict" class="sub">같은 칸에 동시에 쓰면?</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#compare">두 패턴 비교</a>
+      <a href="#full-code">전체 코드 한눈에 보기</a>
+      <a href="#pitfalls">자주 걸리는 함정</a>
+      <a href="#summary">📚 한 장 정리</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>3-1. 기초 아키텍처 패턴 — Prompt Chaining · Parallelization</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>1.ipynb</code>
+      &nbsp;·&nbsp; 대상 범위: 1-1 Prompt Chaining ~ 1-2 Parallelization
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문~초급</span>
+    </p>
+
+    <p class="lead">
+      2강까지 우리는 <strong>State · Node · Edge · 조건부 엣지</strong>라는 네 개의 부품을 손에 익혔습니다.
+      3강은 <strong>새 부품을 배우는 시간이 아닙니다.</strong> 이미 가진 그 부품을
+      <strong>"어떻게 배치하느냐"</strong>만 바꿔서 전혀 다른 모양의 그래프를 만드는 시간입니다.
+      이번 문서에서는 그중 가장 기본이 되는 두 가지 —
+      노드를 <strong>일렬로 줄 세우는 Prompt Chaining</strong>과,
+      노드를 <strong>부챗살처럼 펼치는 Parallelization</strong>을 다룹니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      <p>문법은 <code>add_node</code>와 <code>add_edge</code> 두 개가 전부입니다. <strong>새로 배우는 문법이 사실상 없습니다.</strong>
+      대신 배우는 건 <strong>"이 업무에는 어떤 모양이 어울리는가"</strong>라는 감각입니다.
+      같은 <code>add_edge</code>를 어떻게 긋느냐에 따라 그래프는 <strong>일자 체인</strong>도 되고 <strong>부챗살</strong>도 됩니다.</p>
+      <p>2강이 이 강의에서 가장 빡센 구간이었다면, <strong>3강은 그 부품을 갖고 노는 시간</strong>입니다. 훨씬 수월합니다.</p>
+    </div>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/01.png" alt="3강 Contents — 1. 기초 아키텍처 패턴 (Prompt Chaining, Parallelization, Routing), 2. 응용 아키텍처 패턴 (Evaluator-Optimizer, Orchestrator-Worker), 3. 참고 자료 (Workflow vs Agent)" />
+      <figcaption>3강 전체 지도. 이번 문서는 <strong>1장의 앞 두 패턴</strong>(Prompt Chaining · Parallelization)까지입니다.
+      Routing과 2장 응용 패턴(Evaluator-Optimizer · Orchestrator-Worker), 그리고 "Workflow vs Agent"는 이어지는 문서에서 다룹니다.</figcaption>
+    </figure>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="why-shape">왜 "그래프 모양"을 따로 배우는가 — 사라진 LangChain의 체인</h2>
+
+    <p>
+      2강에서 만든 그래프를 떠올려 보면 모양이 거의 하나였습니다.
+      <strong>START에서 출발해 한 방향으로 흐르다가, 갈림길에서 한 번 갈라지고, END로 끝난다.</strong>
+      그런데 노드와 엣지는 <strong>그것보다 훨씬 자유롭게</strong> 이을 수 있습니다.
+    </p>
+
+    <p>
+      이 이야기가 특히 반가울 분들이 있습니다. <strong>2025년 10월 이전, 즉 LangChain 버전 0 시절에 개발해 본 분들</strong>입니다.
+      그때 LangChain은 이름 그대로 <strong>"체인(Chain)"</strong>을 얼기설기 엮는 라이브러리였습니다.
+      입력이 하나 들어오면 체인들이 <strong>연쇄 반응(chain reaction)</strong>을 일으키며 차례로 일을 하고,
+      마지막에 최종 결과가 툭 튀어나오는 방식이었죠.
+    </p>
+
+    <p>
+      그런데 버전 1로 올라가면서 LangChain은 <strong>에이전트</strong>에 집중했습니다.
+      가드레일, 미들웨어 같은 기능이 전면에 나오는 대신 <strong>기존의 체인 문법은 많이 정리되었습니다.</strong>
+      실제로 지난 강의 댓글에도 <strong>"그 문법이 없어져서 아쉽다"</strong>는 반응이 있었고요.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 좋은 소식 — 없어진 게 아니라 옮겨졌습니다</strong>
+      <p>오늘 배우는 <strong>노드 + 엣지 조합</strong>이 바로 그 체인의 자리를 대신합니다.
+      버전 0에서 체인을 엮어 연쇄 반응을 일으키던 것과 <strong>완전히 똑같은 구조</strong>를
+      <code>add_edge</code> 몇 줄로 다시 만들 수 있습니다.
+      오히려 <strong>중간 상태가 State에 남고, 그래프가 그림으로 보이고, 조건부 분기까지 붙일 수 있다</strong>는 점에서 더 나아졌습니다.</p>
+    </div>
+
+    <h3 id="pattern-map">아키텍처 패턴 지도 — 다섯 가지 모양</h3>
+
+    <p>
+      LangChain 공식 문서(<a href="https://docs.langchain.com/oss/python/langgraph/workflows-agents" target="_blank" rel="noopener">Workflows &amp; Agents</a>)는
+      실무에서 반복적으로 등장하는 그래프 모양을 <strong>다섯 가지 패턴</strong>으로 정리해 두었습니다.
+      먼저 전체 지형도를 보고 시작하죠.
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/02.png" alt="다양한 아키텍처 패턴 — Chaining(직렬 + Gate), Parallel(여러 LLM call → Aggregator), Routing(Router가 여러 갈래로 분기) 도식" />
+      <figcaption><strong>Node와 Edge를 어떻게 연결하느냐에 따라 다양한 구조의 그래프를 만들 수 있다.</strong>
+      위가 <strong>Chaining</strong>(일렬 + 중간에 Gate로 통과/실패 판정), 왼쪽 아래가 <strong>Parallel</strong>(여러 LLM 호출을 Aggregator가 취합),
+      오른쪽 아래가 <strong>Routing</strong>(Router가 상황에 따라 한 갈래를 고름).</figcaption>
+    </figure>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/03.png" alt="Orchestrator-Worker(오케스트레이터가 여러 워커에 분배 후 Synthesizer가 종합)와 Evaluator-Optimizer(Generator → Evaluator, Rejected면 다시 Generator로 되돌아가는 루프) 도식" />
+      <figcaption>2장에서 다룰 응용 패턴 둘. <strong>Orchestrator-Worker</strong>는 지휘자 노드가 일을 쪼개 워커에게 나눠주고 Synthesizer가 종합하는 구조,
+      <strong>Evaluator-Optimizer</strong>는 평가자가 <strong>"Rejected"</strong>를 던지면 생성자로 <strong>되돌아가는 루프</strong>가 핵심입니다.</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>패턴</th><th>한 줄 요약</th><th>모양</th><th>다루는 곳</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Prompt Chaining</strong></td><td>한 번에 다 하지 말고 <strong>단계별로</strong></td><td>일자 (직렬)</td><td><span class="badge badge-blue">이 문서</span></td></tr>
+          <tr><td><strong>Parallelization</strong></td><td>독립적인 일을 <strong>동시에</strong> 시키고 취합</td><td>부챗살 → 깔때기</td><td><span class="badge badge-blue">이 문서</span></td></tr>
+          <tr><td><strong>Routing</strong></td><td>상황을 보고 <strong>갈 길을 고른다</strong></td><td>갈림길</td><td>다음 문서 (2강에서 맛봄)</td></tr>
+          <tr><td><strong>Orchestrator-Worker</strong></td><td>지휘자가 <strong>일을 쪼개 나눠주고</strong> 종합</td><td>동적 부챗살</td><td>3강 2장</td></tr>
+          <tr><td><strong>Evaluator-Optimizer</strong></td><td>평가자가 <strong>퇴짜를 놓으면 다시</strong></td><td>루프</td><td>3강 2장</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 회사의 업무 배치</strong>
+      <p>다섯 패턴은 결국 <strong>"일을 사람들에게 어떻게 배치할 것인가"</strong>의 다섯 가지 방식입니다.</p>
+      <ul style="margin-bottom:0">
+        <li><strong>Chaining</strong> = 컨베이어 벨트 — 앞사람이 끝내야 뒷사람이 시작</li>
+        <li><strong>Parallelization</strong> = 팀 회의 — 셋이 각자 조사하고 한자리에 모여 합침</li>
+        <li><strong>Routing</strong> = 안내데스크 — "그건 3층으로 가세요"</li>
+        <li><strong>Orchestrator-Worker</strong> = 팀장 — 일을 몇 개로 쪼갤지 <strong>그때그때</strong> 정함</li>
+        <li><strong>Evaluator-Optimizer</strong> = 상사의 컨펌 — 반려되면 다시 씀</li>
+      </ul>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 1-1. Prompt Chaining ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="chain-concept">1-1. Prompt Chaining — 한 명에게 다 시키지 말고, 줄을 세운다</h2>
+
+    <p>
+      Chaining은 말 그대로 <strong>여러 개의 노드를 체인처럼 얼기설기 연결하는 것</strong>입니다.
+      핵심 문장은 딱 하나입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>한 번에 일을 다 시키지 않고, 단계별로(Step-by-Step) 시킨다.</strong>
+      <p>예를 들어 <strong>고객 이메일에 답장하는 에이전트</strong>를 만든다면 —
+      ①이메일을 읽고 → ②관련 문서를 검색하고 → ③답변 초안을 만들고 → ④검수하고 → ⑤최종 출력.
+      <strong>각 단계를 노드 하나씩 맡기고, 그 노드들을 엣지로 이어 연쇄 반응을 일으키는 것</strong>이 Chaining입니다.</p>
+    </div>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/04.png" alt="Prompt Chaining 슬라이드 — 한 번에 다 하지 말고 단계별로 나눠 일해야 할 때(Step-by-Step). 대표 사례: 입출력 토큰 제한이 있는 경우 / 작업의 성격이 명확히 다른 경우(사용자 의도 파악 → RAG 검색 → 답변 생성) / 검증·개선이 필요한 경우(문서 초안 작성 → 검토 → 수정)" />
+      <figcaption>Chaining을 쓰는 <strong>세 가지 대표 신호</strong>. 아래 설계도에서 <code>Gate</code>는
+      "중간에 통과/실패를 판정해 실패면 빠져나가는" 변형인데, 이번 실습에서는 <strong>Gate 없이 순수한 직렬</strong>부터 만듭니다.</figcaption>
+    </figure>
+
+    <h3 id="chain-when">언제 쓰는가 — 세 가지 신호</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>신호</th><th>무슨 뜻인가</th><th>예시</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>① 입출력 토큰 제한</strong></td>
+            <td>업무가 너무 복잡해서 <strong>한 노드에 다 넣으면 입력이 감당이 안 될 때</strong></td>
+            <td>200페이지 보고서를 통째로 넣는 대신, 장별 요약 → 요약본 종합</td>
+          </tr>
+          <tr>
+            <td><strong>② 작업 성격이 명확히 다를 때</strong></td>
+            <td>각 단계가 <strong>서로 다른 종류의 일</strong>일 때</td>
+            <td>사용자 의도 파악 → RAG 검색 → 답변 생성 <em>(셋은 완전히 다른 일)</em></td>
+          </tr>
+          <tr>
+            <td><strong>③ 검증/개선이 필요할 때</strong></td>
+            <td>결과물이 <strong>단계를 거치며 좋아져야</strong> 할 때</td>
+            <td>문서 초안 작성 → 검토 → 수정</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="chain-attention">Before / After — 왜 쪼개면 좋아지는가</h3>
+
+    <p>
+      이제 실제로 만들어 볼 <strong>농담 생성기</strong>로 이 차이를 확인해 봅시다.
+      만약 노드 하나로 끝내려 한다면 프롬프트는 이렇게 생겼을 겁니다.
+    </p>
+
+    <div class="io-label">❌ Before — 한 노드에 전부 몰아넣기</div>
+<pre class="result-block">"○○을 주제로 아재 개그를 만들고, 개선한 뒤, 이모지를 많이 넣어 글 작성해 줘"</pre>
+
+    <p>
+      한 문장 안에 지시가 <strong>세 개</strong> 들어 있습니다. 이러면 언어 모델의
+      <strong>주의(attention)가 분산</strong>됩니다. 개그를 만드는 데 집중하다가 개선을 대충 하거나,
+      이모지만 잔뜩 붙이고 정작 농담은 밋밋해지거나 하는 식이죠.
+    </p>
+
+    <div class="io-label">✅ After — 노드 세 개로 쪼개기</div>
+<pre class="result-block">① "먼저 ○○을 주제로 아재 개그 만들어"      → generate_joke  노드
+② "작성한 글을 개선해"                        → improve       노드
+③ "개선한 글에 이모지를 넣어줘"                → polish        노드</pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 심부름 세 개를 한 번에 시키기</strong>
+      <p>후배에게 <strong>"은행 가서 입금하고, 오는 길에 우체국 들러서 등기 부치고, 편의점에서 커피 세 개 사와"</strong>라고
+      한 번에 말하면 <strong>꼭 하나는 빠뜨립니다.</strong> 사람이 멍청해서가 아니라, 지시가 길수록 각 항목에 배분되는 주의가 옅어지기 때문입니다.</p>
+      <p>대신 <strong>은행 갔다 오게 하고 → 돌아오면 우체국 시키고 → 그다음 편의점</strong>을 시키면 하나도 안 빠집니다.
+      Chaining이 정확히 이겁니다. <strong>모델이 한 번에 한 가지 일만 신경 쓰게</strong> 만드는 구조죠.</p>
+    </div>
+
+    <!-- ── 기획 ── -->
+    <h3 id="chain-plan">기획 3단계 — 2강에서 배운 순서 그대로</h3>
+
+    <p>
+      2강에서 <strong>코드보다 기획이 먼저</strong>라고 배웠습니다. 순서도 그대로입니다.
+      <strong>요구사항 → 그래프 → State.</strong>
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>요구사항</strong><p><strong>농담 생성기</strong>를 만든다. 기능 하나 = 노드 하나</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>그래프 구성</strong><p>스텝바이스텝이니 <strong>Chaining</strong>으로 일렬 연결</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>State 설계</strong><p>단계별 결과물을 <strong>어떤 칸에 담아 넘길지</strong></p></div>
+    </div>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/05.png" alt="농담 생성기 실습 슬라이드 — Before/After 프롬프트 비교, 판서로 1.요구사항: Joke → Node, 2.Graph, 3.State 순서 표시. 오른쪽에 start → generate_joke → improve_joke → polish_joke → end 그래프 예시" />
+      <figcaption>기획의 결과. 오른쪽 그래프 예시가 <strong>이번에 만들 최종 모양</strong>입니다 —
+      <code>start → generate_joke → improve_joke → polish_joke → end</code>. 갈림길이 하나도 없는 <strong>완전한 일자</strong>죠.
+      <span class="badge badge-yellow">참고</span> 슬라이드의 <code>improve_joke</code>는 실제 노트북에서 <code>critique_and_improve</code>라는 이름으로 구현되어 있습니다.</figcaption>
+    </figure>
+
+    <h4>기획 1 · 요구사항 → 노드 세 개</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>단계</th><th>하는 일</th><th>노드 이름</th></tr></thead>
+        <tbody>
+          <tr><td>1단계</td><td>주제를 받아 <strong>농담 초안</strong> 작성</td><td><code>generate_joke</code></td></tr>
+          <tr><td>2단계</td><td>초안을 보고 <strong>더 웃기게 개선</strong></td><td><code>critique_and_improve</code></td></tr>
+          <tr><td>3단계</td><td><strong>이모지를 붙여 최종 포장</strong></td><td><code>polish_joke</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>기획 2 · 그래프 구성</h4>
+    <p>
+      셋은 <strong>반드시 이 순서대로</strong>여야 합니다. 개선할 초안이 없으면 2단계가 할 일이 없고,
+      개선안이 없으면 3단계가 꾸밀 대상이 없으니까요. <strong>그래서 일자 체인</strong>입니다.
+      조건부 엣지는 필요 없습니다 — 갈림길이 없으니까요.
+    </p>
+
+    <h4 id="chain-plan3">기획 3 · State 설계 — 칸을 몇 개로 할 것인가</h4>
+
+    <p>
+      2강의 원칙을 다시 꺼냅니다. <strong>"다음 노드 혹은 다다음 노드가 읽어야 하는 값이라면 State에 담는다."</strong>
+      이 기준으로 보면 필요한 칸이 자연스럽게 나옵니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>필드</th><th>누가 쓰나</th><th>누가 읽나</th></tr></thead>
+        <tbody>
+          <tr><td><code>topic</code></td><td><strong>사용자</strong> (invoke 입력)</td><td><code>generate_joke</code></td></tr>
+          <tr><td><code>draft_joke</code></td><td><code>generate_joke</code></td><td><code>critique_and_improve</code></td></tr>
+          <tr><td><code>improved_joke</code></td><td><code>critique_and_improve</code></td><td><code>polish_joke</code></td></tr>
+          <tr><td><code>final_joke</code></td><td><code>polish_joke</code></td><td><strong>사용자</strong> (최종 반환)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/06.png" alt="State 설계 슬라이드 — 초안·개선안·최종 버전을 단계별로 발전시켜야 하는 구조, 앞선 노드가 만든 결과물을 다음 노드가 참고해야 함. 코드: class JokeState(TypedDict)에 topic, draft_joke, improved_joke, final_joke" />
+      <figcaption>State 설계 결과. <strong>단계마다 칸을 따로 둔</strong> 이유는 명확합니다 —
+      한 칸에 덮어쓰면 <strong>"뭐가 어떻게 나아졌는지" 추적이 불가능</strong>해지기 때문입니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 원고 교정지</strong>
+      <p>출판사에서 원고를 고칠 때 <strong>원본 위에 덮어쓰지 않습니다.</strong>
+      초고 · 1교 · 2교 · 최종교를 <strong>따로 보관</strong>하죠. 나중에 "어느 단계에서 이상해졌지?"를 되짚어야 하니까요.</p>
+      <p><code>draft_joke</code> · <code>improved_joke</code> · <code>final_joke</code>가 정확히 <strong>초고 · 1교 · 최종교</strong>입니다.
+      실행 후 <code>result</code>를 출력해 보면 <strong>세 버전이 전부 남아 있어서</strong> 각 노드가 실제로 뭘 했는지 눈으로 확인할 수 있습니다.</p>
+    </div>
+
+    <!-- ── STEP 1 ── -->
+    <h2 id="chain-step1">STEP 1. Model 정의</h2>
+
+    <p>
+      기획이 끝났으니 이제 코딩입니다. 코딩 순서는 2강과 동일하게
+      <strong>①모델 → ②State → ③Node → ④그래프 → ⑤실행</strong>입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano", temperature=1.0)</code></pre>
+
+    <p>
+      <code>init_chat_model</code>은 <strong>모델 이름만 바꾸면 제공사가 바뀌는</strong> 범용 초기화 함수입니다.
+      여기서는 OpenAI의 <code>gpt-5-nano</code>를 썼지만, Gemini를 쓰신다면 모델 이름만 갈아끼우면 됩니다.
+      (노트북에는 OpenAI와 Google 패키지가 둘 다 설치되도록 준비되어 있습니다.)
+    </p>
+
+    <h4><code>temperature=1.0</code> — 왜 굳이 올렸을까</h4>
+    <p>
+      <strong>temperature는 "얼마나 의외의 단어를 고를 것인가"를 조절하는 손잡이</strong>입니다.
+      0에 가까울수록 가장 확률 높은 단어만 고르고(= 무난하고 반복적),
+      1에 가까울수록 덜 뻔한 단어도 후보에 넣습니다(= 창의적이지만 산만할 수 있음).
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 주사위의 크기</strong>
+      <p><code>temperature=0</code>은 <strong>주사위를 아예 안 던지는 것</strong>입니다. 늘 1등 후보만 뽑죠.
+      그래서 같은 질문에 늘 비슷한 답이 나옵니다. 요약·분류·추출처럼 <strong>정답이 정해진 일</strong>에 적합합니다.</p>
+      <p><code>temperature=1.0</code>은 <strong>주사위를 크게 던지는 것</strong>입니다. 2등, 3등 후보도 뽑힐 수 있죠.
+      농담처럼 <strong>뻔하면 재미없는 일</strong>에 씁니다. 이번 실습에서 1.0을 준 이유가 이겁니다.</p>
+    </div>
+
+    <!-- ── STEP 2 ── -->
+    <h2 id="chain-step2">STEP 2. State 정의</h2>
+
+    <p>기획 3단계에서 확정한 네 칸을 그대로 옮깁니다. <strong>기획을 해뒀으니 이 단계는 10초입니다.</strong></p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from typing import TypedDict
+
+class JokeState(TypedDict):
+    topic: str          # 초기 주제
+    draft_joke: str     # 1단계: 초안
+    improved_joke: str  # 2단계: 수정안
+    final_joke: str     # 3단계: 최종 결과</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 리듀서가 하나도 없습니다</strong>
+      <p>2강 실전 2에서는 <code>messages: Annotated[list, add_messages]</code>처럼 <strong>리듀서</strong>를 붙였습니다.
+      "덮어쓰지 말고 이어 붙여라"는 규칙이었죠.</p>
+      <p>이번엔 전부 <strong>평범한 <code>str</code></strong>입니다. 그리고 그게 맞습니다 —
+      각 칸은 <strong>한 노드가 딱 한 번만 채우고 끝</strong>이니까요. 누적할 일이 없습니다.
+      <strong>"여러 번 쌓여야 하는 값에만 리듀서를 붙인다"</strong>는 원칙을 기억하세요.
+      (이 원칙은 잠시 뒤 <a href="#par-conflict">병렬 처리</a>에서 다시 중요해집니다.)</p>
+    </div>
+
+    <!-- ── STEP 3 ── -->
+    <h2 id="chain-step3">STEP 3. Node 정의 — 세 명의 작업자</h2>
+
+    <p>
+      노드의 계약은 2강과 똑같습니다. <strong>①<code>state</code>를 인자로 받고, ②State 양식에 맞는 딕셔너리를 반환한다.</strong>
+      세 노드 모두 이 계약을 그대로 따릅니다.
+    </p>
+
+    <!-- 노드 1 -->
+    <h3 id="chain-node1">① <code>generate_joke</code> — 초안 작성</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/07.png" alt="노드 생성 슬라이드 — 초안 작성 노드. def generate_joke(state: JokeState): topic = state 안의 topic을 읽고, model.invoke로 농담을 만들어 draft_joke 키로 반환" />
+      <figcaption>1단계 노드. <strong>State에서 <code>topic</code>을 꺼내 → 프롬프트에 끼워 → 모델 호출 → <code>content</code>만 뽑아 <code>draft_joke</code>에 담아 반환.</strong>
+      앞으로 나올 노드 다섯 개가 전부 이 네 줄 패턴의 반복입니다.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Step 1] 초안 생성 노드
+def generate_joke(state: JokeState):
+    topic = state["topic"]
+    print(f"\n--- [1단계] '{topic}' 주제로 농담 초안 생성 중 ---")
+
+    msg = model.invoke(f"'{topic}'에 대한 짧고 재미있는 농담을 하나 만들어줘. 다른 말은 하지 말고 농담 하나만 해")
+    return {"draft_joke": msg.content}</code></pre>
+
+    <p>한 줄씩 뜯어봅시다.</p>
+
+    <h4><code>topic = state["topic"]</code> — 공책에서 꺼내 읽기</h4>
+    <p>
+      사용자가 <code>invoke({"topic": "고양이"})</code>로 넣은 값이 여기로 들어옵니다.
+      <strong>노드는 절대 함수 인자로 값을 직접 주고받지 않습니다.</strong> 오직 State를 통해서만 소통하죠.
+    </p>
+
+    <h4><code>msg.content</code> — 봉투가 아니라 편지만 꺼낸다</h4>
+    <p>
+      <code>model.invoke()</code>는 문자열이 아니라 <strong><code>AIMessage</code> 객체</strong>를 돌려줍니다.
+      그 안에는 토큰 사용량, 모델 이름 같은 메타데이터도 함께 들어 있죠.
+      우리가 필요한 건 <strong>본문뿐</strong>이므로 <code>.content</code>로 꺼냅니다.
+    </p>
+
+    <h4><code>return {"draft_joke": ...}</code> — 자기가 채운 칸만 반환</h4>
+    <p>
+      네 칸짜리 State인데 <strong>딕셔너리에는 키가 하나뿐</strong>입니다. 이게 정상입니다.
+      LangGraph는 <strong>반환된 키만 골라서 State에 병합</strong>합니다.
+      나머지 <code>topic</code>·<code>improved_joke</code>·<code>final_joke</code>는 <strong>건드리지 않고 그대로 둡니다.</strong>
+    </p>
+
+    <h4>프롬프트의 <strong>"다른 말은 하지 말고 농담 하나만 해"</strong> — 사소해 보이지만 중요합니다</h4>
+    <p>
+      이 문장이 없으면 모델은 <strong>"네! 재미있는 농담 하나 준비했습니다 😊"</strong> 같은 군더더기를 붙입니다.
+      그런데 이 반환값은 <strong>다음 노드의 입력 원문</strong>으로 그대로 쓰입니다.
+      2단계에서 <code>원문: 네! 재미있는 농담 하나 준비했습니다...</code>가 들어가면 <strong>개선 품질이 떨어지죠.</strong>
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 Chaining의 숨은 규칙 — 노드의 출력은 사람이 아니라 "다음 노드"가 읽는다</strong>
+      <p>중간 노드의 출력은 <strong>사용자에게 보여줄 글이 아니라 부품</strong>입니다.
+      그래서 인사말·설명·"원하시면 더 만들어 드릴게요" 같은 건 전부 <strong>노이즈</strong>입니다.
+      <strong>중간 노드일수록 프롬프트에 "다른 말 하지 말고"를 붙이는 습관</strong>을 들이세요.</p>
+    </div>
+
+    <!-- 노드 2 -->
+    <h3 id="chain-node2">② <code>critique_and_improve</code> — 개선</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/08.png" alt="노드 생성 슬라이드 — 개선안 작성 노드. def critique_and_improve(state: JokeState): original_joke = state의 draft_joke를 읽고, 아재개그 스타일로 개선하라는 프롬프트로 모델을 호출해 improved_joke 키로 반환" />
+      <figcaption>2단계 노드. 주목할 곳은 첫 줄입니다 — <code>state["topic"]</code>이 아니라 <strong><code>state["draft_joke"]</code></strong>를 읽습니다.
+      <strong>이 한 줄이 "체인"을 체인으로 만드는 부분</strong>입니다.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Step 2] 윤색/수정 노드
+def critique_and_improve(state: JokeState):
+    original_joke = state["draft_joke"]
+    print(f"\n--- [2단계] 더 웃기게 수정 중 (아재개그 스타일) ---")
+
+    prompt = f"""
+    다음 농담을 보고, 더 썰렁하고 재미있는 '아재개그' 스타일로 개선해줘. 다른 말은 하지 말고 하나만 답변해.
+    원문: {original_joke}
+    """
+    msg = model.invoke(prompt)
+    return {"improved_joke": msg.content}</code></pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 여기가 Chaining의 심장입니다</strong>
+      <p>만약 이 노드가 <code>state["draft_joke"]</code>가 아니라 <strong><code>state["topic"]</code>을 읽었다면</strong>?
+      그래프 그림은 <strong>똑같이 일자로 보이지만</strong>, 실제로는 <strong>1단계 결과를 완전히 무시하고 처음부터 다시 만드는</strong> 셈이 됩니다.
+      이건 체인이 아니라 <strong>그냥 세 번 따로 물어본 것</strong>이죠.</p>
+      <p><strong>"체인이냐 아니냐"는 엣지가 아니라 노드 안의 <code>state[...]</code> 한 줄이 결정합니다.</strong></p>
+    </div>
+
+    <!-- 노드 3 -->
+    <h3 id="chain-node3">③ <code>polish_joke</code> — 최종 포장</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/09.png" alt="노드 생성 슬라이드 — 최종 버전 작성 노드. def polish_joke(state: JokeState): improved_joke를 읽어 이모지를 듬뿍 넣어 SNS용으로 꾸며달라는 프롬프트로 모델을 호출하고 final_joke 키로 반환" />
+      <figcaption>3단계 노드. 이번에는 <strong><code>improved_joke</code></strong>를 읽습니다.
+      <code>topic → draft_joke → improved_joke → final_joke</code>로 <strong>배턴이 한 칸씩 넘어가는</strong> 게 보이시죠.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Step 3] 최종 포장 노드
+def polish_joke(state: JokeState):
+    improved_joke = state["improved_joke"]
+    print(f"\n--- [3단계] 이모지 추가 및 마무리 ---")
+
+    prompt = f"""
+    다음 농담에 적절한 이모지를 듬뿍 넣어서 SNS에 올리기 좋게 꾸며줘.
+    농담: {improved_joke}
+    """
+    msg = model.invoke(prompt)
+    return {"final_joke": msg.content}</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 릴레이 경주의 배턴</strong>
+      <p>세 노드는 서로 <strong>말을 걸지 않습니다.</strong> 1번 주자가 배턴을 <strong>바닥(State)에 놓고</strong> 사라지면,
+      2번 주자가 <strong>바닥에서 주워</strong> 달립니다.</p>
+      <p><strong>배턴을 어느 칸에 놓았느냐(<code>return</code>의 키)</strong>와
+      <strong>어느 칸에서 줍느냐(<code>state[...]</code>)</strong>가 어긋나면 경주는 그 자리에서 멈춥니다.
+      Chaining에서 가장 흔한 버그가 정확히 이겁니다 — <strong>키 이름 오타.</strong></p>
+    </div>
+
+    <!-- ── STEP 4 ── -->
+    <h2 id="chain-step4">STEP 4. 그래프 생성 — 엣지 네 줄이 전부</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langgraph.graph import StateGraph, START, END
+
+# 그래프 객체 생성
+app = StateGraph(JokeState)
+
+# 노드 등록
+app.add_node('generate_joke', generate_joke)
+app.add_node('critique_and_improve', critique_and_improve)
+app.add_node('polish_joke', polish_joke)
+
+# 엣지 연결: 일직선으로 연결 (Linear Chain)
+# START -> 1단계 -> 2단계 -> 3단계 -> END
+app.add_edge(START, 'generate_joke')
+app.add_edge('generate_joke', 'critique_and_improve')
+app.add_edge('critique_and_improve', 'polish_joke')
+app.add_edge('polish_joke', END)
+
+# 컴파일
+chain = app.compile()</code></pre>
+
+    <p>
+      <code>add_node(이름, 함수)</code>의 <strong>첫 번째 인자는 이름표, 두 번째 인자는 실제 함수</strong>입니다.
+      여기서는 <strong>이름표와 함수 이름을 똑같이</strong> 맞췄습니다. 굳이 다르게 지을 이유가 없고,
+      맞춰두면 <code>add_edge</code>를 쓸 때 헷갈릴 일이 없습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 조건부 엣지가 <u>하나도</u> 없다는 점을 눈여겨보세요</strong>
+      <p>2강에서는 <code>add_conditional_edges</code>와 라우팅 함수를 만드느라 고생했죠.
+      Chaining에는 <strong>갈림길이 없으므로 그게 통째로 필요 없습니다.</strong>
+      <code>add_edge(A, B)</code>는 <strong>"A가 끝나면 무조건 B로 간다"</strong>는 뜻입니다.
+      <strong>무조건 = 실선, 조건부 = 점선</strong>이라고 기억하세요.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 변수 이름에 속지 마세요 — <code>app</code>은 아직 "설계도"입니다</strong>
+      <p>이 코드에서 <code>app = StateGraph(...)</code>은 <strong>아직 실행할 수 없는 빌더(설계도)</strong>이고,
+      <code>chain = app.compile()</code>이 <strong>실제로 돌릴 수 있는 완제품</strong>입니다.</p>
+      <p>헷갈리기 쉬운 이유가 있습니다 — <strong>뒤에 나올 병렬 처리 실습에서는 이름이 정반대</strong>거든요.
+      거기서는 <code>workflow = StateGraph(...)</code>가 설계도, <code>app = workflow.compile()</code>이 완제품입니다.
+      <strong>변수 이름은 아무래도 상관없고, <code>.compile()</code>을 거쳤는지가 유일한 기준</strong>입니다.</p>
+    </div>
+
+    <p>
+      컴파일한 결과를 그냥 출력하면(주피터/코랩 기준) <strong>그래프 그림</strong>이 나옵니다.
+      기획서와 모양이 같은지 <strong>눈으로 확인하고 넘어가는 습관</strong>을 들이세요.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>chain</code></pre>
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">__start__ → generate_joke → critique_and_improve → polish_joke → __end__
+(위아래로 곧게 떨어지는 일자 그래프)</pre>
+
+    <!-- ── STEP 5 ── -->
+    <h2 id="chain-step5">STEP 5. 실행</h2>
+
+    <p>
+      실행할 때 넣는 딕셔너리는 <strong>State 양식을 따라야</strong> 합니다.
+      첫 노드가 <code>state["topic"]</code>을 읽으므로, <strong><code>topic</code> 칸이 채워진 채로</strong> 들어와야 하죠.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>inputs = {"topic": "고양이"}
+result = chain.invoke(inputs)</code></pre>
+
+    <div class="io-label">📤 실행 로그</div>
+<pre class="result-block">--- [1단계] '고양이' 주제로 농담 초안 생성 중 ---
+
+--- [2단계] 더 웃기게 수정 중 (아재개그 스타일) ---
+
+--- [3단계] 이모지 추가 및 마무리 ---</pre>
+
+    <p>
+      로그가 <strong>1 → 2 → 3 순서대로, 한 번에 하나씩</strong> 찍히는 게 보입니다.
+      전체 실행에는 <strong>1분 남짓</strong> 걸립니다. LLM 호출 세 번이 <strong>순서대로 기다렸다</strong> 돌기 때문이죠.
+      (이 "기다림"이 바로 다음에 배울 병렬 처리가 해결하려는 문제입니다.)
+    </p>
+
+    <h3 id="chain-trace">공책(State)이 채워지는 과정</h3>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">START</div>
+        <div class="what"><p><code>{'topic': '고양이'}</code> — 나머지 세 칸은 <strong>비어 있음</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">generate_joke</div>
+        <div class="what"><p><code>topic</code>을 읽음 → 모델 호출 → <code>draft_joke</code> 칸을 채움<br />
+        <em>"고양이가 컴퓨터 앞에 앉아 마우스를 보더니 말한다: 이건 마우스가 아니라 냥스야!"</em></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">critique_and_improve</div>
+        <div class="what"><p><code>draft_joke</code>를 읽음 → 모델 호출 → <code>improved_joke</code> 칸을 채움<br />
+        <em>"…이건 마우스가 아니라 냥스야—클릭하면 야옹 소리가 나거든."</em> <span class="badge badge-green">뒷부분이 덧붙음</span></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">polish_joke</div>
+        <div class="what"><p><code>improved_joke</code>를 읽음 → 모델 호출 → <code>final_joke</code> 칸을 채움<br />
+        <em>"😺💻 … 🐾🔊🖱️"</em> <span class="badge badge-green">이모지 장착</span></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">END</div>
+        <div class="what"><p><strong>네 칸이 모두 찬 State 전체</strong>가 <code>result</code>로 반환됨</p></div>
+      </div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>print(f"주제: {result['topic']}")
+print(f"1차 초안: {result['draft_joke']}")
+print(f"2차 수정: {result['improved_joke']}")
+print("-" * 30)
+print(f"최종 완성:\n{result['final_joke']}")</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">주제: 고양이
+1차 초안: 고양이가 컴퓨터 앞에 앉아 마우스를 보더니 말한다: "이건 마우스가 아니라 냥스야!"
+2차 수정: 고양이가 컴퓨터 앞에 앉아 마우스를 보더니 말한다: "이건 마우스가 아니라 냥스야—클릭하면 야옹 소리가 나거든."
+------------------------------
+최종 완성:
+다음처럼 이모지를 듬뿍 넣은 버전들로 올리면 SNS에 어울려요:
+
+버전 A
+😺💻 고양이가 컴퓨터 앞에 앉아 마우스를 보더니 말한다: "이건 마우스가 아니라 냥스야—클릭하면 야옹 소리가 나거든." 🐾🔊🖱️
+
+버전 B
+🐈‍⬛✨ 컴퓨터 앞의 냥이, 마우스를 보며 속삭인다: "이건 마우스가 아니라 냥스야—클릭하면 야옹 소리가 나거든." 🖱️🎶😹
+
+버전 C
+😽💥 오늘의 IT 비밀: 고양이가 말한다—"이건 마우스가 아니라 냥스야—클릭하면 야옹 소리가 나거든." 🖱️🔊🐾 #고양이농담 #냥스 #야옹소리 #집사일상
+
+원하시면 분위기나 길이에 맞춰 더 변형해 드릴게요.</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 솔직히 말하면 — 결과물 품질은 기대하지 마세요</strong>
+      <p>강사님도 그대로 말씀하십니다. <strong>GPT든 Gemini든 유머에는 유독 약합니다.</strong>
+      "재밌게 해줘"라고 하면 어색한 결과를 내놓는 걸 이미 겪어보셨을 겁니다.
+      2차 수정본도 사실 <strong>한 문장 덧붙인 수준</strong>이고, 최종본은 <strong>시키지도 않은 "버전 A/B/C"</strong>를 만들어냈죠.</p>
+      <p>하지만 <strong>이 실습의 목표는 농담의 품질이 아니라 배선(wiring)</strong>입니다.
+      <strong>"앞 노드의 결과가 진짜로 다음 노드에 흘러 들어갔는가"</strong> — <code>result</code>에 세 버전이 다 남아 있는 게 그 증거입니다.</p>
+      <p><span class="badge badge-yellow">🟡 관찰 포인트</span>
+      마지막 출력의 <strong>"다음처럼 …올리면 SNS에 어울려요:"</strong>와 <strong>"원하시면 …변형해 드릴게요"</strong>가 바로
+      앞에서 말한 <strong>군더더기</strong>입니다. <code>polish_joke</code> 프롬프트에는 <strong>"다른 말은 하지 말고"가 빠져 있죠.</strong>
+      한 줄 차이가 결과에 그대로 드러납니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 1-2. Parallelization ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="par-concept">1-2. Parallelization — 줄 세우지 말고, 펼쳐서 동시에</h2>
+
+    <p>
+      Chaining이 <strong>"한 명씩 차례로"</strong>였다면, Parallelization은 <strong>"여러 명이 한꺼번에"</strong>입니다.
+      입력이 들어오면 노드 하나가 아니라 <strong>세 개, 다섯 개, 백 개</strong>가 동시에 출발하고,
+      그 결과를 <strong>취합 노드 하나</strong>가 모아서 최종 결과를 만듭니다.
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/10.png" alt="Parallelization 슬라이드 — 속도와 정확도를 높이고 싶을 때 사용. 대표 사례: 의존성이 없는 독립적인 작업을 동시 처리해 대기 시간(Latency) 줄일 때(독립적 하위 작업, 대량 데이터 처리 - 뉴스 기사 100개 요약) / 검증 및 다각화를 통해 정확도를 높일 때(다수결 투표, 관점 다각화 - 다양한 페르소나를 가진 노드에게 분석 요구). 오른쪽에 In → LLM calls 3개 → Aggregator → Out 설계도" />
+      <figcaption>병렬 처리를 쓰는 이유는 크게 <strong>둘</strong>입니다 — <strong>속도(Latency)</strong>와 <strong>정확도</strong>.
+      오른쪽 설계도의 모양(하나가 셋으로 퍼졌다가 다시 하나로 모임)을 머리에 넣어두세요.</figcaption>
+    </figure>
+
+    <h3 id="par-when">두 가지 목적 — 속도, 그리고 정확도</h3>
+
+    <h4>목적 A · 속도 — 기다리는 시간을 없앤다</h4>
+    <p>
+      LLM 호출은 <strong>대부분의 시간이 "기다림"</strong>입니다. 세 개를 순서대로 호출하면
+      <strong>20초 + 20초 + 20초 = 60초</strong>지만, 동시에 던지면 <strong>가장 느린 하나만큼(약 20초)</strong>이면 끝납니다.
+    </p>
+    <p>
+      강사님의 예시가 직관적입니다 — <strong>"오늘 나온 뉴스 100개를 요약해 줘"</strong>.
+      하나씩 요약하면 하세월이지만, <strong>노드 100개를 한 방에 돌리면</strong> 한 개 요약하는 시간이면 끝납니다.
+    </p>
+
+    <h4>목적 B · 정확도 — 여러 관점으로 보게 한다</h4>
+    <p>
+      의외로 <strong>이쪽이 실무에서 더 자주 쓰입니다.</strong> 두 가지 방식이 있습니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>방식</th><th>어떻게 하나</th><th>예시</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>다수결 투표</strong></td>
+            <td>같은 질문을 <strong>여러 노드에 동시에</strong> 던지고 <strong>표를 센다</strong></td>
+            <td>"A 기업에 투자할까?" → 노드 3개에 찬반 요청 → <strong>찬성 2 : 반대 1 → 찬성</strong>으로 결정</td>
+          </tr>
+          <tr>
+            <td><strong>관점 다각화<br />(페르소나)</strong></td>
+            <td>노드마다 <strong>다른 역할</strong>을 주고 각자의 시각으로 분석</td>
+            <td>"A 프로젝트를 진행할까?" → <strong>노무사 / 변호사 / 회계사</strong> 관점으로 각각 분석 후 종합</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 전문가 자문 회의</strong>
+      <p>중요한 의사결정을 할 때 <strong>한 사람에게 "종합적으로 판단해 주세요"라고 하지 않습니다.</strong>
+      노무사, 변호사, 회계사를 <strong>따로 불러</strong> 각자의 관점에서 의견을 받고, 그걸 모아서 결정하죠.</p>
+      <p>왜 따로 부를까요? <strong>같이 앉히면 서로 눈치를 보기 때문</strong>입니다. LLM도 똑같습니다 —
+      한 프롬프트에 세 관점을 다 넣으면 <strong>서로 섞여서 뭉개진 답</strong>이 나옵니다.
+      <strong>노드를 분리해야 관점도 분리됩니다.</strong></p>
+    </div>
+
+    <h3 id="par-independent">전제조건 — 세 노드가 서로 독립이어야 한다</h3>
+
+    <p>
+      병렬 처리에는 <strong>반드시 지켜야 할 조건</strong>이 하나 있습니다.
+      <strong>동시에 도는 노드들끼리 서로의 결과에 의존하면 안 됩니다.</strong>
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Chaining</th><th>Parallelization</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>의존 관계</strong></td>
+            <td><strong>있어야 함</strong> — 3번은 2번 결과가 있어야 일할 수 있음</td>
+            <td><strong>없어야 함</strong> — 셋 다 <code>topic</code>만 보면 됨</td>
+          </tr>
+          <tr>
+            <td><strong>읽는 칸</strong></td>
+            <td><code>topic</code> → <code>draft_joke</code> → <code>improved_joke</code> <em>(계단식)</em></td>
+            <td>셋 다 <code>topic</code> <em>(동일)</em></td>
+          </tr>
+          <tr><td><strong>총 소요 시간</strong></td><td>노드 시간의 <strong>합</strong></td><td>가장 <strong>느린 하나</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 자가 진단 — 이 업무를 병렬로 돌려도 되나?</strong>
+      <p>스스로에게 이렇게 물어보세요. <strong>"B 작업자에게 A의 결과물을 보여줘야 하나?"</strong></p>
+      <p><strong>보여줘야 한다 → Chaining.</strong> 병렬로 돌리면 B는 A의 결과를 못 봅니다(아직 안 끝났으니까).<br />
+      <strong>안 보여줘도 된다 → Parallelization.</strong></p>
+      <p>이번 실습의 <strong>시 · 소설 · 농담</strong>이 딱 후자입니다. <strong>시를 쓰는 데 농담이 필요하지 않죠.</strong></p>
+    </div>
+
+    <!-- ── 기획 ── -->
+    <h3 id="par-plan">기획 · 그래프와 State</h3>
+
+    <p>
+      이번에 만들 건 <strong>"동일 주제, 다양한 스타일의 글 작성기"</strong>입니다.
+      주제 하나를 받아 <strong>시 · 소설 · 농담</strong> 세 가지를 동시에 만들고, 하나로 묶어 반환합니다.
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/11.png" alt="Parallelization 실습 그래프 예시 — __start__에서 write_joke, write_poem, write_story 세 노드로 뻗어나가고, 세 노드가 모두 aggregator로 모인 뒤 __end__로 연결" />
+      <figcaption>목표 그래프. <strong>START에서 셋으로 퍼지고(Fan-out), 셋이 <code>aggregator</code> 하나로 모입니다(Fan-in).</strong>
+      마름모(조건부 분기)가 <strong>하나도 없다</strong>는 점을 꼭 보세요 — 갈라지지만 <strong>고르는 게 아니라 전부 갑니다.</strong></figcaption>
+    </figure>
+
+    <p>
+      그래프가 정해졌으니 State를 설계합니다. 필요한 칸을 세어 보죠 —
+      <strong>입력 주제 1칸 + 워커 세 명의 결과물 3칸 + 최종 취합본 1칸 = 총 5칸.</strong>
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/12.png" alt="Parallelization State 설계 슬라이드 — 시, 소설, 농담, 최종 취합본을 모두 담아야 하는 구조. class WriterState(TypedDict): topic, poem, story, joke, final_report" />
+      <figcaption><strong>워커마다 칸을 따로 준다</strong>는 게 핵심입니다. 지금은 당연해 보이지만,
+      <a href="#par-conflict">잠시 뒤</a>에 <strong>왜 반드시 따로여야 하는지</strong>가 나옵니다.</figcaption>
+    </figure>
+
+    <!-- ── STEP 1~2 ── -->
+    <h2 id="par-step1">STEP 1~2. Model &amp; State 정의</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>model = init_chat_model("gpt-5-nano")
+
+class WriterState(TypedDict):
+    topic: str          # 주제
+    poem: str           # 시 (결과물 A)
+    story: str          # 소설 (결과물 B)
+    joke: str           # 농담 (결과물 C)
+    final_report: str   # 최종 편집본</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 이번엔 <code>temperature</code>를 안 줬습니다</strong>
+      <p>Chaining 실습에서는 <code>temperature=1.0</code>이었는데 여기는 기본값입니다.
+      큰 의도가 있다기보다, <strong>시·소설은 굳이 온도를 올리지 않아도 충분히 다양하게 나오기 때문</strong>입니다.
+      <strong>필요하면 넣고, 아니면 빼는 파라미터</strong> 정도로 보시면 됩니다.</p>
+    </div>
+
+    <!-- ── STEP 3 ── -->
+    <h2 id="par-step3">STEP 3. Node 정의 — 워커 3명 + 편집장 1명</h2>
+
+    <p>
+      여기서부터 <strong>"워커(Worker)"</strong>라는 용어를 함께 씁니다.
+      <strong>노드 = 일하는 작업자</strong>였으니 같은 말인데, 병렬 구조에서는
+      <strong>"위에서 시킨 일을 나눠 맡는 하위 작업자"</strong>라는 뉘앙스로 워커라고 부릅니다.
+      (3강 2장의 <strong>Orchestrator-Worker</strong> 패턴에서 이 용어가 다시 나옵니다.)
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/13.png" alt="Parallelization 노드 생성 슬라이드 — 시, 소설, 개그 작성 노드. def write_poem(state: WriterState): topic을 읽어 아름다운 시를 짧게 써달라고 모델에 요청하고 poem 키로 반환" />
+      <figcaption>워커 A(시인). 구조는 Chaining의 노드와 <strong>글자 하나 다르지 않습니다</strong> —
+      <code>state</code>에서 읽고 → 모델 호출 → 자기 칸에 담아 반환. <strong>노드 코드만 봐서는 병렬인지 직렬인지 알 수 없습니다.</strong>
+      그건 <strong>엣지가 결정</strong>하니까요.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드 — 워커 3명</div>
+<pre class="code-block"><code># [Worker A] 시인 노드
+def write_poem(state: WriterState):
+    topic = state["topic"]
+    print(f"   [Worker A] '{topic}' 주제로 시(Poem) 작성 시작...")
+
+    msg = model.invoke(f"'{topic}'에 대한 아름다운 시를 짧게 써줘.")
+    return {"poem": msg.content}
+
+
+# [Worker B] 소설가 노드
+def write_story(state: WriterState):
+    topic = state["topic"]
+    print(f"   [Worker B] '{topic}' 주제로 소설(Story) 작성 시작...")
+
+    msg = model.invoke(f"'{topic}'에 대한 감동적인 짧은 이야기를 써줘.")
+    return {"story": msg.content}
+
+
+# [Worker C] 개그맨 노드
+def write_joke(state: WriterState):
+    topic = state["topic"]
+    print(f"   [Worker C] '{topic}' 주제로 농담(Joke) 작성 시작...")
+
+    msg = model.invoke(f"'{topic}'에 대한 재미있는 아재개그를 하나 해줘.")
+    return {"joke": msg.content}</code></pre>
+
+    <p>
+      세 함수를 나란히 놓고 보면 <strong>다른 곳이 딱 두 군데</strong>입니다 —
+      <strong>프롬프트 문장</strong>과 <strong>반환하는 키 이름</strong>. 나머지는 완전히 동일하죠.
+      그리고 셋 다 <code>state["topic"]</code>만 읽습니다. <strong>이게 "독립적"이라는 말의 코드 상 정의</strong>입니다.
+    </p>
+
+    <h3>편집장 — Aggregator 노드</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/14.png" alt="Parallelization 최종 취합 노드 슬라이드 — def aggregator(state: WriterState): State에 저장된 각 결과물을 꺼내서 합침. f-string으로 1. 시(Poem), 2. 소설(Story), 3. 농담(Joke)을 묶어 final_report 키로 반환" />
+      <figcaption>취합 노드. 세 칸을 <strong>전부 읽어서</strong> 하나의 문자열로 엮고 <code>final_report</code>에 담습니다.
+      <strong>여기엔 LLM 호출이 없습니다</strong> — f-string 하나가 전부죠.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Aggregator] 편집장 노드 (모든 결과를 취합)
+def aggregator(state: WriterState):
+    print("\n--- [Aggregator] 모든 원고 도착! 최종 편집 중 ---")
+
+    # State에 저장된 각 결과물을 꺼내서 합침
+    final_text = f"""
+    [주제: {state['topic']} 종합 선물세트]
+
+    1. 시 (Poem)
+    ----------------
+    {state['poem']}
+
+    2. 소설 (Story)
+    ----------------
+    {state['story']}
+
+    3. 농담 (Joke)
+    ----------------
+    {state['joke']}
+    """
+    return {"final_report": final_text}</code></pre>
+
+    <div class="callout callout-info">
+      <strong>💡 취합 노드를 LLM으로 바꿀 수도 있습니다</strong>
+      <p>지금은 <strong>f-string으로 그냥 이어 붙이기만</strong> 합니다. 가장 단순한 형태죠.
+      하지만 여기서 <strong>모델을 한 번 더 호출</strong>해도 됩니다 —
+      <em>"이 시·소설·농담을 바탕으로 하나의 완성된 리포트를 써줘"</em> 라고 던지고,
+      그 결과를 <code>final_report</code>에 담는 식으로요.</p>
+      <p><strong>취합 노드는 "붙이기"일 수도 있고 "종합하기"일 수도 있습니다.</strong>
+      다수결 투표 예시에서는 <strong>표를 세는 파이썬 코드</strong>가 들어가고,
+      관점 다각화 예시에서는 <strong>LLM이 세 의견을 종합</strong>합니다. 상황에 맞게 고르시면 됩니다.</p>
+    </div>
+
+    <!-- ── STEP 4 ── -->
+    <h2 id="par-step4">STEP 4. 그래프 생성 — Fan-out과 Fan-in</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>workflow = StateGraph(WriterState)
+
+# 노드 추가
+workflow.add_node('write_poem', write_poem)
+workflow.add_node('write_story', write_story)
+workflow.add_node('write_joke', write_joke)
+workflow.add_node('aggregator', aggregator)
+
+# 엣지 연결: START에서 3개의 노드로 동시에 뻗어 나가기 (Fan-out)
+workflow.add_edge(START, 'write_poem')
+workflow.add_edge(START, 'write_story')
+workflow.add_edge(START, 'write_joke')
+
+# 3개의 노드가 모두 하나의 노드로 모이기 (Fan-in)
+workflow.add_edge('write_poem', 'aggregator')
+workflow.add_edge('write_story', 'aggregator')
+workflow.add_edge('write_joke', 'aggregator')
+
+workflow.add_edge('aggregator', END)
+
+# 컴파일
+app = workflow.compile()</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>용어</th><th>뜻</th><th>코드</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Fan-out</strong> (팬 아웃)</td>
+            <td>한 지점에서 <strong>여러 노드로 뻗어나감</strong></td>
+            <td><code>add_edge(START, ...)</code> × 3</td>
+          </tr>
+          <tr>
+            <td><strong>Fan-in</strong> (팬 인)</td>
+            <td>여러 노드가 <strong>한 지점으로 모임</strong></td>
+            <td><code>add_edge(..., 'aggregator')</code> × 3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-danger">
+      <strong>🚫 여기서 <u>가장 많이</u> 헷갈리는 것 — "갈라지니까 조건부 엣지 아닌가요?"</strong>
+      <p><strong>아닙니다. 전부 그냥 <code>add_edge</code>입니다.</strong></p>
+      <p>2강에서 <code>add_conditional_edges</code>를 쓴 이유는 <strong>"셋 중 하나를 골라야" 했기 때문</strong>입니다.
+      그런데 지금은 <strong>고르는 게 아니라 셋 다 갑니다.</strong> 고를 일이 없으니 판단 함수도 필요 없죠.</p>
+      <p>Fan-in도 마찬가지입니다. 세 워커는 <strong>"보고할지 말지"를 고르지 않습니다.</strong>
+      <strong>전원 무조건 보고</strong>합니다. 그래서 조건부가 아닙니다.</p>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 갈림길 vs 폭죽</strong>
+      <p><strong>조건부 엣지는 삼거리 표지판</strong>입니다. <strong>내 차 한 대</strong>가 좌회전·직진·우회전 중 <strong>하나</strong>를 고릅니다.</p>
+      <p><strong>Fan-out은 폭죽</strong>입니다. 하나가 터지면서 <strong>모든 방향으로 동시에</strong> 퍼집니다. 고르는 게 없죠.</p>
+      <p>그림으로는 둘 다 "여러 갈래"라 비슷해 보이지만 — <strong>조건부는 점선, Fan-out은 실선</strong>으로 그려집니다.
+      그래프 그림에서 <strong>선의 종류</strong>를 보면 바로 구분됩니다.</p>
+    </div>
+
+    <!-- ── STEP 5 ── -->
+    <h2 id="par-step5">STEP 5. 실행</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>inputs = {"topic": "직장인의 월요일"}
+result = app.invoke(inputs)</code></pre>
+
+    <div class="io-label">📤 실행 로그 — 실제 노트북 출력 그대로</div>
+<pre class="result-block">   [Worker C] '직장인의 월요일' 주제로 농담(Joke) 작성 시작...   [Worker A] '직장인의 월요일' 주제로 시(Poem) 작성 시작...
+
+   [Worker B] '직장인의 월요일' 주제로 소설(Story) 작성 시작...
+
+--- [Aggregator] 모든 원고 도착! 최종 편집 중 ---</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 이 지저분한 출력이 사실 "증거"입니다</strong>
+      <p>로그를 자세히 보세요. <strong>순서가 C → A → B로 뒤엉켰고</strong>,
+      심지어 <strong>C의 줄이 끝나기도 전에 A의 줄이 같은 줄에 끼어들었습니다.</strong></p>
+      <p>이건 버그가 아니라 <strong>세 노드가 진짜로 동시에 돌고 있다는 증거</strong>입니다.
+      Chaining의 로그는 <strong>1 → 2 → 3 순서로 얌전히</strong> 찍혔죠? <strong>이 차이가 바로 병렬 처리입니다.</strong></p>
+      <p>그리고 <strong>Aggregator 로그는 항상 맨 마지막</strong>에, <strong>딱 한 번만</strong> 찍힙니다. 이유는 바로 다음에.</p>
+    </div>
+
+    <h3 id="par-barrier">Aggregator는 전원이 도착해야 움직인다</h3>
+
+    <p>
+      여기가 병렬 처리에서 <strong>가장 중요한 규칙</strong>입니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>취합 노드는 들어오는 엣지가 <u>전부</u> 도착해야 실행됩니다.</strong>
+      <p>시와 농담이 먼저 끝나고 소설이 아직 쓰이는 중이라면?
+      <strong><code>aggregator</code>는 먼저 온 두 개만 갖고 일하지 않습니다.</strong>
+      <strong>소설이 도착할 때까지 가만히 기다렸다가</strong>, 셋이 다 모인 순간 <strong>한 번만</strong> 실행됩니다.</p>
+      <p>그래서 위 로그에서 <code>[Aggregator]</code>가 <strong>세 번이 아니라 한 번</strong> 찍힌 겁니다.</p>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 단체 사진</strong>
+      <p>사진사가 <strong>"세 분 다 오시면 찍을게요"</strong>라고 했다면, 두 명이 먼저 와도 셔터를 누르지 않습니다.
+      세 번째 사람이 올 때까지 <strong>기다렸다가 한 번</strong> 찍죠.</p>
+      <p>다르게 말하면 — <strong>병렬 처리의 전체 소요 시간은 "가장 늦게 오는 사람"이 결정합니다.</strong>
+      워커 하나가 유독 느리면 나머지가 아무리 빨라도 소용이 없습니다.
+      실무에서 병렬 구조를 튜닝할 때 <strong>제일 느린 노드부터 손보는</strong> 이유가 이겁니다.</p>
+    </div>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">START</div>
+        <div class="what"><p><code>{'topic': '직장인의 월요일'}</code> — 세 워커에게 <strong>동시에</strong> 전달</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">write_poem<br />write_story<br />write_joke</div>
+        <div class="what"><p><strong>셋이 나란히 실행</strong>. 각자 <code>topic</code>만 읽고, 각자 <strong>다른 칸</strong>(<code>poem</code>/<code>story</code>/<code>joke</code>)에 결과를 적음.
+        <strong>서로의 결과는 보지 못하고, 볼 필요도 없음</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">⏳ (대기)</div>
+        <div class="what"><p>먼저 끝난 워커는 <strong>기다립니다.</strong> 셋이 다 끝나야 다음 단계로 넘어감</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">aggregator</div>
+        <div class="what"><p>세 칸을 <strong>전부 읽어</strong> f-string으로 엮고 <code>final_report</code>에 담음. <strong>단 한 번 실행</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">END</div>
+        <div class="what"><p><strong>다섯 칸이 모두 찬 State</strong>가 <code>result</code>로 반환됨</p></div>
+      </div>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>result["final_report"]</code></pre>
+
+    <div class="io-label">📤 출력 (길어서 일부만)</div>
+<pre class="result-block">    [주제: 직장인의 월요일 종합 선물세트]
+
+    1. 시 (Poem)
+    ----------------
+    월요일의 직장인, 알람이 도시를 깨운다.
+컵 속 뜨거운 빛이 오늘의 길을 밝히고,
+타자 소리가 심장 박동처럼 흐른다.
+...
+
+    2. 소설 (Story)
+    ----------------
+    월요일은 늘 그렇듯이, 공기가 조금 무거웠다. 비가 내리면 더 그렇고,
+출근길은 늘 지하철의 쇠고동 같은 숨 고르기로 시작된다. ...
+
+    3. 농담 (Joke)
+    ----------------
+    ...</pre>
+
+    <p>
+      맨 위의 <strong>"종합 선물세트"</strong>라는 표현이 어디서 왔는지 궁금하셨다면 —
+      <strong><code>aggregator</code> 함수의 f-string 안에 우리가 직접 써넣은 문구</strong>입니다.
+      모델이 만든 게 아니라 <strong>파이썬 문자열</strong>이죠.
+      <strong>취합 노드에 LLM이 없다는 걸 확인하는 좋은 단서</strong>입니다.
+    </p>
+
+    <h3 id="par-conflict">그런데 — 세 노드가 같은 State를 동시에 건드려도 괜찮나?</h3>
+
+    <p>
+      좋은 질문입니다. 그리고 <strong>이 실습이 잘 도는 이유가 여기에 숨어 있습니다.</strong>
+      세 워커는 같은 State를 쓰지만 <strong>서로 다른 칸</strong>에 씁니다 —
+      <code>poem</code>, <code>story</code>, <code>joke</code>. <strong>충돌할 일이 없죠.</strong>
+    </p>
+
+    <div class="callout callout-danger">
+      <strong>🚫 만약 세 워커가 <u>같은 칸</u>에 쓰려고 하면?</strong>
+      <p>예를 들어 셋 다 <code>return {"result": ...}</code>처럼 <strong>같은 키</strong>를 반환하도록 만들면
+      LangGraph가 <strong>에러를 냅니다.</strong> "한 스텝에 같은 칸으로 값이 여러 개 들어왔는데, 어느 걸 남길지 모르겠다"는 뜻이죠.</p>
+      <p><strong>해결책은 리듀서(reducer)</strong>입니다. 2강에서 <code>messages</code>에 붙였던 그것이요.
+      <strong>"덮어쓰지 말고 이어 붙여라"</strong>는 규칙을 알려주면 됩니다.</p>
+    </div>
+
+    <div class="io-label">📌 참고 — 같은 칸에 모아야 할 때의 State</div>
+<pre class="code-block"><code>from typing import Annotated
+import operator
+
+class VoteState(TypedDict):
+    topic: str
+    # 여러 워커가 같은 칸에 쓸 때는 리듀서로 "이어 붙이기" 규칙을 준다
+    opinions: Annotated[list, operator.add]</code></pre>
+
+    <p>
+      이렇게 해두면 세 워커가 각각 <code>return {"opinions": ["찬성"]}</code>을 반환해도
+      <strong>덮어쓰지 않고 <code>["찬성", "찬성", "반대"]</code>로 쌓입니다.</strong>
+      앞서 이야기한 <strong>다수결 투표</strong>를 구현하려면 정확히 이 형태가 필요하죠.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 화이트보드 한 칸에 세 명이 동시에 쓰기</strong>
+      <p>세 사람이 <strong>각자 다른 칸</strong>에 쓰면 아무 문제가 없습니다. 지금 실습이 그 경우죠.</p>
+      <p>그런데 <strong>같은 칸</strong>에 셋이 동시에 쓰려 하면 글씨가 겹쳐서 아무것도 못 읽습니다.
+      그래서 규칙이 필요합니다 — <strong>"덮어쓰지 말고 아래로 한 줄씩 이어 써"</strong>.
+      이 규칙이 <strong>리듀서</strong>입니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 비교 ══════════════ -->
+    <h2 id="compare">두 패턴 한자리에 놓고 비교</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>Prompt Chaining</th><th>Parallelization</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>한 줄 요약</strong></td><td>단계별로 <strong>차례차례</strong></td><td>독립적인 일을 <strong>동시에</strong></td></tr>
+          <tr><td><strong>모양</strong></td><td>일자 (직렬)</td><td>부챗살 → 깔때기</td></tr>
+          <tr><td><strong>노드가 읽는 칸</strong></td><td><strong>앞 노드가 채운 칸</strong> (계단식)</td><td>모두 <strong>같은 입력 칸</strong></td></tr>
+          <tr><td><strong>노드 간 의존</strong></td><td><span class="badge badge-green">필수</span> 없으면 체인이 아님</td><td><span class="badge badge-red">금지</span> 있으면 병렬 불가</td></tr>
+          <tr><td><strong>소요 시간</strong></td><td>노드 시간의 <strong>합</strong></td><td><strong>가장 느린 노드</strong> 하나</td></tr>
+          <tr><td><strong>엣지</strong></td><td><code>add_edge</code> 일렬</td><td><code>add_edge</code> Fan-out + Fan-in</td></tr>
+          <tr><td><strong>조건부 엣지</strong></td><td>없음</td><td>없음</td></tr>
+          <tr><td><strong>취합 노드</strong></td><td>불필요 (마지막 노드가 곧 결과)</td><td><strong>필수</strong> (Aggregator)</td></tr>
+          <tr><td><strong>이럴 때 쓴다</strong></td><td>초안→검토→수정, 의도파악→검색→답변</td><td>뉴스 100개 요약, 다수결 투표, 관점 다각화</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 실무에서는 두 개를 <u>섞어 씁니다</u></strong>
+      <p>둘 중 하나를 고르는 게 아닙니다. 예를 들어 <strong>보고서 자동 작성 에이전트</strong>라면 —</p>
+      <p><strong>①주제 분석 → ②[시장조사 · 경쟁사조사 · 재무분석] 병렬 → ③취합 → ④초안 작성 → ⑤검수</strong></p>
+      <p>②③이 병렬 구간, ①②와 ③④⑤가 체인 구간입니다. <strong>"의존이 있으면 이어 붙이고, 없으면 펼친다"</strong>는 기준으로
+      구간마다 따로 판단하시면 됩니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 전체 코드 ══════════════ -->
+    <h2 id="full-code">전체 코드 한눈에 보기</h2>
+
+    <h3>① Prompt Chaining — 농담 생성기</h3>
+<pre class="code-block"><code># ══ STEP 1. Model ═════════════════════════════════════
+from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano", temperature=1.0)
+
+# ══ STEP 2. State ═════════════════════════════════════
+from typing import TypedDict
+
+class JokeState(TypedDict):
+    topic: str
+    draft_joke: str
+    improved_joke: str
+    final_joke: str
+
+# ══ STEP 3. Node ══════════════════════════════════════
+def generate_joke(state: JokeState):
+    topic = state["topic"]
+    print(f"\n--- [1단계] '{topic}' 주제로 농담 초안 생성 중 ---")
+    msg = model.invoke(f"'{topic}'에 대한 짧고 재미있는 농담을 하나 만들어줘. 다른 말은 하지 말고 농담 하나만 해")
+    return {"draft_joke": msg.content}
+
+def critique_and_improve(state: JokeState):
+    original_joke = state["draft_joke"]          # ★ 앞 노드의 결과를 읽는다
+    print(f"\n--- [2단계] 더 웃기게 수정 중 (아재개그 스타일) ---")
+    prompt = f"""
+    다음 농담을 보고, 더 썰렁하고 재미있는 '아재개그' 스타일로 개선해줘. 다른 말은 하지 말고 하나만 답변해.
+    원문: {original_joke}
+    """
+    msg = model.invoke(prompt)
+    return {"improved_joke": msg.content}
+
+def polish_joke(state: JokeState):
+    improved_joke = state["improved_joke"]       # ★ 앞 노드의 결과를 읽는다
+    print(f"\n--- [3단계] 이모지 추가 및 마무리 ---")
+    prompt = f"""
+    다음 농담에 적절한 이모지를 듬뿍 넣어서 SNS에 올리기 좋게 꾸며줘.
+    농담: {improved_joke}
+    """
+    msg = model.invoke(prompt)
+    return {"final_joke": msg.content}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+from langgraph.graph import StateGraph, START, END
+
+app = StateGraph(JokeState)
+
+app.add_node('generate_joke', generate_joke)
+app.add_node('critique_and_improve', critique_and_improve)
+app.add_node('polish_joke', polish_joke)
+
+app.add_edge(START, 'generate_joke')
+app.add_edge('generate_joke', 'critique_and_improve')
+app.add_edge('critique_and_improve', 'polish_joke')
+app.add_edge('polish_joke', END)
+
+chain = app.compile()
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+result = chain.invoke({"topic": "고양이"})
+print(result["final_joke"])</code></pre>
+
+    <h3>② Parallelization — 시 · 소설 · 농담 동시 생성</h3>
+<pre class="code-block"><code># ══ STEP 1~2. Model &amp; State ═══════════════════════════
+model = init_chat_model("gpt-5-nano")
+
+class WriterState(TypedDict):
+    topic: str
+    poem: str
+    story: str
+    joke: str
+    final_report: str
+
+# ══ STEP 3. Node ══════════════════════════════════════
+def write_poem(state: WriterState):
+    topic = state["topic"]                       # ★ 셋 다 topic만 읽는다 = 서로 독립
+    print(f"   [Worker A] '{topic}' 주제로 시(Poem) 작성 시작...")
+    msg = model.invoke(f"'{topic}'에 대한 아름다운 시를 짧게 써줘.")
+    return {"poem": msg.content}
+
+def write_story(state: WriterState):
+    topic = state["topic"]
+    print(f"   [Worker B] '{topic}' 주제로 소설(Story) 작성 시작...")
+    msg = model.invoke(f"'{topic}'에 대한 감동적인 짧은 이야기를 써줘.")
+    return {"story": msg.content}
+
+def write_joke(state: WriterState):
+    topic = state["topic"]
+    print(f"   [Worker C] '{topic}' 주제로 농담(Joke) 작성 시작...")
+    msg = model.invoke(f"'{topic}'에 대한 재미있는 아재개그를 하나 해줘.")
+    return {"joke": msg.content}
+
+def aggregator(state: WriterState):
+    print("\n--- [Aggregator] 모든 원고 도착! 최종 편집 중 ---")
+    final_text = f"""
+    [주제: {state['topic']} 종합 선물세트]
+
+    1. 시 (Poem)
+    ----------------
+    {state['poem']}
+
+    2. 소설 (Story)
+    ----------------
+    {state['story']}
+
+    3. 농담 (Joke)
+    ----------------
+    {state['joke']}
+    """
+    return {"final_report": final_text}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+workflow = StateGraph(WriterState)
+
+workflow.add_node('write_poem', write_poem)
+workflow.add_node('write_story', write_story)
+workflow.add_node('write_joke', write_joke)
+workflow.add_node('aggregator', aggregator)
+
+# Fan-out — 조건부가 아니라 그냥 엣지 (셋 다 간다)
+workflow.add_edge(START, 'write_poem')
+workflow.add_edge(START, 'write_story')
+workflow.add_edge(START, 'write_joke')
+
+# Fan-in — 셋이 다 도착해야 aggregator가 실행된다
+workflow.add_edge('write_poem', 'aggregator')
+workflow.add_edge('write_story', 'aggregator')
+workflow.add_edge('write_joke', 'aggregator')
+
+workflow.add_edge('aggregator', END)
+
+app = workflow.compile()
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+result = app.invoke({"topic": "직장인의 월요일"})
+print(result["final_report"])</code></pre>
+
+    <hr />
+
+    <!-- ══════════════ 함정 ══════════════ -->
+    <h2 id="pitfalls">자주 걸리는 함정 6가지</h2>
+
+    <div class="info-card">
+      <div class="info-card-title">🕳️ 이번 장에서 실제로 밟게 되는 지뢰</div>
+
+      <h4>1. 체인인 줄 알았는데 그냥 세 번 물어본 것</h4>
+      <p>
+        <code>critique_and_improve</code>가 <code>state["draft_joke"]</code>가 아니라
+        <strong><code>state["topic"]</code>을 읽고 있으면</strong> 그래프 그림은 똑같아도 <strong>체인이 아닙니다.</strong>
+        <strong>엣지가 아니라 노드 안의 <code>state[...]</code>가 체인을 만든다</strong>는 걸 기억하세요.
+      </p>
+
+      <h4>2. 키 이름 오타 — <code>KeyError</code></h4>
+      <p>
+        <code>return {"draft_joke": ...}</code>인데 다음 노드가 <code>state["drafted_joke"]</code>를 읽으면
+        <strong>배턴을 못 주워서 그 자리에서 멈춥니다.</strong>
+        <strong>반환 키와 읽는 키는 항상 짝으로 확인</strong>하세요.
+      </p>
+
+      <h4>3. 병렬 브랜치가 <strong>같은 칸</strong>에 쓴다</h4>
+      <p>
+        워커 셋이 전부 <code>return {"result": ...}</code>를 반환하면
+        <strong>"한 스텝에 같은 칸으로 값이 여러 개 들어왔다"</strong>는 에러가 납니다.
+        <strong>칸을 따로 두거나, <code>Annotated[list, operator.add]</code> 리듀서를 붙이세요.</strong>
+      </p>
+
+      <h4>4. 병렬로 묶어놓고 <strong>순서를 기대한다</strong></h4>
+      <p>
+        <code>add_edge</code>를 <strong>poem → story → joke 순서로 썼다고 해서</strong> 그 순서로 실행되지 않습니다.
+        코드 줄 순서와 실행 순서는 <strong>아무 관계가 없습니다.</strong>
+        순서가 필요하면 <strong>병렬이 아니라 체인</strong>으로 만드세요.
+      </p>
+
+      <h4>5. 빌더와 컴파일 결과를 헷갈린다</h4>
+      <p>
+        <code>StateGraph(...)</code>는 <strong>설계도</strong>, <code>.compile()</code>의 결과가 <strong>완제품</strong>입니다.
+        노트북에서 실습 ①은 <code>app</code>이 설계도·<code>chain</code>이 완제품인데,
+        실습 ②는 <code>workflow</code>가 설계도·<code>app</code>이 완제품이라 <strong>이름이 뒤집혀 있습니다.</strong>
+        <strong>이름 말고 <code>.compile()</code>을 거쳤는지로 판단</strong>하세요.
+      </p>
+
+      <h4>6. 노드를 고쳐놓고 그래프를 다시 컴파일하지 않는다</h4>
+      <p>
+        컴파일된 그래프는 <strong>그 시점의 함수를 붙들고 있는 사본</strong>입니다.
+        노드 함수 셀만 다시 실행해도 <strong>동작은 그대로</strong>예요.
+        <strong><code>StateGraph(...)</code>부터 <code>.compile()</code>까지 전부 다시</strong> 실행하세요. (2강에서도 나왔던 함정입니다.)
+      </p>
+
+      <div class="callout callout-info" style="margin-bottom:0">
+        <strong>💡 디버깅 요령 — <code>print</code>를 아끼지 마세요</strong>
+        <p>이번 실습의 모든 노드에 <code>print</code>가 하나씩 들어 있는 건 <strong>우연이 아닙니다.</strong>
+        <strong>어느 노드까지 갔는지</strong>, <strong>순서대로 갔는지 동시에 갔는지</strong>를
+        로그만 봐도 알 수 있기 때문이죠.
+        실제로 병렬 실습에서 <strong>로그가 뒤엉킨 것</strong>이 병렬 동작의 유일한 육안 증거였습니다.</p>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 정리 ══════════════ -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심 한 문장</strong>
+      <p>노드와 엣지는 그대로인데 <strong>배치만 바꾸면</strong> 전혀 다른 시스템이 된다 —
+      <strong>의존이 있으면 줄을 세우고(Chaining), 없으면 펼친다(Parallelization).</strong></p>
+    </div>
+
+    <ul>
+      <li><strong>왜 배우나</strong> — LangChain v0의 "체인"이 v1에서 정리되었지만,
+      <strong>노드 + 엣지로 그 구조를 그대로(오히려 더 낫게) 재현</strong>할 수 있다.</li>
+
+      <li><strong>Prompt Chaining</strong> — 한 번에 다 시키지 말고 <strong>Step-by-Step</strong>으로.
+        <ul>
+          <li>쓰는 신호 3가지 — <strong>①토큰 제한 ②작업 성격이 다름 ③검증/개선 필요</strong></li>
+          <li>한 프롬프트에 지시를 몰아넣으면 <strong>어텐션이 분산</strong>돼서 뭔가 빠진다.</li>
+          <li>State는 <strong>단계마다 칸을 따로</strong> — <code>topic → draft_joke → improved_joke → final_joke</code>.
+          덮어쓰지 않아야 <strong>어느 단계에서 무슨 일이 있었는지</strong>가 남는다.</li>
+          <li><strong>체인의 정체는 엣지가 아니라 <code>state["앞_노드_칸"]</code> 한 줄.</strong></li>
+        </ul>
+      </li>
+
+      <li><strong>Parallelization</strong> — 독립적인 일은 <strong>한 방에</strong>.
+        <ul>
+          <li>목적 둘 — <strong>속도(Latency)</strong>와 <strong>정확도(다수결 투표 · 관점 다각화)</strong></li>
+          <li>전제조건은 <strong>독립성</strong>. "B에게 A의 결과를 보여줘야 하나?"가 판단 기준.</li>
+          <li><strong>Fan-out</strong>(START → 여럿) / <strong>Fan-in</strong>(여럿 → Aggregator).
+          <strong>둘 다 조건부 엣지가 아니라 그냥 <code>add_edge</code></strong> — 고르는 게 아니라 전부 가니까.</li>
+          <li><strong>Aggregator는 전원이 도착해야 딱 한 번 실행</strong>된다.
+          그래서 전체 시간은 <strong>가장 느린 워커</strong>가 결정한다.</li>
+          <li>워커들이 <strong>같은 칸</strong>에 쓰려면 <strong>리듀서</strong>가 필요하다
+          (<code>Annotated[list, operator.add]</code>). 다른 칸에 쓰면 아무 문제 없다.</li>
+        </ul>
+      </li>
+
+      <li><strong>실습 결과에 실망하지 마세요</strong> — LLM은 유머에 약합니다.
+      이번 실습에서 확인할 것은 <strong>농담의 완성도가 아니라 "데이터가 설계대로 흘렀는가"</strong>입니다.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 마지막으로 — 두 패턴의 관계</strong>
+      <p>둘은 <strong>대립하는 선택지가 아닙니다.</strong> 하나의 그래프 안에서
+      <strong>구간마다 섞여</strong> 쓰입니다.</p>
+      <p>판단 기준은 언제나 하나입니다 — <strong>"이 작업자가 저 작업자의 결과물을 봐야 하는가?"</strong>
+      <strong>봐야 하면 이어 붙이고(Chaining), 안 봐도 되면 펼칩니다(Parallelization).</strong></p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>다음 예고</strong>
+      <p><strong>Routing</strong> — 상황을 보고 <strong>갈 길을 고르는</strong> 패턴입니다.
+      2강의 조건부 엣지에서 이미 맛봤지만, 이번엔 <strong>패턴으로 정리</strong>합니다.</p>
+      <p>그리고 1장을 마치면 <strong>2장 응용 아키텍처</strong>로 넘어갑니다 —
+      결과물을 <strong>평가해서 퇴짜를 놓는 Evaluator(평가자)</strong>와,
+      일을 <strong>몇 개로 쪼갤지 실행 중에 정하는 Orchestrator(지휘자)</strong>를 만듭니다.
+      오늘까지가 <strong>미리 그려둔 도면대로 흐르는 구조</strong>였다면, 그다음은 <strong>도면을 실행 중에 그리는 구조</strong>입니다.</p>
+      <p>끝으로 <strong>"Workflow와 Agent는 뭐가 다른가"</strong> — 자주 혼용되는 두 용어를 정리하며 3강을 마무리합니다.</p>
+    </div>
+
+    <div class="pager">
+      <a href="../02.LangGraph%20기초/2.html">
+        <small>← 이전</small>
+        2. Agent 구축 실전 — 기획부터 LLM·Tool 결합까지
+      </a>
+      <span class="disabled">
+        <small>다음 →</small>
+        3-2. Routing · 응용 아키텍처 패턴
+      </span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 자체 포함 Python 문법 강조기 (외부 라이브러리·인터넷 불필요) ── -->
+<script>
+(function () {
+  var KEYWORDS = {'from':1,'import':1,'as':1,'def':1,'return':1,'class':1,'if':1,'elif':1,'else':1,'for':1,'while':1,'in':1,'not':1,'and':1,'or':1,'is':1,'with':1,'lambda':1,'pass':1,'break':1,'continue':1,'try':1,'except':1,'finally':1,'raise':1,'yield':1,'global':1,'nonlocal':1,'assert':1,'del':1,'async':1,'await':1,'None':1,'True':1,'False':1};
+  var BUILTINS = {'print':1,'len':1,'range':1,'int':1,'float':1,'str':1,'list':1,'dict':1,'set':1,'tuple':1,'bool':1,'self':1,'super':1,'isinstance':1,'enumerate':1,'zip':1,'map':1,'filter':1,'open':1,'type':1};
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function span(cls, s){ return '<span class="'+cls+'">'+esc(s)+'</span>'; }
+  function highlight(src){
+    var out='', i=0, n=src.length, expectName=false, m;
+    while(i<n){
+      var ch=src[i], rest=src.slice(i);
+      if(ch==='#'){ m=rest.match(/^#[^\n]*/); out+=span('tok-com',m[0]); i+=m[0].length; continue; }              // 주석
+      if((m=rest.match(/^("""[\s\S]*?"""|'''[\s\S]*?''')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 삼중따옴표 문자열
+      if((m=rest.match(/^("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 일반 문자열
+      if(ch==='!' && (i===0 || src[i-1]==='\n')){ m=rest.match(/^![^\n]*/); out+=span('tok-shell',m[0]); i+=m[0].length; continue; } // 셸 명령
+      if((m=rest.match(/^@[A-Za-z_]\w*/))){ out+=span('tok-dec',m[0]); i+=m[0].length; continue; }                 // 데코레이터
+      if((m=rest.match(/^\d[\d_]*\.?\d*/))){ out+=span('tok-num',m[0]); i+=m[0].length; continue; }                // 숫자
+      if((m=rest.match(/^[A-Za-z_]\w*/))){                                                                         // 식별자
+        var w=m[0];
+        if(expectName){ out+=span('tok-fn',w); expectName=false; }
+        else if(KEYWORDS[w]){ out+=span('tok-kw',w); if(w==='def'||w==='class') expectName=true; }
+        else if(BUILTINS[w]){ out+=span('tok-bi',w); }
+        else { out+=esc(w); }
+        i+=w.length; continue;
+      }
+      out+=esc(ch); i++;                                                                                           // 그 외 문자
+    }
+    return out;
+  }
+  function run(){
+    var blocks=document.querySelectorAll('pre.code-block > code');
+    for(var k=0;k<blocks.length;k++){ blocks[k].innerHTML=highlight(blocks[k].textContent); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+</script>
+
+</body>
+</html>
