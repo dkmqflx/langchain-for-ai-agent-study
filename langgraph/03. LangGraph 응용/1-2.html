@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3-2. 기초 아키텍처 패턴 — Routing</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 260px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .sub { padding-left: 20px; font-size: 12.5px; }
+
+    main {
+      margin-left: 260px; max-width: 920px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8d6e00; }
+    .badge-red    { background: #fce8e8; color: #a01818; }
+    .badge-blue   { background: #e8f4fd; color: #0b4a86; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── Python 문법 강조 (syntax highlighting) ── */
+    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
+    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
+    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
+    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
+    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
+    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
+    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
+    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Figure ── */
+    figure {
+      margin: 20px 0; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; background: var(--surface);
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption {
+      font-size: 12.5px; color: var(--text-secondary);
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
+    }
+
+    /* ── Trace box (실행 추적) ── */
+    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
+    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .trace-row:last-child { border-bottom: none; }
+    .trace-row .who {
+      flex: 0 0 170px; padding: 12px 14px; font-weight: 700;
+      background: var(--code-bg); border-right: 1px solid var(--border);
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
+    }
+    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
+    .trace-row .what p { margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a, .pager span.disabled {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+    .pager span.disabled { color: var(--text-secondary); text-align: right; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+      .trace-row { flex-direction: column; }
+      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">3강 · LangGraph 응용 (2)</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1. Routing이란</div>
+      <a href="#concept">개념 · 갈 길을 고른다</a>
+      <a href="#solid-vs-dotted" class="sub">실선 vs 점선 — 병렬과의 차이</a>
+      <a href="#when">언제 쓰는가 — 세 가지 사례</a>
+      <a href="#when-1" class="sub">① 전문화 (Specialization)</a>
+      <a href="#when-2" class="sub">② 도구 선택이 명확할 때</a>
+      <a href="#when-3" class="sub">③ 모델 최적화 · 비용 절감</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">2. 기획</div>
+      <a href="#plan">고객 응대 서비스 만들기</a>
+      <a href="#plan-graph" class="sub">그래프 구성</a>
+      <a href="#plan-state" class="sub">State 설계</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">3. 구현</div>
+      <a href="#step1">STEP 1. Model 정의</a>
+      <a href="#step2">STEP 2. State 정의</a>
+      <a href="#promise">🔑 category를 "약속"시키기</a>
+      <a href="#structured-review" class="sub">(복습) Structured Outputs</a>
+      <a href="#route-decision" class="sub">RouteDecision 스키마</a>
+      <a href="#router-llm" class="sub">router_llm 만들기</a>
+      <a href="#step3">STEP 3. Node 정의</a>
+      <a href="#node-router" class="sub">① router_node — 관제탑</a>
+      <a href="#node-experts" class="sub">② 전문가 노드 4종</a>
+      <a href="#step4">STEP 4. 그래프 생성</a>
+      <a href="#cond-fn" class="sub">조건부 함수 route_to_expert</a>
+      <a href="#cond-edge" class="sub">add_conditional_edges</a>
+      <a href="#step5">STEP 5. 실행</a>
+      <a href="#trace" class="sub">State가 채워지는 과정</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#compare">세 패턴 비교</a>
+      <a href="#full-code">전체 코드 한눈에 보기</a>
+      <a href="#pitfalls">자주 걸리는 함정</a>
+      <a href="#summary">📚 한 장 정리</a>
+      <a href="#next">다음 예고</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>3-2. 기초 아키텍처 패턴 — Routing</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>1-2.ipynb</code>
+      &nbsp;·&nbsp; 대상 범위: 기초 아키텍처 패턴 세 번째 — Routing
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문~초급</span>
+    </p>
+
+    <p class="lead">
+      앞 문서에서 노드를 <strong>일렬로 줄 세우고(Chaining)</strong>, <strong>부챗살로 펼쳐(Parallelization)</strong> 봤습니다.
+      이번에 배울 <strong>Routing</strong>은 기초 아키텍처의 마지막 조각입니다.
+      한 문장으로 요약하면 이렇습니다 — <strong>여러 전문가를 미리 만들어 두고, 들어온 일감을 보고 그중 하나에게만 토스한다.</strong>
+      실습으로는 <strong>고객 문의를 알아서 담당 부서로 넘겨주는 상담 서비스</strong>를 만듭니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      <p>새 문법은 사실상 <strong>두 개</strong>뿐입니다. 하나는 2강에서 이미 써 본 <code>add_conditional_edges</code>,
+      다른 하나는 <strong>LangChain에서 배웠던 <code>with_structured_output</code></strong>입니다.</p>
+      <p>그런데 이번 장의 진짜 주제는 문법이 아니라 <strong>"약속"</strong>입니다.
+      라우터가 뱉는 값과 분기 함수가 기대하는 값이 <strong>사전에 딱 맞아떨어지도록 강제하는 법</strong> —
+      이것이 라우팅 그래프가 흔들리지 않고 도는 유일한 비결입니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="concept">1. Routing — 상황을 보고 갈 길을 고른다</h2>
+
+    <p>
+      Routing 그래프는 <strong>맨 앞에 "라우터 노드(Router Node)"가 한 명 서 있는 구조</strong>입니다.
+      이 노드는 실제 일을 하지 않습니다. 오직 하나만 결정하죠 —
+      <strong>"이 일은 아래 작업자 중 누구에게 넘겨야 하는가?"</strong>
+    </p>
+
+    <p>
+      그리고 라우터가 내놓은 <strong>그 결정값에 따라</strong> 조건부 함수가 작동하면서,
+      아래에 늘어선 전문가 노드 중 <strong>딱 하나만 실행</strong>됩니다.
+      나머지 노드들은 <strong>그날 아무 일도 하지 않고 그냥 서 있습니다.</strong>
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/15.png" alt="Routing 슬라이드 — 입력의 종류가 다양해 하나의 프로세스에서 처리하기엔 너무 복잡하거나 비효율적일 때 사용. 대표 사례: 전문화가 필요할 때(고객 상담 챗봇 - 환불 처리/기술 지원/제품 정보 노드), 도구 선택이 명확해야 할 때(개인 비서 Agent - 검색 API/캘린더 API/RAG), 모델 최적화 및 비용 절감(질문 난이도에 따라 적합한 모델 호출). 오른쪽에 Router에서 점선 화살표가 세 갈래로 갈라지는 설계도" />
+      <figcaption>Routing 설계도. 오른쪽 그림에서 <strong>Router에서 나가는 화살표가 점선</strong>이라는 데 주목하세요.
+      <strong>점선 = 조건부 엣지</strong>, 즉 "갈 수도 있고 안 갈 수도 있는 길"이라는 뜻입니다.</figcaption>
+    </figure>
+
+    <h3 id="solid-vs-dotted">실선과 점선 — 병렬 처리와 딱 하나 다른 점</h3>
+
+    <p>
+      앞 문서의 <strong>Parallelization</strong> 그림과 지금 <strong>Routing</strong> 그림을 나란히 놓으면
+      모양이 거의 똑같습니다. 위에 노드 하나, 아래에 작업자 여럿. 그런데 <strong>선의 종류가 다릅니다.</strong>
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>Parallelization</th><th>Routing</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>상위 → 하위 연결선</strong></td><td><strong>실선</strong> (<code>add_edge</code>)</td><td><strong>점선</strong> (<code>add_conditional_edges</code>)</td></tr>
+          <tr><td><strong>실행되는 작업자</strong></td><td><span class="badge badge-green">전원</span> 예외 없이 다 돈다</td><td><span class="badge badge-blue">선택된 1명</span> 나머지는 쉰다</td></tr>
+          <tr><td><strong>상위 노드의 역할</strong></td><td>딱히 없음 (START에서 바로 갈라짐)</td><td><strong>누구에게 줄지 판단</strong>하는 게 전부</td></tr>
+          <tr><td><strong>LLM 호출 횟수</strong></td><td>작업자 수만큼 (3명이면 3번)</td><td><strong>라우터 1번 + 전문가 1번 = 2번</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 회람 vs 이관</strong>
+      <p><strong>Parallelization은 사내 회람</strong>입니다. 공문 하나를 <strong>전 부서에 똑같이 돌리고</strong>
+      각 부서 의견을 모아 종합하죠. 누가 답할지는 고민할 필요가 없습니다. <strong>다 답하니까요.</strong></p>
+      <p><strong>Routing은 이관(移管)</strong>입니다. 민원이 들어오면 접수 창구가 내용을 읽고
+      <strong>"이건 세무과 건이네요"</strong> 하고 <strong>한 부서에만</strong> 넘깁니다.
+      노무과와 법무과는 이 민원의 존재조차 모릅니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 "하나만"이 아니라 "몇 개만"도 가능합니다</strong>
+      <p>조건부 함수는 <strong>노드 이름 하나</strong>가 아니라 <strong>이름의 리스트</strong>를 반환할 수도 있습니다.
+      그러면 그 여러 노드가 동시에 실행되죠. 예를 들어 <strong>"이 업무를 끝내려면 검색 API와 RAG 둘 다 필요하겠다"</strong>는
+      판단이 나오면 두 노드를 함께 호출하는 식입니다.</p>
+      <p>핵심은 개수가 아니라 <strong>"전부 가느냐(실선), 골라서 가느냐(점선)"</strong>입니다.</p>
+    </div>
+
+    <!-- ── 언제 쓰나 ── -->
+    <h2 id="when">언제 쓰는가 — 대표 사례 세 가지</h2>
+
+    <p>
+      슬라이드의 한 줄 정의는 이렇습니다 —
+      <strong>"입력의 종류가 다양해서, 하나의 프로세스로 처리하기엔 너무 복잡하거나 비효율적일 때."</strong>
+      이 문장이 구체적으로 어떤 상황을 가리키는지 세 가지로 나눠 봅시다.
+    </p>
+
+    <h3 id="when-1">① 전문화가 필요할 때 (Specialization)</h3>
+
+    <p>
+      가장 흔한 경우입니다. 하나의 노드에 <strong>"너는 환불도 처리하고, 기술 지원도 하고, 제품 안내도 해"</strong>라고
+      전부 맡기는 대신, <strong>각각의 전문가를 미리 만들어 두는 것</strong>이죠.
+    </p>
+
+    <p>
+      LangGraph 용어로 말하면 <strong>노드마다 페르소나(persona)를 따로 심어 둔다</strong>는 뜻입니다.
+      환불 담당 노드의 프롬프트는 <em>"당신은 결제 및 환불 전문가입니다"</em>로 시작하고,
+      기술 지원 노드는 <em>"당신은 IT 엔지니어입니다"</em>로 시작합니다.
+      같은 모델이지만 <strong>어떤 옷을 입혀 부르느냐</strong>에 따라 답변의 결이 완전히 달라집니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 노무사 · 세무사 · 변호사</strong>
+      <p>회사에 노무사, 세무사, 변호사가 한 명씩 있다고 해봅시다. 어떤 프로젝트 건이 들어왔을 때
+      <strong>노무사와 세무사는 각자 자기 관점에서 검토가 필요하지만, 변호사는 굳이 볼 필요가 없다</strong>고 판단되면 —
+      <strong>라우터는 변호사를 아예 부르지 않습니다.</strong></p>
+      <p>이게 회람(병렬)과의 차이입니다. 회람이었으면 변호사도 읽고 의견을 냈겠죠.
+      <strong>비용도 시간도 낭비</strong>고요.</p>
+    </div>
+
+    <h3 id="when-2">② 도구(Tool) 선택이 명확해야 할 때</h3>
+
+    <p>
+      노드마다 <strong>연결된 도구가 다를 때</strong>도 라우팅이 답입니다. 개인 비서 Agent를 예로 들면 —
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>노드</th><th>연결된 도구</th><th>이런 요청이 오면</th></tr></thead>
+        <tbody>
+          <tr><td><strong>A 노드</strong></td><td>검색 API</td><td>"오늘 서울 날씨 어때?"</td></tr>
+          <tr><td><strong>B 노드</strong></td><td>캘린더 조회 API</td><td>"내일 오후 일정 있나?"</td></tr>
+          <tr><td><strong>C 노드</strong></td><td>RAG (사내 문서 검색)</td><td>"작년 휴가 규정이 어떻게 되지?"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      들어온 업무를 완료하기 위해 <strong>"나는 검색과 RAG를 호출해야겠다"</strong>고 라우터가 판단하면,
+      해당 도구가 붙어 있는 노드로 길을 열어주는 겁니다.
+    </p>
+
+    <h3 id="when-3">③ 모델 최적화 및 비용 절감</h3>
+
+    <p>
+      이건 지난 LangChain 강의에서도 비슷하게 구현해 본 적이 있는 패턴입니다.
+      노드마다 <strong>서로 다른 언어 모델</strong>을 붙여 두는 거죠.
+    </p>
+
+    <div class="io-label">💰 노드별로 모델 등급을 다르게</div>
+<pre class="result-block">노드 A → gpt-5        (가장 비싸고 똑똑함)   ← 복잡한 추론·코드 생성
+노드 B → gpt-5-mini   (중간)                 ← 일반적인 질의응답
+노드 C → gpt-5-nano   (가장 저렴함)          ← 인사말, 단순 분류, 짧은 응답</pre>
+
+    <p>
+      그다음 라우터 노드가 <strong>질문의 난이도를 보고</strong> 판단합니다.
+      <strong>"이 정도 질문이면 nano로 충분하겠다."</strong>
+      그 판단 결과에 따라 해당 노드만 호출하면, <strong>품질은 지키면서 비용은 확 낮출 수 있습니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 병원 응급실의 트리아지(triage)</strong>
+      <p>응급실에 환자가 들어오면 <strong>제일 먼저 만나는 사람은 의사가 아니라 분류 간호사</strong>입니다.
+      이 사람이 하는 일은 치료가 아니라 <strong>"이 환자는 어느 진료과, 어느 등급인가"</strong>를 정하는 것뿐이죠.</p>
+      <p>가벼운 찰과상 환자에게 <strong>외과 과장님을 붙이지 않습니다.</strong> 낭비니까요.
+      라우터 노드가 정확히 이 분류 간호사입니다. <strong>싸고 빠른 모델</strong>을 쓰면 딱 좋은 자리이기도 하고요.
+      (실습에서도 라우터와 전문가 모두 <code>gpt-5-nano</code>를 씁니다.)</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 기획 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="plan">2. 기획 — 고객 응대 서비스</h2>
+
+    <p>
+      2강부터 반복해 온 순서 그대로입니다. <strong>요구사항 → 그래프 → State.</strong>
+      코드는 그다음입니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>요구사항</strong><p>고객 문의를 <strong>성격에 맞는 전문가</strong>에게 전달</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>그래프 구성</strong><p>라우터 1 + 전문가 4, <strong>조건부 엣지</strong>로 연결</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>State 설계</strong><p>질문 · 분류 결과 · 답변 <strong>세 칸</strong></p></div>
+    </div>
+
+    <h3 id="plan-graph">기획 2 · 그래프 구성</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/16.png" alt="고객 응대 서비스 실습 그래프 예시 — __start__에서 router_node로 실선, router_node에서 billing_expert / general_expert / shipping_expert / technical_expert 네 개로 점선 화살표, 네 전문가 노드에서 __end__로 실선이 모임. 하단에 'State는 어떻게 설계하는 게 좋을까?'" />
+      <figcaption>이번에 만들 그래프. <strong><code>router_node</code>에서 나가는 네 개의 화살표만 점선</strong>이고,
+      나머지는 전부 실선입니다. 점선 = <code>add_conditional_edges</code>, 실선 = <code>add_edge</code>.
+      <strong>그림만 봐도 어떤 문법을 써야 하는지 읽히는 것</strong>이 이 패턴의 좋은 점입니다.</figcaption>
+    </figure>
+
+    <p>
+      전문가는 네 명입니다. 각각 <strong>결제/환불 · 기술 지원 · 배송 · 일반 상담</strong>을 맡습니다.
+      마지막 <strong>일반 상담(general)</strong>은 <strong>"셋 다 아닐 때 가는 곳"</strong>이라는 점을 기억해 두세요.
+      나중에 조건부 함수를 짤 때 이 노드가 <strong>안전망</strong> 역할을 합니다.
+    </p>
+
+    <h3 id="plan-state">기획 3 · State 설계 — 칸이 세 개면 충분하다</h3>
+
+    <p>
+      2강의 원칙을 다시 꺼냅니다. <strong>"다음 노드 혹은 다다음 노드가 읽어야 하는 값이라면 State에 담는다."</strong>
+      이 기준으로 그래프를 따라가며 필요한 칸을 세어 봅시다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>필드</th><th>누가 쓰나</th><th>누가 읽나</th><th>왜 필요한가</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>query</code></td>
+            <td><strong>사용자</strong> (invoke 입력)</td>
+            <td><code>router_node</code> + <strong>전문가 노드</strong></td>
+            <td>라우터가 읽고 분류하고, 선택된 전문가도 읽고 답변한다</td>
+          </tr>
+          <tr>
+            <td><code>category</code></td>
+            <td><code>router_node</code></td>
+            <td><strong>조건부 함수</strong></td>
+            <td>이 값을 보고 <strong>어느 노드로 갈지</strong> 결정한다</td>
+          </tr>
+          <tr>
+            <td><code>response</code></td>
+            <td><strong>선택된 전문가 노드</strong></td>
+            <td><strong>사용자</strong> (최종 반환)</td>
+            <td>최종 답변이 담기는 자리</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/17.png" alt="State 설계 슬라이드 — 사용자의 질문, 분류 결과, 답변을 담는 구조. 코드: class SupportState(TypedDict)에 query(고객 질문), category(라우터가 분류한 카테고리), response(전문가의 답변). category 옆에 'router'라고 판서, 하단에 'category에 들어갈 값이 미리 약속되어 있어야 정해진 Node로 이동 가능!'" />
+      <figcaption>State 설계 결과. 그리고 <strong>슬라이드 맨 아래 한 문장이 이번 장의 전부</strong>입니다 —
+      <strong>"category에 들어갈 값이 미리 약속되어 있어야 정해진 Node로 이동 가능!"</strong></figcaption>
+    </figure>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>query</code>는 두 번 읽힙니다</strong>
+      <p>Chaining에서는 각 칸이 <strong>앞 노드 → 뒷 노드</strong>로 한 번씩만 배턴처럼 넘어갔습니다.
+      그런데 여기서 <code>query</code>는 <strong>라우터도 읽고, 그다음 전문가도 읽습니다.</strong></p>
+      <p>이상한 게 아닙니다. State는 <strong>모든 노드가 함께 보는 공용 공책</strong>이니까요.
+      한 번 적힌 값은 <strong>누구든 몇 번이든 읽을 수 있습니다.</strong></p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ STEP 1 ══════════════ -->
+    <h2 id="step1">STEP 1. Model 정의</h2>
+
+    <p>
+      기획이 끝났으니 코딩입니다. 순서는 늘 같습니다 —
+      <strong>①모델 → ②State → ③Node → ④그래프 → ⑤실행.</strong>
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano")</code></pre>
+
+    <p>
+      이번엔 <code>temperature</code>를 건드리지 않았습니다. 앞 문서의 농담 생성기는
+      <strong>뻔하면 재미없는 일</strong>이라 1.0을 줬지만, <strong>고객 상담은 정반대</strong>입니다.
+      분류는 정확해야 하고 답변은 안정적이어야 하니 <strong>기본값 그대로가 맞습니다.</strong>
+    </p>
+
+    <!-- ══════════════ STEP 2 ══════════════ -->
+    <h2 id="step2">STEP 2. State 정의</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from typing import TypedDict
+
+class SupportState(TypedDict):
+    query: str          # 고객 질문
+    category: str       # 라우터가 분류한 카테고리
+    response: str       # 전문가의 답변</code></pre>
+
+    <p>
+      리듀서는 하나도 없습니다. 그리고 그게 맞습니다 — <strong>각 칸은 한 노드가 딱 한 번만 채우고 끝</strong>이니까요.
+      특히 <code>response</code>는 <strong>네 전문가가 같은 칸을 쓰지만</strong>,
+      <strong>한 번의 실행에서는 그중 한 명만 돌기 때문에</strong> 충돌이 일어나지 않습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 병렬이었으면 <code>response</code>는 터졌을 겁니다</strong>
+      <p>앞 문서에서 <strong>"워커 셋이 같은 칸에 쓰면 에러가 난다"</strong>고 배웠죠.
+      여기 <code>response</code>도 네 노드가 공유하는 칸입니다. 그런데 왜 괜찮을까요?</p>
+      <p><strong>같은 스텝에 두 명 이상이 쓰지 않기 때문</strong>입니다. 라우팅은 애초에 <strong>한 명만 실행</strong>하니까요.
+      <strong>"같은 칸이라서 문제"가 아니라 "동시에 써서 문제"</strong>였던 겁니다.
+      이 구분이 헷갈리면 리듀서를 언제 붙일지 계속 헷갈립니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 약속 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="promise">🔑 여기서 한 가지 문제 — <code>category</code>에 뭐가 들어올지 어떻게 믿나</h2>
+
+    <p>
+      State는 다 만들었는데, 코딩을 더 진행하기 전에 <strong>반드시 짚고 넘어가야 할 게 하나</strong> 있습니다.
+      바로 <code>category</code> 칸입니다.
+    </p>
+
+    <p>
+      계획대로라면 라우터 노드가 이 칸을 채우고, 조건부 함수가 그 값을 읽어서 분기합니다.
+      그런데 라우터는 결국 <strong>언어 모델</strong>입니다. 언어 모델에게 <em>"이 문의가 어느 부서 건인지 알려줘"</em>라고
+      물으면 뭐라고 답할까요?
+    </p>
+
+    <div class="io-label">❌ 그냥 물어봤을 때 — 매번 다른 모양의 대답</div>
+<pre class="result-block">"결제 관련 문의로 보입니다."
+"billing"
+"이 건은 결제/환불 부서에서 처리하는 것이 적절합니다."
+"청구 부서"
+"Billing Department"</pre>
+
+    <p>
+      전부 <strong>의미상으로는 정답</strong>입니다. 그런데 이걸 받아서 분기하는 코드는 이렇게 생겼죠.
+    </p>
+
+    <div class="io-label">💥 그 결과 — 조건문이 전부 빗나간다</div>
+<pre class="code-block"><code>if category == 'billing':          # "결제 관련 문의로 보입니다." != 'billing'  → False
+    return 'billing_expert'
+elif category == 'technical':      # → False
+    return 'technical_expert'
+elif category == 'shipping':       # → False
+    return 'shipping_expert'
+else:
+    return 'general_expert'        # ← 결제 문의인데 매번 여기로 떨어짐</code></pre>
+
+    <p>
+      <strong>에러도 안 납니다.</strong> 그냥 조용히 <strong>전부 일반 상담원에게 흘러갈</strong> 뿐이죠.
+      전문가를 넷이나 만들어 놓고 <strong>한 명만 계속 일하는</strong> 그래프가 됩니다.
+      이런 버그는 <strong>발견하기가 제일 어렵습니다.</strong>
+    </p>
+
+    <div class="callout callout-danger">
+      <strong>🚫 문제의 본질 — "약속되지 않은 값"</strong>
+      <p>라우터 노드의 <strong>리턴값</strong>과 조건부 함수가 <strong>비교하는 문자열</strong>이
+      <strong>사전에 약속되어 있어야</strong> 분기가 제대로 됩니다.</p>
+      <p>즉 라우터가 낼 수 있는 답을 <strong>미리 정해진 몇 개로 제한(constrain)</strong>해야 합니다.
+      "아무렇게나 답하지 말고, <strong>이 네 개 중에서만 골라</strong>"라고 강제할 방법이 필요한 거죠.</p>
+    </div>
+
+    <h3 id="structured-review">(복습) 그 방법은 LangChain에서 이미 배웠습니다 — Structured Outputs</h3>
+
+    <p>
+      LangChain 강의에서 <strong>"답변을 특정 형태로 파싱해야 할 때"</strong> 쓰는 문법으로
+      <strong>Structured Outputs</strong>를 배웠습니다. 절차는 두 단계였죠.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>스키마(class) 생성</strong><p>어떤 필드를, 어떤 타입으로, 무슨 기준으로 채울지 정의</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>모델에 결합</strong><p><code>model.with_structured_output(스키마)</code>로 새 모델 객체를 만듦</p></div>
+    </div>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/18.png" alt="(복습) 구조화된 답변 생성 슬라이드 — Structured Outputs, 다음 작업을 위해 답변을 특정 형태로 파싱할 때 사용. 1. 스키마(class) 생성 2. model에 with_structured_output을 사용해 새로운 모델 객체 생성. 코드: class Movie(BaseModel)에 title, year, director, rating 필드와 각각의 Field(description=...), model_with_structure = model.with_structured_output(Movie), response = model_with_structure.invoke('영화 인셉션에 대해 설명해 주세요'), 결과 주석 title='인셉션' year=2010 director='크리스토퍼 놀란' rating=8.8" />
+      <figcaption>LangChain에서 배운 그 문법 그대로입니다. <code>Movie</code> 스키마를 붙인 모델은
+      <strong>줄글로 답하지 않고</strong> <code>title</code>·<code>year</code>·<code>director</code>·<code>rating</code>이라는
+      <strong>정해진 필드에, 정해진 타입으로</strong> 답을 채워서 돌려줍니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 서술형 답안지 vs 객관식 답안지</strong>
+      <p>모델에게 그냥 물어보는 건 <strong>백지에 서술형으로 쓰라</strong>는 것과 같습니다.
+      내용은 훌륭하겠지만 <strong>채점 프로그램은 못 읽습니다.</strong></p>
+      <p><code>with_structured_output</code>은 <strong>OMR 카드를 쥐여주는 것</strong>입니다.
+      "1번부터 4번 중 하나에 마킹해." 이렇게 하면 <strong>기계가 100% 읽을 수 있는 답</strong>이 나옵니다.
+      뒤에 오는 조건부 함수가 바로 그 <strong>채점 기계</strong>고요.</p>
+    </div>
+
+    <h3 id="route-decision">RouteDecision 스키마 — 답을 네 개로 못 박기</h3>
+
+    <p>
+      이제 우리 상황에 맞는 스키마를 만들 차례입니다.
+      필드는 <strong>딱 하나(<code>category</code>)</strong>면 충분합니다. 라우터에게 시킬 일이 그것뿐이니까요.
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/19.png" alt="Routing 슬라이드 — Structured Outputs 적용. 코드: from typing import Literal, from pydantic import BaseModel, Field. class RouteDecision(BaseModel): category: Literal['billing','technical','shipping','general'] = Field(description='고객 문의 내용을 분석하여 적절한 담당 부서를 선택하세요.'), router_llm = model.with_structured_output(RouteDecision). class RouteDecision와 category에 빨간 판서 강조" />
+      <figcaption>스키마 <code>RouteDecision</code>. 판서로 강조된 <strong><code>Literal[...]</code></strong>이 핵심입니다 —
+      <strong>"이 리스트 안의 값 중 하나만 고를 수 있다"</strong>는 뜻입니다.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from typing import Literal
+from pydantic import BaseModel, Field
+
+class RouteDecision(BaseModel):
+    category: Literal['billing', 'technical', 'shipping', 'general'] = Field(
+        description='고객 문의 내용을 분석하여 적절한 부서를 선택하세요'
+    )</code></pre>
+
+    <p>세 부분으로 나눠서 뜯어봅시다.</p>
+
+    <h4><code>Literal['billing', 'technical', 'shipping', 'general']</code> — 선택지를 못 박는 타입</h4>
+    <p>
+      <code>str</code>이라고 쓰면 <strong>"문자열이면 뭐든 OK"</strong>라는 뜻입니다.
+      <code>Literal[...]</code>은 <strong>"이 네 개 중 하나여야만 함"</strong>이라는 뜻이죠.
+      이 정보가 <strong>모델에게 그대로 전달</strong>되기 때문에, 모델은 <strong>네 값 외의 답을 낼 수 없습니다.</strong>
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 값 이름은 마음대로 지어도 됩니다 — 단, 하나만 맞추면</strong>
+      <p><code>'billing'</code> 대신 <code>'node_a'</code>, <code>'A'</code>, <code>'결제'</code>로 지어도 전혀 문제없습니다.</p>
+      <p>다만 여기서는 <strong>앞으로 만들 노드의 기능에 맞춰</strong> 이름을 붙였습니다.
+      나중에 조건부 함수를 읽을 때 <code>if category == 'billing'</code> 한 줄만 보고도
+      <strong>무슨 뜻인지 바로 이해되기 때문</strong>입니다. 미래의 나를 위한 배려죠.</p>
+    </div>
+
+    <h4><code>Field(description=...)</code> — 모델이 실제로 읽는 지시문</h4>
+    <p>
+      <code>description</code>은 <strong>사람을 위한 주석이 아닙니다.</strong>
+      이 문장은 <strong>스키마와 함께 모델에게 그대로 전달</strong>돼서,
+      모델이 <strong>어떤 기준으로 이 칸을 채울지 판단하는 근거</strong>가 됩니다.
+    </p>
+    <p>
+      그래서 <em>"고객 문의 내용을 분석하여 적절한 부서를 선택하세요"</em>라고 적었습니다.
+      <strong>여기가 사실상 라우터의 시스템 프롬프트</strong>인 셈입니다.
+      분류가 자꾸 엉뚱하게 나온다면 <strong>제일 먼저 손볼 곳이 이 문장</strong>입니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 분류 정확도를 올리는 가장 싼 방법</strong>
+      <p><code>description</code>에 <strong>각 카테고리의 판단 기준을 예시와 함께</strong> 적어주면 정확도가 확 올라갑니다.</p>
+      <p>예: <em>"billing은 요금·결제·환불, technical은 오류·API·설치 문제, shipping은 배송·주문 조회,
+      그 외 인사말이나 분류가 애매한 경우는 general을 선택하세요."</em></p>
+      <p><strong>모델을 더 비싼 걸로 바꾸기 전에 이 문장부터 다듬으세요.</strong> 비용 0원짜리 개선입니다.</p>
+    </div>
+
+    <h4><code>BaseModel</code> — pydantic이 타입을 지켜준다</h4>
+    <p>
+      <code>class RouteDecision(BaseModel)</code>은 <strong>pydantic</strong>의 데이터 스키마입니다.
+      혹시 모델이 규칙을 어기고 이상한 값을 내면 <strong>pydantic 단계에서 걸러집니다.</strong>
+      <strong>이중 안전장치</strong>인 셈이죠 — 모델에게 제한을 알려주고, 결과도 검증하고.
+    </p>
+
+    <h3 id="router-llm">router_llm — 스키마가 결합된 모델 객체</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>router_llm = model.with_structured_output(RouteDecision)</code></pre>
+
+    <p>
+      한 줄이지만 여기서 <strong>완전히 새로운 객체</strong>가 하나 생깁니다.
+      원래 <code>model</code>은 그대로 남아 있고, <strong><code>RouteDecision</code>이라는 답안지가 물려 있는
+      또 다른 모델</strong>이 만들어지는 거죠.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구분</th><th><code>model</code></th><th><code>router_llm</code></th></tr></thead>
+        <tbody>
+          <tr><td><strong><code>.invoke()</code>의 반환 타입</strong></td><td><code>AIMessage</code> 객체</td><td><strong><code>RouteDecision</code> 객체</strong></td></tr>
+          <tr><td><strong>본문 꺼내는 법</strong></td><td><code>msg.content</code></td><td><code>decision.category</code></td></tr>
+          <tr><td><strong>답의 자유도</strong></td><td>무엇이든 줄글로</td><td><strong>네 값 중 하나</strong></td></tr>
+          <tr><td><strong>실습에서 쓰는 곳</strong></td><td>전문가 노드 4개</td><td><strong>라우터 노드 1개</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>.content</code>를 쓰면 에러가 납니다</strong>
+      <p><code>router_llm.invoke(...)</code>의 결과에는 <strong><code>.content</code>가 없습니다.</strong>
+      <code>AIMessage</code>가 아니라 <strong><code>RouteDecision</code>이라는 파이썬 객체</strong>가 나오기 때문이죠.</p>
+      <p>그래서 접근 방법도 다릅니다. State는 딕셔너리라 <code>state["query"]</code>처럼 <strong>대괄호</strong>를 쓰지만,
+      <code>decision</code>은 객체라 <strong><code>decision.category</code>처럼 점(.)</strong>을 씁니다.
+      <strong>이 둘을 뒤집어 쓰는 실수가 정말 흔합니다.</strong></p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ STEP 3 ══════════════ -->
+    <h2 id="step3">STEP 3. Node 정의 — 관제탑 하나 + 전문가 넷</h2>
+
+    <p>
+      노드의 계약은 언제나 같습니다. <strong>①<code>state</code>를 인자로 받고, ②State 양식에 맞는 딕셔너리를 반환한다.</strong>
+      다섯 노드 모두 이 계약을 따릅니다.
+    </p>
+
+    <h3 id="node-router">① <code>router_node</code> — 일하지 않고 결정만 하는 노드</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/20.png" alt="노드 생성 슬라이드 — Router 노드. 코드: def router_node(state: SupportState): query = state['query'], # LLM이 문맥을 읽고 카테고리를 결정함 (Rule-based가 아님!), decision = router_llm.invoke(query), return {'category': decision.category}" />
+      <figcaption>라우터 노드. 슬라이드 주석의 <strong>"LLM이 문맥을 읽고 카테고리를 결정함 (Rule-based가 아님!)"</strong>이
+      이 노드의 정체를 한 줄로 설명합니다.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Manager] router 노드
+def router_node(state: SupportState):
+    query = state["query"]
+    print(f"\n--- [Router] 문의 분석 중: '{query}' ---")
+
+    decision = router_llm.invoke(query)  # LLM이 문맥을 읽고 카테고리를 결정함 (Rule-based가 아님!)
+
+    print(f"   -&gt; 분류 결과: {decision.category.upper()} 부서로 연결합니다.")
+    return {"category": decision.category}</code></pre>
+
+    <p>
+      네 줄짜리 노드입니다. <strong>State에서 <code>query</code>를 꺼내 → <code>router_llm</code>에 넘기고 →
+      <code>.category</code>만 뽑아 → <code>category</code> 칸에 담아 반환.</strong>
+      <strong>답변을 만들지도, 프롬프트를 길게 쓰지도 않습니다.</strong> 오직 분류만 합니다.
+    </p>
+
+    <h4>주석의 <strong>"Rule-based가 아님!"</strong>이 왜 중요한가</h4>
+
+    <p>
+      전통적인 방식이라면 이 분류를 <strong>키워드 매칭</strong>으로 했을 겁니다.
+    </p>
+
+    <div class="io-label">🕰️ 옛날 방식 — 키워드 규칙</div>
+<pre class="code-block"><code>if '환불' in query or '결제' in query:
+    category = 'billing'
+elif '에러' in query or '오류' in query:
+    category = 'technical'
+# ...</code></pre>
+
+    <p>
+      이 방식은 <strong>"지난달 요금이 두 번 빠져나갔어요"</strong> 같은 문장에서 무너집니다.
+      <strong>'환불'도 '결제'도 없기 때문</strong>이죠. 그런데 사람이 읽으면 명백히 결제 문제입니다.
+    </p>
+
+    <p>
+      LLM 라우터는 <strong>키워드가 아니라 문맥</strong>을 읽습니다.
+      <strong>"요금이 두 번 빠져나갔다 = 중복 청구 = 결제 부서"</strong>라는 <strong>추론</strong>을 하는 거죠.
+      실제로 실습에서 이 문장은 정확히 <code>billing</code>으로 분류됩니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — ARS와 사람 상담원</strong>
+      <p><strong>Rule-based 라우팅은 ARS</strong>입니다. <em>"요금 문의는 1번, 고장 신고는 2번..."</em>
+      고객이 <strong>미리 정해진 단어를 정확히 말해야만</strong> 작동하죠.
+      조금이라도 다르게 말하면 <em>"다시 말씀해 주세요"</em>를 무한 반복합니다.</p>
+      <p><strong>LLM 라우팅은 사람 상담원</strong>입니다. 고객이 두서없이 상황을 설명해도
+      <strong>"아, 중복 결제 건이시군요"</strong> 하고 알아듣고 담당자에게 넘깁니다.
+      <strong>이 차이 하나 때문에</strong> 라우터 자리에 LLM을 세우는 겁니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 <code>print</code>는 장식이 아닙니다</strong>
+      <p>라우팅 그래프에서 <strong>제일 궁금한 건 언제나 "얘가 어디로 갔지?"</strong>입니다.
+      그런데 조건부 엣지는 <strong>실행되지 않은 노드에 대해 아무 흔적도 남기지 않습니다.</strong></p>
+      <p>그래서 <strong>라우터에 분류 결과를 찍고, 전문가 노드마다 자기 이름을 찍어두면</strong>
+      로그만 봐도 경로가 한눈에 보입니다.
+      <strong>라우팅 디버깅의 90%는 이 print 두 줄로 끝납니다.</strong></p>
+    </div>
+
+    <h3 id="node-experts">② 전문가 노드 4종 — 같은 모델, 다른 페르소나</h3>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/21.png" alt="노드 생성 슬라이드 — 전문가 노드. 코드: # [Expert A] 결제/환불 담당, def billing_expert(state: SupportState): prompt = f'당신은 결제 및 환불 전문가입니다. 다음 문의에 대해 정중하게 답변하세요: {state 안의 query}', msg = model.invoke(prompt), return {'response': msg.content}" />
+      <figcaption>전문가 노드의 기본형. <strong>①페르소나를 심은 프롬프트에 <code>state['query']</code>를 끼워 넣고
+      → ②<code>model.invoke</code> → ③<code>msg.content</code>를 <code>response</code>에 담아 반환.</strong>
+      나머지 세 노드도 <strong>프롬프트 문장만 바뀔 뿐</strong> 구조가 완전히 같습니다.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># [Expert A] 결제/환불 담당
+def billing_expert(state: SupportState):
+    print("--- [Billing Expert] 결제 전문가가 답변 작성 중 ---")
+    prompt = f"당신은 결제 및 환불 전문가입니다. 다음 문의에 대해 정중하게 답변하세요: {state['query']}"
+    msg = model.invoke(prompt)
+    return {"response": msg.content}
+
+# [Expert B] 기술 지원 담당
+def technical_expert(state: SupportState):
+    print("--- [Tech Expert] 기술 지원 엔지니어가 분석 중 ---")
+    prompt = f"당신은 IT 엔지니어입니다. 다음 기술 문제에 대해 해결책을 제시하세요: {state['query']}"
+    msg = model.invoke(prompt)
+    return {"response": msg.content}
+
+# [Expert C] 배송 담당
+def shipping_expert(state: SupportState):
+    print("--- [Shipping Expert] 물류 담당자가 배송 조회 중 ---")
+    prompt = f"당신은 배송 관리자입니다. 다음 배송 문의에 대해 답변하세요: {state['query']}"
+    msg = model.invoke(prompt)
+    return {"response": msg.content}
+
+# [Expert D] 일반 상담
+def general_expert(state: SupportState):
+    print("--- [General] 일반 상담원이 답변 중 ---")
+    msg = model.invoke(f"다음 문의에 친절하게 답변하세요: {state['query']}")
+    return {"response": msg.content}</code></pre>
+
+    <p>
+      네 함수를 나란히 놓고 보면 <strong>다른 부분이 딱 두 군데</strong>입니다 —
+      <strong>페르소나 문장</strong>과 <strong>print 라벨</strong>. 나머지는 완전히 동일하죠.
+      <strong>모델도 같은 <code>model</code> 하나를 공유</strong>합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 배우 한 명, 배역 네 개</strong>
+      <p>전문가가 넷이라고 해서 <strong>모델을 네 개 만든 게 아닙니다.</strong>
+      <strong>같은 배우에게 매번 다른 배역을 주는 것</strong>에 가깝습니다.</p>
+      <p><em>"당신은 결제 전문가입니다"</em>라고 말하는 순간 모델의 어휘와 말투가 그쪽으로 쏠립니다.
+      <em>"당신은 IT 엔지니어입니다"</em>라고 하면 갑자기 <strong>체크리스트와 원인 분석</strong>을 쏟아내죠.
+      실습 결과에서 이 차이가 <strong>눈으로 확인될 만큼 뚜렷하게</strong> 나타납니다.</p>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 여기서 노드마다 다른 모델을 붙이면 — 그게 ③번 사례입니다</strong>
+      <p>앞에서 이야기한 <strong>비용 절감 라우팅</strong>이 궁금하셨다면, 손댈 곳은 바로 이 네 함수입니다.</p>
+      <p><code>technical_expert</code>만 <code>model_pro = init_chat_model("gpt-5")</code>를 쓰게 하고
+      나머지는 <code>gpt-5-nano</code>를 그대로 쓰면 — <strong>어려운 기술 문의에만 비싼 모델이 투입되는
+      비용 최적화 그래프</strong>가 됩니다. <strong>그래프 구조는 한 줄도 안 바꾸고요.</strong></p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ STEP 4 ══════════════ -->
+    <h2 id="step4">STEP 4. 그래프 생성</h2>
+
+    <p>
+      노드가 다 준비됐으니 조립할 차례입니다. 먼저 <strong>노드 등록</strong>과
+      <strong>확실한 엣지(START → 라우터)</strong>부터 긋습니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>workflow = StateGraph(SupportState)
+
+# 노드 등록
+workflow.add_node("router_node", router_node)
+workflow.add_node("billing_expert", billing_expert)
+workflow.add_node("technical_expert", technical_expert)
+workflow.add_node("shipping_expert", shipping_expert)
+workflow.add_node("general_expert", general_expert)
+
+# 엣지 연결
+workflow.add_edge(START, "router_node")</code></pre>
+
+    <p>
+      노드는 다섯 개, 그런데 <strong>엣지는 아직 한 줄</strong>뿐입니다.
+      <strong>START에서 라우터로 가는 길만 확실</strong>하고, 그 아래는 <strong>실행해 봐야 아는 길</strong>이니까요.
+      바로 그 <strong>"실행해 봐야 아는 부분"</strong>을 이제 만듭니다.
+    </p>
+
+    <h3 id="cond-fn">조건부 함수 <code>route_to_expert</code> — 갈림길의 판단 기준</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 조건부 엣지를 위한 함수
+def route_to_expert(state: SupportState):
+    category = state['category']
+
+    if category == 'billing':
+        return 'billing_expert'
+    elif category == 'technical':
+        return 'technical_expert'
+    elif category == 'shipping':
+        return 'shipping_expert'
+    else:
+        return 'general_expert'</code></pre>
+
+    <p>
+      <strong>State 속 <code>category</code>를 읽어서, 갈 노드의 이름을 문자열로 반환</strong>합니다. 그게 전부입니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 이 함수는 <u>노드가 아닙니다</u></strong>
+      <p>생김새가 노드와 비슷해서 헷갈리기 쉬운데, 결정적 차이가 있습니다 —
+      <strong>노드는 딕셔너리를 반환해서 State를 바꾸고, 조건부 함수는 문자열을 반환해서 길을 정합니다.</strong></p>
+      <p>그래서 <code>add_node</code>로 <strong>등록하지 않습니다.</strong> 그래프 그림에도 <strong>안 나옵니다.</strong>
+      화살표 위에 붙은 <strong>이정표</strong> 같은 존재죠.</p>
+    </div>
+
+    <h4>반환값을 왜 <code>'billing'</code>이 아니라 <code>'billing_expert'</code>로 맞췄나</h4>
+
+    <p>
+      <code>return 'billing'</code>처럼 카테고리 값을 그대로 돌려줘도 <strong>동작은 합니다.</strong>
+      다만 그러면 <code>add_conditional_edges</code>에서 <strong>"billing이라는 답이 나오면 billing_expert로 가라"</strong>는
+      <strong>매핑 딕셔너리를 따로 적어줘야</strong> 합니다.
+    </p>
+
+    <div class="io-label">비교 — 두 가지 스타일</div>
+<pre class="code-block"><code># 스타일 A) 반환값 = 노드 이름  → 리스트만 넘기면 끝  ★ 실습에서 쓰는 방식
+return 'billing_expert'
+workflow.add_conditional_edges('router_node', route_to_expert,
+                               ['billing_expert', 'technical_expert', ...])
+
+# 스타일 B) 반환값 = 카테고리   → 매핑 딕셔너리가 필요함
+return 'billing'
+workflow.add_conditional_edges('router_node', route_to_expert,
+                               {'billing': 'billing_expert',
+                                'technical': 'technical_expert', ...})</code></pre>
+
+    <p>
+      <strong>2강에서 이야기했던 그 요령</strong>입니다. 조건부 함수의 반환값을
+      <strong>등록한 노드 이름과 똑같이 맞춰두면</strong> 코드가 짧아지고, <strong>연결 실수도 줄어듭니다.</strong>
+    </p>
+
+    <h4><code>else</code>가 있어서 안전하다</h4>
+    <p>
+      마지막이 <code>elif category == 'general'</code>이 아니라 <strong><code>else</code></strong>인 게 포인트입니다.
+      <strong>앞의 세 조건에 안 걸리면 무조건 <code>general_expert</code>로 갑니다.</strong>
+    </p>
+    <p>
+      <code>Literal</code> 덕분에 값은 네 개 중 하나로 보장되지만,
+      <strong>혹시라도 예상 못 한 값이 들어와도 그래프가 멈추지 않게</strong> 하는 <strong>안전망</strong>이죠.
+      <strong>라우팅 함수에는 항상 <code>else</code>로 기본 경로를 하나 두세요.</strong>
+    </p>
+
+    <h3 id="cond-edge">add_conditional_edges — 점선 네 개를 한 번에 긋기</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>workflow.add_conditional_edges(
+    'router_node',
+    route_to_expert,
+    ['billing_expert', 'technical_expert', 'shipping_expert', 'general_expert']
+)</code></pre>
+
+    <p>인자 세 개를 <strong>문장으로 읽으면</strong> 이렇습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>인자</th><th>값</th><th>뜻</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1. 출발점</strong></td><td><code>'router_node'</code></td><td><strong>이 노드가 끝나면</strong></td></tr>
+          <tr><td><strong>2. 판단 로직</strong></td><td><code>route_to_expert</code></td><td><strong>이 함수를 돌려서</strong></td></tr>
+          <tr><td><strong>3. 도착 후보</strong></td><td><code>[네 개의 노드 이름]</code></td><td><strong>이 넷 중 하나로 간다</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 세 번째 인자는 왜 필요한가 — 사실 "그림"을 위한 것</strong>
+      <p>세 번째 인자를 생략해도 <strong>실행에는 지장이 없습니다.</strong> 조건부 함수가 반환하는 이름으로 알아서 찾아가니까요.</p>
+      <p>그런데 생략하면 LangGraph는 <strong>"이 라우터가 어디로 갈 수 있는지"를 미리 알 수 없습니다.</strong>
+      그래서 <strong>그래프 그림에 점선이 안 그려지거나 이상하게 그려집니다.</strong></p>
+      <p><strong>명시적으로 적어두면 그림도 정확해지고, 오타도 조기에 잡힙니다.</strong> 적는 습관을 들이세요.</p>
+    </div>
+
+    <h3>마지막 — 전문가들을 END로 모으기</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>workflow.add_edge('billing_expert', END)
+workflow.add_edge('technical_expert', END)
+workflow.add_edge('shipping_expert', END)
+workflow.add_edge('general_expert', END)
+
+app = workflow.compile()</code></pre>
+
+    <p>
+      네 줄 모두 <strong>조건부가 아닌 그냥 <code>add_edge</code></strong>입니다.
+      <strong>어느 전문가가 일하게 되든, 일이 끝나면 무조건 END</strong>이기 때문이죠.
+      고를 것이 없으니 <strong>실선</strong>입니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 병렬 처리의 Fan-in과 모양은 같지만 의미가 다릅니다</strong>
+      <p>앞 문서에서 <strong>워커 셋 → Aggregator</strong>로 모을 때도 화살표가 이렇게 모였죠.
+      하지만 거기서 Aggregator는 <strong>세 명이 전부 도착할 때까지 기다렸습니다.</strong></p>
+      <p>여기 END는 <strong>기다리지 않습니다.</strong> 애초에 <strong>도착하는 노드가 한 명뿐</strong>이니까요.
+      <strong>화살표 개수가 아니라 "몇 개가 실제로 실행되는가"가 대기 여부를 결정합니다.</strong></p>
+    </div>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>app</code></pre>
+    <div class="io-label">📤 출력 — 기획서와 같은 모양인지 눈으로 확인</div>
+<pre class="result-block">              __start__
+                  │           (실선)
+             router_node
+        ┌────┬─────┴─────┬────┐   (점선 = 조건부)
+   billing  general  shipping  technical
+        └────┴─────┬─────┴────┘   (실선)
+                __end__</pre>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ STEP 5 ══════════════ -->
+    <h2 id="step5">STEP 5. 실행 — 세 가지 문의를 던져보기</h2>
+
+    <p>
+      이제 성격이 다른 문의 세 개를 넣어 <strong>정말로 다른 전문가에게 가는지</strong> 확인합니다.
+      <strong>실행할 때 넣는 딕셔너리는 State 양식을 따라야</strong> 하므로 <code>query</code> 칸을 채워서 보냅니다.
+    </p>
+
+    <h3>케이스 1 — 결제 문의</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>app.invoke({"query": "지난달 요금이 두 번 빠져나갔어요. 확인해주세요."})</code></pre>
+
+    <div class="io-label">📤 실행 로그</div>
+<pre class="result-block">--- [Router] 문의 분석 중: '지난달 요금이 두 번 빠져나갔어요. 확인해주세요.' ---
+   -> 분류 결과: BILLING 부서로 연결합니다.
+--- [Billing Expert] 결제 전문가가 답변 작성 중 ---</pre>
+
+    <p>
+      로그가 <strong>딱 두 줄</strong>이라는 데 주목하세요. 라우터 한 번, 전문가 한 번.
+      <strong><code>technical</code>·<code>shipping</code>·<code>general</code>은 아예 실행되지 않았습니다.</strong>
+      병렬이었다면 네 줄이 전부 찍혔겠죠.
+    </p>
+
+    <div class="io-label">📤 최종 반환값 (일부 발췌)</div>
+<pre class="result-block">{'query': '지난달 요금이 두 번 빠져나갔어요. 확인해주세요.',
+ 'category': 'billing',
+ 'response': '안녕하세요. 불편을 겪게 해드려 정말 죄송합니다. 지난달 요금이 두 번 청구된 건
+             신속하게 확인하고 환불 조치를 도와드리겠습니다.
+
+             조사를 정확히 진행하기 위해 아래 정보를 알려주시면 ...
+             - 계정에 등록된 이메일 주소나 사용자 ID
+             - 두 번 청구된 날짜와 대략적인 시간 범위
+             - 각 건의 청구 금액 ...'}</pre>
+
+    <p>
+      <strong>사과 → 필요 정보 요청 → 처리 절차 및 소요 기간 안내.</strong> 전형적인 <strong>결제 담당자의 화법</strong>입니다.
+      <em>"당신은 결제 및 환불 전문가입니다"</em> 한 문장이 만든 차이죠.
+    </p>
+
+    <h3>케이스 2 — 기술 문의</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>app.invoke({"query": "API 연결할 때 404 에러가 자꾸 떠요."})</code></pre>
+
+    <div class="io-label">📤 실행 로그</div>
+<pre class="result-block">--- [Router] 문의 분석 중: 'API 연결할 때 404 에러가 자꾸 떠요.' ---
+   -> 분류 결과: TECHNICAL 부서로 연결합니다.
+--- [Tech Expert] 기술 지원 엔지니어가 분석 중 ---</pre>
+
+    <div class="io-label">📤 최종 반환값 (일부 발췌)</div>
+<pre class="result-block">{'query': 'API 연결할 때 404 에러가 자꾸 떠요.',
+ 'category': 'technical',
+ 'response': '404는 "해당 자원(path)이 서버에 없다"는 뜻이므로 ...
+
+             2) 실전 체크리스트
+             - 요청 URL 확인 (버전 경로 /v1, /v2 가 맞는가? 대소문자, 트레일링 슬래시)
+             - 경로 구성 요소 점검 (동적 파라미터 id, URL 인코딩)
+             - HTTP 메서드 확인
+             - 인증/권한 여부 점검
+             - 환경 차이 확인 (prod vs stage) ...'}</pre>
+
+    <p>
+      말투가 <strong>완전히 달라졌습니다.</strong> 사과 대신 <strong>원인 가설 → 체크리스트</strong>가 나오죠.
+      <strong>같은 <code>gpt-5-nano</code>인데도</strong> 이 정도 차이가 납니다.
+      <strong>페르소나 분리의 실질적인 효과</strong>가 여기서 드러납니다.
+    </p>
+
+    <h3>케이스 3 — 배송 문의</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>app.invoke({"query": "주문한 노트북 언제 도착하나요?"})</code></pre>
+
+    <div class="io-label">📤 실행 로그</div>
+<pre class="result-block">--- [Router] 문의 분석 중: '주문한 노트북 언제 도착하나요?' ---
+   -> 분류 결과: SHIPPING 부서로 연결합니다.
+--- [Shipping Expert] 물류 담당자가 배송 조회 중 ---</pre>
+
+    <div class="io-label">📤 최종 반환값 (일부 발췌)</div>
+<pre class="result-block">{'query': '주문한 노트북 언제 도착하나요?',
+ 'category': 'shipping',
+ 'response': '도와드리겠습니다. 정확한 도착일(ETA)을 알려면 주문 정보가 필요합니다.
+
+             필요 정보
+             - 주문번호
+             - 운송장 번호(tracking number) 또는 배송 방법
+             - 수령인 이름 ...'}</pre>
+
+    <div class="callout callout-info">
+      <strong>💡 "노트북"이라는 단어에 속지 않았습니다</strong>
+      <p><strong>"노트북"은 IT 제품</strong>입니다. 단순 키워드 매칭이었다면
+      <strong><code>technical</code>로 잘못 분류될 여지가 충분</strong>했죠.</p>
+      <p>그런데 라우터는 <strong>"주문한 ~ 언제 도착하나요"</strong>라는 <strong>문장 전체의 의도</strong>를 읽고
+      배송 건으로 판단했습니다. <strong>이게 LLM 라우터를 쓰는 이유</strong>입니다.</p>
+    </div>
+
+    <h3 id="trace">State(공책)가 채워지는 과정 — 케이스 1 기준</h3>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">START</div>
+        <div class="what"><p><code>{'query': '지난달 요금이 두 번 빠져나갔어요...'}</code><br />
+        <code>category</code>·<code>response</code> 두 칸은 <strong>비어 있음</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">router_node</div>
+        <div class="what"><p><code>query</code>를 읽음 → <code>router_llm</code> 호출 → <code>category</code> 칸에 <code>'billing'</code> 기록<br />
+        <span class="badge badge-blue">답변은 아직 한 글자도 없음</span></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">route_to_expert</div>
+        <div class="what"><p><strong>(노드가 아님 · State를 바꾸지 않음)</strong><br />
+        <code>category == 'billing'</code> → 문자열 <code>'billing_expert'</code> 반환 → <strong>길만 정함</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">billing_expert</div>
+        <div class="what"><p><code>query</code>를 <strong>다시</strong> 읽음 → 결제 전문가 프롬프트로 모델 호출 → <code>response</code> 칸을 채움<br />
+        <em>"안녕하세요. 불편을 겪게 해드려 정말 죄송합니다..."</em></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">(나머지 3개 노드)</div>
+        <div class="what"><p><strong>실행되지 않음.</strong> LLM 호출도, 비용도, 시간도 <strong>0</strong></p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">END</div>
+        <div class="what"><p><strong>세 칸이 모두 찬 State 전체</strong>가 반환됨 —
+        <code>query</code> · <code>category</code> · <code>response</code></p></div>
+      </div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 민원 접수증 한 장이 돌아다닌다</strong>
+      <p>State는 <strong>민원실 접수증</strong>입니다. 고객이 <strong>[민원 내용]</strong> 칸을 채워 제출하면,
+      접수 담당자가 <strong>[담당 부서]</strong> 칸에 "결제팀"이라고 도장을 찍고,
+      결제팀 직원이 <strong>[처리 결과]</strong> 칸을 채워 돌려주죠.</p>
+      <p><strong>종이는 처음부터 끝까지 한 장</strong>입니다. 여러 사람이 <strong>자기 칸만 채워 나갈</strong> 뿐이죠.
+      그래서 마지막에 받아 보면 <strong>"무슨 질문이었고, 어디로 갔고, 뭐라고 답했는지"가 전부 남아 있습니다.</strong></p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 비교 ══════════════ -->
+    <h2 id="compare">기초 패턴 세 가지 한자리에 놓고 비교</h2>
+
+    <p>이번 장으로 <strong>기초 아키텍처 패턴 3종이 모두 끝났습니다.</strong> 한 표로 정리하면 이렇습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>Prompt Chaining</th><th>Parallelization</th><th>Routing</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>한 줄 요약</strong></td><td>단계별로 <strong>차례차례</strong></td><td>독립적인 일을 <strong>동시에</strong></td><td>보고 나서 <strong>골라서</strong></td></tr>
+          <tr><td><strong>모양</strong></td><td>일자 (직렬)</td><td>부챗살 → 깔때기</td><td><strong>갈림길</strong></td></tr>
+          <tr><td><strong>엣지 종류</strong></td><td>실선</td><td>실선</td><td><strong>점선 (조건부)</strong></td></tr>
+          <tr><td><strong>실행되는 노드</strong></td><td>전부 (순서대로)</td><td>전부 (동시에)</td><td><strong>선택된 것만</strong></td></tr>
+          <tr><td><strong>핵심 문법</strong></td><td><code>add_edge</code></td><td><code>add_edge</code> ×N</td><td><strong><code>add_conditional_edges</code><br />+ <code>with_structured_output</code></strong></td></tr>
+          <tr><td><strong>소요 시간</strong></td><td>노드 시간의 <strong>합</strong></td><td><strong>가장 느린 노드</strong> 하나</td><td><strong>라우터 + 전문가 1명</strong></td></tr>
+          <tr><td><strong>비용</strong></td><td>노드 수만큼</td><td>노드 수만큼</td><td><span class="badge badge-green">절감</span> 항상 2회</td></tr>
+          <tr><td><strong>이럴 때 쓴다</strong></td><td>초안→검토→수정</td><td>다수결 투표, 관점 다각화</td><td>상담 챗봇, 도구 선택, 모델 등급 분기</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 판단 기준은 질문 두 개면 끝납니다</strong>
+      <p><strong>Q1. 작업자들이 서로의 결과물을 봐야 하는가?</strong><br />
+      → 그렇다면 <strong>Chaining</strong> (줄 세우기)</p>
+      <p><strong>Q2. (안 봐도 된다면) 작업자를 전부 써야 하는가?</strong><br />
+      → 전부 필요하면 <strong>Parallelization</strong> (펼치기)<br />
+      → 그중 골라야 하면 <strong>Routing</strong> (갈림길)</p>
+      <p>실무 그래프는 이 셋을 <strong>구간마다 섞어서</strong> 씁니다.
+      예를 들어 <strong>①라우팅으로 담당 결정 → ②그 담당이 자료를 병렬 수집 → ③초안·검수 체인</strong>처럼요.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 전체 코드 ══════════════ -->
+    <h2 id="full-code">전체 코드 한눈에 보기</h2>
+
+<pre class="code-block"><code># ══ STEP 1. Model ═════════════════════════════════════
+from langchain.chat_models import init_chat_model
+from langgraph.graph import StateGraph, START, END
+
+model = init_chat_model("gpt-5-nano")
+
+# ══ STEP 2. State ═════════════════════════════════════
+from typing import TypedDict
+
+class SupportState(TypedDict):
+    query: str          # 고객 질문
+    category: str       # 라우터가 분류한 카테고리
+    response: str       # 전문가의 답변
+
+# ══ 라우터의 답을 4개로 못 박는 스키마 ═══════════════════
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class RouteDecision(BaseModel):
+    category: Literal['billing', 'technical', 'shipping', 'general'] = Field(
+        description='고객 문의 내용을 분석하여 적절한 부서를 선택하세요'
+    )
+
+router_llm = model.with_structured_output(RouteDecision)   # ★ 이 한 줄이 라우팅의 안전벨트
+
+# ══ STEP 3. Node ══════════════════════════════════════
+# [Manager] 분류만 하고 답변은 하지 않는 노드
+def router_node(state: SupportState):
+    query = state["query"]
+    print(f"\n--- [Router] 문의 분석 중: '{query}' ---")
+    decision = router_llm.invoke(query)        # ★ 반환 타입은 AIMessage가 아니라 RouteDecision
+    print(f"   -&gt; 분류 결과: {decision.category.upper()} 부서로 연결합니다.")
+    return {"category": decision.category}     # ★ 점(.)으로 접근
+
+# [Expert A~D] 페르소나만 다르고 구조는 동일
+def billing_expert(state: SupportState):
+    print("--- [Billing Expert] 결제 전문가가 답변 작성 중 ---")
+    prompt = f"당신은 결제 및 환불 전문가입니다. 다음 문의에 대해 정중하게 답변하세요: {state['query']}"
+    msg = model.invoke(prompt)
+    return {"response": msg.content}
+
+def technical_expert(state: SupportState):
+    print("--- [Tech Expert] 기술 지원 엔지니어가 분석 중 ---")
+    prompt = f"당신은 IT 엔지니어입니다. 다음 기술 문제에 대해 해결책을 제시하세요: {state['query']}"
+    msg = model.invoke(prompt)
+    return {"response": msg.content}
+
+def shipping_expert(state: SupportState):
+    print("--- [Shipping Expert] 물류 담당자가 배송 조회 중 ---")
+    prompt = f"당신은 배송 관리자입니다. 다음 배송 문의에 대해 답변하세요: {state['query']}"
+    msg = model.invoke(prompt)
+    return {"response": msg.content}
+
+def general_expert(state: SupportState):
+    print("--- [General] 일반 상담원이 답변 중 ---")
+    msg = model.invoke(f"다음 문의에 친절하게 답변하세요: {state['query']}")
+    return {"response": msg.content}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+workflow = StateGraph(SupportState)
+
+workflow.add_node("router_node", router_node)
+workflow.add_node("billing_expert", billing_expert)
+workflow.add_node("technical_expert", technical_expert)
+workflow.add_node("shipping_expert", shipping_expert)
+workflow.add_node("general_expert", general_expert)
+
+workflow.add_edge(START, "router_node")        # 실선 — 무조건 라우터부터
+
+# 조건부 함수: State를 읽고 '갈 노드의 이름'을 문자열로 반환
+def route_to_expert(state: SupportState):
+    category = state['category']
+    if category == 'billing':
+        return 'billing_expert'
+    elif category == 'technical':
+        return 'technical_expert'
+    elif category == 'shipping':
+        return 'shipping_expert'
+    else:                                      # ★ 안전망
+        return 'general_expert'
+
+# 점선 — 넷 중 하나로만 간다
+workflow.add_conditional_edges(
+    'router_node',
+    route_to_expert,
+    ['billing_expert', 'technical_expert', 'shipping_expert', 'general_expert']
+)
+
+# 실선 — 누가 일했든 끝나면 END
+workflow.add_edge('billing_expert', END)
+workflow.add_edge('technical_expert', END)
+workflow.add_edge('shipping_expert', END)
+workflow.add_edge('general_expert', END)
+
+app = workflow.compile()
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+app.invoke({"query": "지난달 요금이 두 번 빠져나갔어요. 확인해주세요."})   # → billing
+app.invoke({"query": "API 연결할 때 404 에러가 자꾸 떠요."})              # → technical
+app.invoke({"query": "주문한 노트북 언제 도착하나요?"})                    # → shipping</code></pre>
+
+    <hr />
+
+    <!-- ══════════════ 함정 ══════════════ -->
+    <h2 id="pitfalls">자주 걸리는 함정 6가지</h2>
+
+    <div class="info-card">
+      <div class="info-card-title">🕳️ 라우팅에서 실제로 밟게 되는 지뢰</div>
+
+      <h4>1. 라우터를 그냥 <code>model</code>로 호출한다</h4>
+      <p>
+        <code>router_llm</code>이 아니라 <code>model.invoke(query)</code>를 쓰면
+        <strong>줄글 답변</strong>이 나옵니다. 그러면 조건문이 전부 빗나가서
+        <strong>에러 없이 조용히 <code>general_expert</code>로만</strong> 흘러갑니다.
+        <strong>"분류가 다 general로 나온다"면 제일 먼저 이 줄을 의심하세요.</strong>
+      </p>
+
+      <h4>2. <code>decision.content</code>라고 쓴다</h4>
+      <p>
+        <code>router_llm.invoke()</code>는 <code>AIMessage</code>가 아니라
+        <strong><code>RouteDecision</code> 객체</strong>를 반환합니다. <code>.content</code>는 존재하지 않습니다.
+        <strong><code>decision.category</code></strong>가 맞습니다.
+        <strong>State는 대괄호(<code>state["query"]</code>), 스키마 객체는 점(<code>decision.category</code>)</strong>으로 기억하세요.
+      </p>
+
+      <h4>3. 조건부 함수의 반환값과 노드 이름이 어긋난다</h4>
+      <p>
+        <code>add_node("billing_expert", ...)</code>로 등록해놓고 조건부 함수가
+        <code>return 'billing'</code>을 하면 <strong>"그런 노드 없다"</strong>는 에러가 납니다.
+        <strong>등록한 이름과 반환값을 똑같이 맞추는 게 가장 안전합니다.</strong>
+      </p>
+
+      <h4>4. 조건부 함수를 <code>add_node</code>로 등록한다</h4>
+      <p>
+        <code>route_to_expert</code>는 <strong>노드가 아닙니다.</strong>
+        노드는 <strong>딕셔너리를 반환해 State를 바꾸고</strong>, 조건부 함수는 <strong>문자열을 반환해 길을 정합니다.</strong>
+        등록하면 문자열을 State로 병합하려다 <strong>엉뚱한 에러</strong>가 납니다.
+      </p>
+
+      <h4>5. 전문가 → END 엣지를 빠뜨린다</h4>
+      <p>
+        네 개를 복사하다 보면 <strong>하나를 빼먹기 쉽습니다.</strong>
+        그러면 <strong>평소엔 멀쩡하다가 그 부서로 분류된 문의에서만</strong> 그래프가 이상하게 끝나죠.
+        <strong>가장 재현하기 어려운 종류의 버그</strong>입니다.
+        <strong>컴파일 후 그래프 그림에서 END로 들어오는 화살표 개수를 세어보세요.</strong>
+      </p>
+
+      <h4>6. <code>description</code>을 대충 쓰고 모델 탓을 한다</h4>
+      <p>
+        분류가 자꾸 틀린다면 <strong>모델이 아니라 <code>Field(description=...)</code>부터</strong> 보세요.
+        이 문장이 <strong>라우터의 유일한 판단 기준</strong>입니다.
+        <strong>카테고리별 예시를 한 줄씩 추가하는 것만으로</strong> 정확도가 눈에 띄게 올라갑니다.
+      </p>
+
+      <div class="callout callout-info" style="margin-bottom:0">
+        <strong>💡 디버깅 요령 — 라우팅만 따로 떼어 테스트하세요</strong>
+        <p>그래프 전체를 돌리면 <strong>전문가 답변 생성까지 기다려야</strong> 해서 확인이 느립니다.</p>
+        <p><code>router_llm.invoke("어떤 문의")</code>만 <strong>단독으로 여러 번 호출</strong>해 보세요.
+        분류가 안정적인지 <strong>몇 초 만에</strong> 확인할 수 있습니다.
+        <strong>라우팅 그래프의 품질은 사실상 이 한 줄이 결정합니다.</strong></p>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 정리 ══════════════ -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심 한 문장</strong>
+      <p>라우터가 반환할 값을 <strong>미리 약속된 몇 개로 제한</strong>해야
+      조건부 함수가 <strong>그 약속에 따라 안정적으로 분기</strong>할 수 있다 —
+      그 제한을 거는 문법이 <strong><code>with_structured_output</code></strong>이다.</p>
+    </div>
+
+    <ul>
+      <li><strong>Routing이란</strong> — 앞에 선 <strong>라우터 노드</strong>가 일감을 보고
+      <strong>아래 전문가 중 누구에게 줄지</strong>만 결정하는 구조. 나머지 노드는 <strong>실행되지 않는다.</strong></li>
+
+      <li><strong>병렬과의 결정적 차이는 선의 종류</strong> —
+      <strong>실선(<code>add_edge</code>) = 전원 실행</strong>,
+      <strong>점선(<code>add_conditional_edges</code>) = 골라서 실행</strong>.
+      그림만 봐도 어떤 문법인지 읽힌다.</li>
+
+      <li><strong>쓰는 신호 3가지</strong> —
+        <ul>
+          <li><strong>①전문화</strong> — 노드마다 페르소나를 심는다 (환불 / 기술 / 배송 / 일반)</li>
+          <li><strong>②도구 선택</strong> — 노드마다 붙은 도구가 다르다 (검색 API / 캘린더 / RAG)</li>
+          <li><strong>③비용 절감</strong> — 노드마다 모델 등급을 다르게 (gpt-5 / mini / nano)</li>
+        </ul>
+      </li>
+
+      <li><strong>State는 세 칸</strong> — <code>query</code>(입력) · <code>category</code>(라우터의 결정) · <code>response</code>(전문가의 답).
+      <strong><code>query</code>는 라우터와 전문가가 두 번 읽고</strong>,
+      <code>response</code>는 <strong>네 노드가 공유하지만 동시에 쓰지 않아</strong> 리듀서가 필요 없다.</li>
+
+      <li><strong>이 장의 심장 — <code>Literal</code> + <code>with_structured_output</code></strong>
+        <ul>
+          <li>그냥 물어보면 모델은 <strong>매번 다른 모양의 문장</strong>으로 답한다 → 조건문이 전부 빗나간다</li>
+          <li><code>Literal['billing', 'technical', 'shipping', 'general']</code>로 <strong>선택지를 못 박고</strong></li>
+          <li><code>Field(description=...)</code>에 <strong>판단 기준</strong>을 적어주고</li>
+          <li><code>model.with_structured_output(스키마)</code>로 <strong>답안지를 물린 모델</strong>을 만든다</li>
+          <li>반환값은 <code>AIMessage</code>가 아니므로 <strong><code>.content</code>가 아니라 <code>.category</code></strong></li>
+        </ul>
+      </li>
+
+      <li><strong>조건부 함수는 노드가 아니다</strong> —
+      <strong>딕셔너리가 아니라 문자열(갈 노드의 이름)</strong>을 반환한다.
+      <strong>반환값을 등록한 노드 이름과 똑같이 맞추면</strong> <code>add_conditional_edges</code>에 <strong>리스트만 넘기면 된다.</strong>
+      그리고 <strong>마지막은 항상 <code>else</code>로 기본 경로</strong>를 둔다.</li>
+
+      <li><strong>LLM 라우터는 키워드가 아니라 문맥을 읽는다</strong> —
+      <em>"지난달 요금이 두 번 빠져나갔어요"</em>에 '결제'라는 단어가 없어도 <code>billing</code>으로,
+      <em>"주문한 노트북 언제 도착하나요"</em>는 '노트북'이 IT 제품이어도 <code>shipping</code>으로 간다.
+      <strong>Rule-based로는 불가능한 판단</strong>이다.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 마지막으로 — 이 장을 한 장면으로 기억한다면</strong>
+      <p><strong>민원실 접수 창구</strong>를 떠올리세요. 접수 담당자는 민원을 <strong>처리하지 않습니다.</strong>
+      읽고, <strong>[담당 부서] 칸에 도장을 찍고</strong>, 넘길 뿐이죠.</p>
+      <p>그런데 이 도장이 <strong>"결제팀"</strong>, <strong>"청구 부서"</strong>, <strong>"아마 결제 쪽일 듯"</strong>처럼
+      매번 다르게 찍히면 <strong>뒤에서 서류를 분류하는 사람이 일을 못 합니다.</strong></p>
+      <p>그래서 도장은 <strong>네 개만 만들어 두고 그중 하나를 찍게</strong> 합니다.
+      <strong>그 도장통이 바로 <code>Literal</code>이고, 도장통을 손에 쥐여주는 행위가 <code>with_structured_output</code></strong>입니다.</p>
+    </div>
+
+    <!-- ══════════════ 다음 예고 ══════════════ -->
+    <h2 id="next">다음 예고 — 응용 아키텍처 패턴</h2>
+
+    <p>
+      이것으로 <strong>기초 아키텍처 패턴 세 가지(Prompt Chaining · Parallelization · Routing)</strong>가 모두 끝났습니다.
+      다음은 이 부품들을 조합한 <strong>응용 패턴 두 가지</strong>입니다.
+    </p>
+
+    <figure>
+      <img src="../images/03.%20LangGraph%20응용/22.png" alt="다양한 아키텍처 패턴 슬라이드 — 위: Orchestrator가 여러 워커에 분배하고 Synthesizer가 종합하는 Orchestrator-Worker 도식. 아래: Generator에서 Evaluator로 가고 Rejected면 다시 Generator로 되돌아가는 루프인 Evaluator-Optimizer 도식" />
+      <figcaption>다음 문서에서 만들 두 패턴. 위가 <strong>Orchestrator-Worker</strong>, 아래가 <strong>Evaluator-Optimizer</strong>입니다.
+      <strong>Rejected 화살표가 뒤로 돌아가는 것</strong>에 주목하세요 — 지금까지 만든 그래프에는 없던 모양입니다.</figcaption>
+    </figure>
+
+    <div class="callout callout-warn">
+      <strong>지금까지와 무엇이 달라지나</strong>
+      <p><strong>Evaluator-Optimizer</strong> — 평가자가 <strong>"퇴짜"</strong>를 놓으면 생성자로 <strong>되돌아가는 루프</strong>입니다.
+      지금까지의 그래프는 전부 <strong>앞으로만 흘렀지만</strong>, 처음으로 <strong>뒤로 가는 화살표</strong>가 등장합니다.</p>
+      <p><strong>Orchestrator-Worker</strong> — 지휘자가 <strong>일을 몇 조각으로 쪼갤지 실행 중에 정하고</strong>
+      그 개수만큼 워커를 만들어 뿌립니다.
+      <strong>오늘까지가 "미리 그려둔 도면대로 흐르는 구조"였다면, 다음은 "도면을 실행 중에 그리는 구조"</strong>입니다.</p>
+    </div>
+
+    <div class="pager">
+      <a href="1-1.html">
+        <small>← 이전</small>
+        3-1. 기초 아키텍처 패턴 — Prompt Chaining · Parallelization
+      </a>
+      <span class="disabled">
+        <small>다음 →</small>
+        3-3. 응용 아키텍처 패턴 — Evaluator-Optimizer · Orchestrator-Worker
+      </span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 자체 포함 Python 문법 강조기 (외부 라이브러리·인터넷 불필요) ── -->
+<script>
+(function () {
+  var KEYWORDS = {'from':1,'import':1,'as':1,'def':1,'return':1,'class':1,'if':1,'elif':1,'else':1,'for':1,'while':1,'in':1,'not':1,'and':1,'or':1,'is':1,'with':1,'lambda':1,'pass':1,'break':1,'continue':1,'try':1,'except':1,'finally':1,'raise':1,'yield':1,'global':1,'nonlocal':1,'assert':1,'del':1,'async':1,'await':1,'None':1,'True':1,'False':1};
+  var BUILTINS = {'print':1,'len':1,'range':1,'int':1,'float':1,'str':1,'list':1,'dict':1,'set':1,'tuple':1,'bool':1,'self':1,'super':1,'isinstance':1,'enumerate':1,'zip':1,'map':1,'filter':1,'open':1,'type':1};
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function span(cls, s){ return '<span class="'+cls+'">'+esc(s)+'</span>'; }
+  function highlight(src){
+    var out='', i=0, n=src.length, expectName=false, m;
+    while(i<n){
+      var ch=src[i], rest=src.slice(i);
+      if(ch==='#'){ m=rest.match(/^#[^\n]*/); out+=span('tok-com',m[0]); i+=m[0].length; continue; }              // 주석
+      if((m=rest.match(/^("""[\s\S]*?"""|'''[\s\S]*?''')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 삼중따옴표 문자열
+      if((m=rest.match(/^("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 일반 문자열
+      if(ch==='!' && (i===0 || src[i-1]==='\n')){ m=rest.match(/^![^\n]*/); out+=span('tok-shell',m[0]); i+=m[0].length; continue; } // 셸 명령
+      if((m=rest.match(/^@[A-Za-z_]\w*/))){ out+=span('tok-dec',m[0]); i+=m[0].length; continue; }                 // 데코레이터
+      if((m=rest.match(/^\d[\d_]*\.?\d*/))){ out+=span('tok-num',m[0]); i+=m[0].length; continue; }                // 숫자
+      if((m=rest.match(/^[A-Za-z_]\w*/))){                                                                         // 식별자
+        var w=m[0];
+        if(expectName){ out+=span('tok-fn',w); expectName=false; }
+        else if(KEYWORDS[w]){ out+=span('tok-kw',w); if(w==='def'||w==='class') expectName=true; }
+        else if(BUILTINS[w]){ out+=span('tok-bi',w); }
+        else { out+=esc(w); }
+        i+=w.length; continue;
+      }
+      out+=esc(ch); i++;                                                                                           // 그 외 문자
+    }
+    return out;
+  }
+  function run(){
+    var blocks=document.querySelectorAll('pre.code-block > code');
+    for(var k=0;k<blocks.length;k++){ blocks[k].innerHTML=highlight(blocks[k].textContent); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+</script>
+
+</body>
+</html>
