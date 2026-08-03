@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 0 · 프로젝트 셋업 &amp; 준비물 — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html" class="current">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 0</p>
+
+<section class="step new-step" id="step0">
+      <div class="step-head">
+        <div class="step-num">0</div>
+        <h2>프로젝트 셋업 &amp; 준비물</h2>
+        <span class="badge badge-yellow">신규(환경)</span> <span class="badge badge-gray">⏱ 30분</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>독립 실행되는 프로젝트 폴더와 가상환경, 필요한 키를 준비해 "빈 캔버스"를 만든다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>학습은 노트북에서 했지만, <strong>서비스는 재실행 가능한 스크립트/모듈</strong>이어야 합니다. 그래서 노트북이 아니라 <code>.py</code> 파일로 구조를 잡습니다.</p>
+
+      <div class="label">🛠 할 일</div>
+      <p>1) <code>langchain-project</code> 안에 작업 폴더를 만들고 <code>uv</code>로 환경을 초기화합니다. (학습 때 쓴 <code>uv</code> 그대로)</p>
+      <div class="filename">터미널</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project
+mkdir p1-rag-service &amp;&amp; cd p1-rag-service
+
+uv init .
+uv add langchain langchain-openai langchain-chroma langchain-community \
+       langchain-text-splitters langchain-classic pymupdf python-dotenv
+# 하이브리드·리랭커 (STEP 3~4)
+uv add rank-bm25 sentence-transformers
+# 서빙·관측·평가 (STEP 5~7에서 사용)
+uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas</code></pre>
+
+      <p>2) 폴더 구조를 아래처럼 잡아 둡니다(파일은 STEP마다 채웁니다).</p>
+<pre><code>p1-rag-service/
+├── data/                # 여기에 PDF를 넣습니다 (3~10개)
+├── cache/               # 임베딩 캐시 (자동 생성)
+├── chroma_db/           # 벡터DB 저장소 (자동 생성)
+├── ingest.py            # STEP 1
+├── rag.py               # STEP 2, 3, 4, 6
+├── main.py              # STEP 5
+├── eval_data.json       # STEP 7 (골든셋)
+├── evaluate.py          # STEP 7
+├── .env
+└── README.md            # STEP 9</code></pre>
+
+      <p>3) <code>.env</code>를 만듭니다. (OpenAI 키는 학습 때 쓰던 것 재사용, Langfuse는 STEP 6에서 발급)</p>
+      <div class="filename">.env</div>
+<pre><code>OPENAI_API_KEY=sk-...
+# STEP 6에서 채웁니다
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com</code></pre>
+
+      <p>4) <code>data/</code>에 PDF 몇 개를 넣습니다(도메인 선택 참고).</p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        <code>uv run python -c "import langchain, fastapi, langfuse, ragas; print('ok')"</code> 가 <code>ok</code>를 출력하고,
+        <code>data/</code>에 PDF가 1개 이상 있으면 통과.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>노트북 → 재현 가능한 프로젝트로의 전환. 의존성·환경·비밀키 관리(모든 실무 프로젝트의 0단계).</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./index.html"><small>← 이전</small> 개요 · 완성 정의</a>
+      <a class="next" href="./1.html"><small>다음 →</small> STEP 1 · 인제스천</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

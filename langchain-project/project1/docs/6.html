@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 6 · Langfuse로 관측성 붙이기 — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html" class="current">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 6</p>
+
+<section class="step new-step" id="step6">
+      <div class="step-head">
+        <div class="step-num">6</div>
+        <h2>Langfuse로 관측성 붙이기</h2>
+        <span class="badge badge-yellow">서비스화 층(얇음)</span> <span class="badge badge-gray">⏱ 1~2시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>모든 질의의 <strong>검색·생성·토큰·비용·지연</strong>을 Langfuse 대시보드에서 눈으로 본다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        RAG가 틀린 답을 하면 <strong>"검색이 잘못됐나, 생성이 잘못됐나"</strong>를 알아야 고칩니다.
+        관측성(Observability)은 그 판단 근거입니다. Langfuse는 LangChain 콜백 한 줄로 실행을 <strong>trace(추적 트리)</strong>로 남깁니다.
+        카카오가 공고에 <strong>이름을 명시</strong>한 도구예요.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <p>1) <a href="https://cloud.langfuse.com">cloud.langfuse.com</a>에서 무료 프로젝트를 만들고 키 2개를 <code>.env</code>에 채웁니다(STEP 0의 빈칸).</p>
+      <p>2) <code>rag.py</code>에 콜백 핸들러를 추가하고, 검색·생성 호출에 전달합니다.</p>
+      <div class="filename">rag.py (수정)</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 6 · 관측성(Langfuse): 모든 질의의 검색·생성·토큰·비용·지연을 대시보드로 추적한다.
+# 방법은 간단 — LangChain 호출에 '콜백 핸들러'를 config로 넘기면 실행이 trace(추적 트리)로 남는다.
+# 사전 준비: .env의 LANGFUSE_PUBLIC_KEY·SECRET_KEY를 채워둘 것(STEP 0의 빈칸).
+# ═══════════════════════════════════════════════════════════════════
+from langfuse.langchain import CallbackHandler   # langfuse v3~v4: 콜백은 langfuse.langchain 에 있음
+# (v2를 쓰면: from langfuse.callback import CallbackHandler)
+
+langfuse_handler = CallbackHandler()             # Langfuse로 로그를 보내는 콜백(키는 .env에서 자동으로 읽음)
+
+def answer(question: str, mode: str = "rerank"):
+    cfg = {"callbacks": [langfuse_handler]}       # 이 config를 붙인 호출만 Langfuse에 기록된다
+    docs = get_retriever(mode).invoke(question, config=cfg)  # 검색도 config 전달 → trace에 'retriever' 노드로 남음
+    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+    resp = llm.invoke(msg, config=cfg)            # 생성도 config 전달 → 'LLM' 노드 + 토큰·지연 기록
+    return {
+        "answer": resp.content,
+        "citations": [{"source": d.metadata.get("source"), "page": d.metadata.get("page")} for d in docs],
+        "contexts": [d.page_content for d in docs],
+    }</code></pre>
+
+      <div class="callout callout-warn">
+        <strong>💡 팁</strong> <code>CallbackHandler</code> import 경로는 langfuse 버전에 민감합니다. 설치된 버전은 <code>uv run python -c "import langfuse; print(langfuse.__version__)"</code>로 확인하고, v3면 <code>langfuse.langchain</code>, v2면 <code>langfuse.callback</code>을 쓰세요.
+      </div>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        <code>/query</code>를 몇 번 호출한 뒤 Langfuse 대시보드 <strong>Traces</strong>에서 각 요청이
+        <strong>retriever → LLM</strong> 트리로 보이고 <strong>토큰·지연</strong>이 찍히면 통과.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>LLM 앱의 관측성 — 실무에서 "왜 이 답이 나왔는지"를 사후 추적하는 능력. 비용·지연 모니터링의 출발점.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./5.html"><small>← 이전</small> STEP 5 · FastAPI 서빙</a>
+      <a class="next" href="./7.html"><small>다음 →</small> STEP 7 · RAGAS 평가</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

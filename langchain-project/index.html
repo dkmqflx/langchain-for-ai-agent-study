@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LangGraph 학습 전 실무 프로젝트 3선 — 토스 · 카카오헬스케어 AI Engineer 대비</title>
+  <title>LangGraph 학습 전 실무 프로젝트 3선 — 토스플레이스 · 토스 · 카카오헬스케어 AI Engineer 대비</title>
   <style>
     :root {
       --bg: #f8f9fa;
@@ -243,8 +243,9 @@
     </div>
     <div class="nav-section">
       <div class="nav-title">지원 공고</div>
-      <a href="../recruitment/toss.md">토스 AI Engineer (Platform)</a>
-      <a href="../recruitment/kakao-healthcare.md">카카오헬스케어 AI</a>
+      <a href="../recruitment/toss-server.md">토스플레이스 Server (AI Platform) — 1순위</a>
+      <a href="../recruitment/toss.md">토스 AI Engineer (Platform) — 2순위</a>
+      <a href="../recruitment/kakao-healthcare.md">카카오헬스케어 AI — 3순위</a>
     </div>
   </nav>
 
@@ -252,7 +253,7 @@
 
     <h1 id="goal">LangGraph 학습 전, 실무 프로젝트 3선</h1>
     <p class="doc-meta">
-      목표: <strong>AI Engineer</strong> &nbsp;·&nbsp; 타깃: 토스 · 카카오헬스케어
+      목표: <strong>AI Engineer</strong> &nbsp;·&nbsp; 타깃: <strong>토스플레이스(1순위)</strong> · 토스 · 카카오헬스케어
       &nbsp;·&nbsp; 스택: <span class="badge badge-yellow">FastAPI</span> <span class="badge badge-yellow">Langfuse</span> <span class="badge badge-yellow">RAGAS</span>
       &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢</span> → <span class="badge badge-yellow">🟡</span> → <span class="badge badge-red">🔴</span>
     </p>
@@ -274,8 +275,9 @@
 
     <h2 id="why">왜 이 3개인가 — 공고 요구 → 학습 갭 → 프로젝트</h2>
 
-    <p>두 공고를 한 줄로 요약하면 이렇습니다.</p>
+    <p>세 공고를 한 줄로 요약하면 이렇습니다.</p>
     <ul>
+      <li><strong>토스플레이스 Server Developer (AI Platform) — 1순위</strong> — Model Router · MCP Gateway · RAG · Long-term Memory를 <strong>0에서부터 플랫폼으로</strong> 구축하는 신설 팀. SaaS + 셀프호스팅(vLLM) 모델을 함께 서빙·라우팅. (토스 AI Platform과 요구가 거의 같고, <strong>게이트웨이/서버 구축</strong> 비중이 더 큼 — 이 서사는 LangGraph 이후의 <a href="#next">Gateway 승격</a> 단계가 정면 대응)</li>
       <li><strong>토스 AI Platform</strong> — RAG · Agent를 <strong>재사용 가능한 플랫폼</strong>으로 만들고, <strong>정량 평가</strong>하고, <strong>실험→서빙→운영</strong>하는 팀. (Multi-LLM Provider 운영, ML 시스템 설계 면접)</li>
       <li><strong>카카오헬스케어 AI</strong> — 의료 도메인에서 <strong>RAG 정확도 · Multi-Agent · Workflow Orchestration</strong>을 제품화하는 팀. (LangChain/LangGraph, Tool Calling, <strong>Langfuse 추적</strong>, 프롬프트/평가 명시)</li>
     </ul>
@@ -283,7 +285,7 @@
     <p>두 공고가 겹치는 요구를 축으로 정리하면:</p>
     <table>
       <thead>
-        <tr><th style="width:16%">공통 축</th><th style="width:34%">토스 요구</th><th style="width:34%">카카오헬스케어 요구</th><th style="width:16%">담는 프로젝트</th></tr>
+        <tr><th style="width:16%">공통 축</th><th style="width:34%">토스 · 토스플레이스 요구</th><th style="width:34%">카카오헬스케어 요구</th><th style="width:16%">담는 프로젝트</th></tr>
       </thead>
       <tbody>
         <tr><td><strong>RAG</strong></td><td>Retrieval·Generation·Vector Search를 재사용 컴포넌트로</td><td>의료 정보 검색 <strong>정확도</strong> RAG 파이프라인 구축·고도화</td><td><span class="badge badge-blue">P1</span></td></tr>
@@ -291,8 +293,9 @@
         <tr><td><strong>정량 평가</strong></td><td><strong>Agent 성능을 정량 평가하는 기반을 플랫폼으로 제공</strong></td><td>평가 체계 구축, 프롬프트 개선, 반복 개선</td><td><span class="badge badge-red">P3</span> (+P1·P2)</td></tr>
         <tr><td><strong>관측성</strong></td><td>실험→서빙→<strong>운영</strong> 흐름 도구화</td><td>실행 <strong>추적·로깅</strong> (Langfuse 명시)</td><td><span class="badge badge-red">P3</span> (+P1·P2)</td></tr>
         <tr><td><strong>서빙</strong></td><td>서비스에서 안정적으로 작동하는 서빙</td><td>실제 서비스에 탑재 가능한 형태로 개발</td><td>P1·P2</td></tr>
-        <tr><td><strong>Multi-LLM</strong></td><td>OpenAI·Anthropic·GCP·vLLM 선택·운영</td><td>LLM API 이해</td><td><span class="badge badge-purple">P2</span></td></tr>
+        <tr><td><strong>Multi-LLM</strong></td><td>OpenAI·Anthropic·GCP·vLLM 선택·운영 — <strong>Model Router</strong>(토스플레이스 핵심)의 출발점</td><td>LLM API 이해</td><td><span class="badge badge-purple">P2</span></td></tr>
         <tr><td><strong>Multi-Agent</strong></td><td>정형화되지 않은 요소 구조화·확장</td><td><strong>Multi-Agent 구조 설계, Workflow Orchestration</strong></td><td><span class="badge badge-gray">LangGraph 단계 →</span></td></tr>
+        <tr><td><strong>Gateway</strong></td><td><strong>Model Router · MCP Gateway 구축</strong> (토스플레이스 1순위 핵심)</td><td>—</td><td><span class="badge badge-gray">LangGraph 이후 →</span></td></tr>
       </tbody>
     </table>
 
@@ -362,6 +365,13 @@
           <p>Multi-Agent 오케스트레이터를 LangGraph의 첫 프로젝트로. P1·P2는 노드로, P3는 품질 게이트로 그대로 재사용.</p>
         </div>
       </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num gg">▶▶</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="#next">그 후 — LLM Gateway / Model Router 승격</a><span class="rm-tag">토스플레이스 1순위 직격</span>
+          <p>P2의 Multi-LLM 추상화를 독립 게이트웨이 서버로 승격: SaaS + 셀프호스팅(Ollama/vLLM) 라우팅 · fallback · 비용 로깅 · MCP Gateway. P1~P3와 LangGraph 프로젝트가 이 게이트웨이의 첫 사용자(consumer)가 된다.</p>
+        </div>
+      </div>
     </div>
 
     <hr />
@@ -379,7 +389,7 @@
       <div class="callout callout-info" style="margin-top:10px">
         <strong>📋 단계별 실행 가이드</strong>
         STEP 0 → STEP 9를 순서대로 따라가면 프로젝트도 학습도 완성됩니다 →
-        <a href="./project1.html"><strong>project1.html 열기</strong></a>
+        <a href="./project1/docs/index.html"><strong>Project 1 단계별 가이드 열기</strong></a>
       </div>
 
       <h3>🎯 목표</h3>
@@ -463,7 +473,7 @@
         <li>Agent 코어: 이미 배운 <strong>Tool + Memory + Guardrails + Structured Output</strong> 조립 <span class="badge badge-gray">이미 학습</span></li>
         <li>실용 도구 2~4개: 웹 검색 · 계산 · 날짜 · <strong>사내 문서 검색 = P1 재사용</strong></li>
         <li><code>POST /chat</code> — 세션 메모리 유지(멀티턴), 가능하면 SSE 스트리밍</li>
-        <li>Multi-LLM Provider 추상화: 환경설정으로 OpenAI/Anthropic 교체</li>
+        <li>Multi-LLM Provider 추상화: 환경설정으로 OpenAI/Anthropic 교체 — <strong>토스플레이스 Model Router의 축소판</strong>(뒤에서 Gateway로 승격하는 씨앗)</li>
         <li>Langfuse 트레이싱: Tool 호출별 span, 토큰/비용, Guardrail 차단 로그</li>
         <li>프롬프트 평가 하네스: 케이스 10~20개에 대해 프롬프트 A vs B를 <strong>LLM-as-judge</strong>로 채점</li>
       </ul>
@@ -614,6 +624,15 @@
       P3의 평가 하네스로 <strong>품질을 측정</strong>하세요. 만드는 즉시 "측정까지" 되는 구조라 실무에서 바로 통하는 포트폴리오가 됩니다.
     </div>
 
+    <div class="callout callout-info">
+      <strong>▶▶ 그 이후 — Gateway 승격 (토스플레이스 1순위 직격)</strong>
+      LangGraph 단계까지 끝나면, P2의 Multi-LLM 추상화를 <strong>독립 LLM Gateway 서버</strong>로 승격하세요:
+      OpenAI 호환 API 하나로 SaaS + 셀프호스팅(Ollama/vLLM) 모델을 라우팅하고, fallback · 비용 로깅 · MCP Gateway를 얹습니다.
+      토스플레이스 공고의 <strong>Model Router · MCP Gateway · "SaaS &amp; Self-hosted LLM 연동"</strong>에 정면 대응하며,
+      P1~P3와 LangGraph 프로젝트가 이 게이트웨이의 실제 사용자(consumer)가 되어 "플랫폼을 만들어 다른 프로젝트가 소비했다"는 서사가 완성됩니다.
+      랭체인/랭그래프가 아닌 <strong>서버 엔지니어링</strong> 성격이라 순서상 마지막이 맞습니다.
+    </div>
+
     <h2 id="resume">이력서·면접용 서술 팁</h2>
     <div class="callout callout-analogy">
       <strong>📝 토스 이력서 가이드 반영</strong>
@@ -625,6 +644,7 @@
       <li><strong>실험 과정을 Git에 남겨라</strong> — baseline → 개선 커밋 히스토리 자체가 "실험→개선을 해봤다"의 증거입니다.</li>
       <li><strong>각 프로젝트에 README</strong> — 문제 정의 · 아키텍처 다이어그램 · 지표 표 · 배운 점(특히 P3 회고).</li>
       <li><strong>도메인 한 줄</strong> — 카카오 지원 시 P1을 의료 문서셋으로 돌려 "의료 정보 검색 정확도" 서사를 만드세요.</li>
+      <li><strong>토스플레이스 1순위 서사</strong> — P2의 Multi-LLM 스위칭 → Gateway 승격 로드맵을 "Model Router를 축소판부터 단계적으로 키웠다"로 서술하세요. 공고가 요구하는 "제약 속 판단"의 재료가 됩니다.</li>
     </ul>
 
     <div class="pager">

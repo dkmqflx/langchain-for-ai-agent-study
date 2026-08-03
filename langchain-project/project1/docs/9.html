@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 9 · 마무리 — README &amp; 포트폴리오화 — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html" class="current">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 9</p>
+
+<section class="step" id="step9">
+      <div class="step-head">
+        <div class="step-num">9</div>
+        <h2>마무리 — README &amp; 포트폴리오화</h2>
+        <span class="badge badge-green">완성</span> <span class="badge badge-gray">⏱ 2~3시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>남이 보고 이해할 수 있고, <strong>이력서에 바로 쓸</strong> 형태로 마감한다.</p>
+
+      <div class="label">🛠 할 일 — README 뼈대</div>
+      <div class="filename">README.md</div>
+<pre><code># P1 · RAG 문서 검색 서비스
+
+## 문제 정의
+- (어떤 도메인 문서에 대한 정확한 QA가 왜 필요한지)
+
+## 아키텍처
+- Load→Split→Embed→Store → mode 팩토리(baseline/hybrid/rerank) → 생성(+citation) → FastAPI
+- 관측: Langfuse / 평가: RAGAS
+
+## 결과 (정량)
+| 설정 | faithfulness | context_precision | context_recall |
+|---|---|---|---|
+| baseline | 0.xx | 0.xx | 0.xx |
+| + hybrid | 0.xx | 0.xx | 0.xx |
+| + hybrid + rerank | 0.xx | 0.xx | 0.xx |
+
+## 실행 방법
+1. uv sync
+2. data/ 에 PDF 넣기 → uv run python ingest.py
+3. uv run uvicorn main:app --reload
+
+## 배운 점 / 개선 아이디어
+- (검색 품질을 무엇으로, 얼마나 개선했는지 / 다음에 할 것)
+- 코퍼스만 교체하면 다른 도메인(의료·사내 문서 등)에 그대로 재사용 가능</code></pre>
+
+      <div class="callout callout-analogy">
+        <strong>📝 이력서 3문장 템플릿 (토스 가이드 반영: 목적→접근→정량결과)</strong>
+        <p style="margin-top:6px">
+          "<strong>목적</strong> — (내 도메인) 문서에 대한 정확한 근거 기반 QA가 필요했다.
+          <strong>접근</strong> — LangChain으로 검색기를 baseline→Hybrid→Reranker로 교체 가능하게 설계하고, FastAPI로 서빙, RAGAS로 세 구성을 정량 비교했다.
+          <strong>결과</strong> — context_recall 0.72 → 0.89, faithfulness 0.81 → 0.93으로 향상했고 Langfuse로 전 과정을 추적했다."
+        </p>
+      </div>
+
+      <div class="callout callout-result">
+        <strong>✅ 최종 검증 게이트 (= 완성 정의)</strong>
+        <a href="./index.html#dod">맨 위 Definition of Done</a>의 5개 항목에 모두 ✅. 그러면 Project 1은 완성이고, 아래 실무 감각이 손에 남습니다:
+        <strong>검색기 조립·교체 설계 · RAG 서빙 · 관측성 · 정량 평가</strong>.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>"만들었다"를 <strong>"측정하고 개선했고 설명할 수 있다"</strong>로. 이게 튜토리얼과 실무 포트폴리오의 결정적 차이입니다.</p>
+    </section>
+
+    <hr />
+
+    <div class="callout callout-info">
+      <strong>▶ 다음</strong>
+      Project 1에서 만든 RAG를, 다음 <a href="../../index.html#p2">P2 (Agent API 서비스)</a>에서 Agent의 <strong>Tool로 재사용</strong>합니다.
+      "검색 도구를 가진 비서"로 확장되면서 자연스럽게 이어져요.
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="./8.html"><small>← 이전</small> STEP 8 · 튜닝(선택)</a>
+      <a class="next" href="../../index.html#p2"><small>다음 프로젝트 →</small> P2 · Agent API 서비스</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

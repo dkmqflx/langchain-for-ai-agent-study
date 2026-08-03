@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 7 · 골든 평가셋 + RAGAS 세 구성 비교 — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html" class="current">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 7</p>
+
+<section class="step new-step" id="step7">
+      <div class="step-head">
+        <div class="step-num">7</div>
+        <h2>골든 평가셋 + RAGAS — 세 구성을 숫자로 비교</h2>
+        <span class="badge badge-yellow">서비스화 층 · 핵심</span> <span class="badge badge-gray">⏱ 반나절~1일</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        "hybrid·rerank로 좋아진 것 같다"를 <strong>숫자</strong>로 바꾼다.
+        같은 골든셋으로 <strong>baseline / hybrid / rerank 세 구성을 채점</strong>해 개선 스토리를 표로 완성한다 —
+        STEP 3에서 만든 mode 팩토리가 여기서 빛을 발합니다.
+      </p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        개선을 주장하려면 <strong>측정</strong>이 필요합니다. RAGAS의 대표 지표 4개:
+      </p>
+      <table>
+        <thead><tr><th>지표</th><th>무엇을 재나</th><th>낮으면 손볼 곳</th></tr></thead>
+        <tbody>
+          <tr><td><strong>faithfulness</strong></td><td>답이 검색 문맥에 충실한가(환각 여부)</td><td>생성 프롬프트(STEP 2)</td></tr>
+          <tr><td><strong>answer_relevancy</strong></td><td>답이 질문에 맞는가</td><td>생성/질문 이해(STEP 2)</td></tr>
+          <tr><td><strong>context_precision</strong></td><td>검색된 문맥이 군더더기 없이 관련 있나</td><td>검색 노이즈 → rerank의 top_n·후보 폭(STEP 4)</td></tr>
+          <tr><td><strong>context_recall</strong></td><td>정답 근거를 검색이 빠짐없이 가져왔나</td><td>검색 누락 → hybrid 가중치·k(STEP 3)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="label">🛠 할 일</div>
+      <p>1) 문서에서 답할 수 있는 질문–정답 쌍으로 <strong>골든셋</strong>을 만듭니다. 처음엔 5개로 시작해 <strong>20~50개</strong>까지 늘리세요.</p>
+      <div class="filename">eval_data.json</div>
+<pre><code>[
+  {"question": "질문 1?", "ground_truth": "문서 기준 정답 1"},
+  {"question": "질문 2?", "ground_truth": "문서 기준 정답 2"}
+]</code></pre>
+
+      <p>2) <code>answer()</code>를 골든셋 전체에 돌려 RAGAS로 채점합니다. <code>mode</code>를 인자로 받아 세 구성을 각각 채점합니다.</p>
+      <div class="filename">evaluate.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 7 · RAGAS 평가: '좋아진 것 같다'를 숫자로 바꾼다.
+# 골든셋(eval_data.json)에 answer(question, mode=...)를 돌려, 4개 지표로 채점한다:
+#   faithfulness(환각 여부) · answer_relevancy(질문 적합) · context_precision(문맥 정확) · context_recall(누락 없음)
+# 실행:  uv run python evaluate.py baseline   → eval_baseline.csv
+#       uv run python evaluate.py hybrid     → eval_hybrid.csv
+#       uv run python evaluate.py rerank     → eval_rerank.csv
+# 세 번 실행해 나온 지표를 한 표에 모으면 '개선 스토리'가 완성된다.
+# ═══════════════════════════════════════════════════════════════════
+import json, sys
+from datasets import Dataset                                   # RAGAS에 넣을 표(데이터셋) 형식
+from ragas import evaluate                                     # 채점 실행 함수
+from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall  # 지표 4종
+from ragas.llms import LangchainLLMWrapper                     # RAGAS가 LangChain LLM을 쓰게 감싸는 어댑터
+from ragas.embeddings import LangchainEmbeddingsWrapper        # RAGAS가 쓸 임베딩 어댑터
+from langchain.chat_models import init_chat_model
+from langchain_openai import OpenAIEmbeddings
+from rag import answer                                         # 평가 대상: 우리 RAG 파이프라인
+
+mode = sys.argv[1] if len(sys.argv) &gt; 1 else "baseline"     # 어떤 검색 구성(mode)을 채점할지
+rows = json.load(open("eval_data.json", encoding="utf-8"))     # 골든셋 로드: [{question, ground_truth}, ...]
+records = []
+for r in rows:                                                 # 질문마다 실제로 RAG를 돌려 채점용 행을 만든다
+    out = answer(r["question"], mode=mode)                     # STEP 3~4의 mode 팩토리가 여기서 쓰인다
+    records.append({
+        "question": r["question"],                             # 질문
+        "answer": out["answer"],                               # 우리 시스템이 낸 답
+        "contexts": out["contexts"],                           # 검색된 문맥(정확/누락 지표 계산에 필요)
+        "ground_truth": r["ground_truth"],                     # 사람이 만든 정답(기준)
+    })
+
+result = evaluate(                                             # 4개 지표로 일괄 채점
+    Dataset.from_list(records),
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+    llm=LangchainLLMWrapper(init_chat_model("gpt-5-mini")),                       # 채점을 수행하는 심판 LLM
+    embeddings=LangchainEmbeddingsWrapper(OpenAIEmbeddings(model="text-embedding-3-small")),  # 유사도 계산용 임베딩
+)
+print(f"[{mode}]", result)                                    # 지표 평균을 화면에 출력
+result.to_pandas().to_csv(f"eval_{mode}.csv", index=False)    # 문항별 상세 점수를 CSV로 저장 → 구성 간 비교</code></pre>
+      <p>실행: <code>uv run python evaluate.py baseline</code> → <code>hybrid</code> → <code>rerank</code> 순서로 세 번.</p>
+
+      <div class="callout callout-warn">
+        <strong>💡 팁</strong> RAGAS는 버전에 따라 <code>evaluate()</code> 인자/데이터 형식이 다를 수 있어요. 컬럼 이름은 <code>question · answer · contexts · ground_truth</code>가 기본이며, 에러가 나면 설치된 RAGAS 문서의 "EvaluationDataset" 예시에 맞춰 <code>records</code> 형식만 바꾸면 됩니다.
+      </div>
+
+      <div class="label">✅ 검증 게이트 + 비교표 완성</div>
+      <div class="callout callout-result">
+        <strong>세 구성의 지표를 한 표에 모으세요.</strong> 이 표가 이 프로젝트의 핵심 산출물입니다.
+        <table>
+          <thead><tr><th>설정</th><th>faithfulness</th><th>answer_relevancy</th><th>context_precision</th><th>context_recall</th></tr></thead>
+          <tbody>
+            <tr><td>baseline</td><td>?</td><td>?</td><td>?</td><td>?</td></tr>
+            <tr><td>+ hybrid</td><td>?</td><td>?</td><td>?</td><td><strong>↑ 기대</strong></td></tr>
+            <tr><td>+ hybrid + rerank</td><td><strong>↑ 기대</strong></td><td>?</td><td><strong>↑ 기대</strong></td><td>?</td></tr>
+          </tbody>
+        </table>
+        4개 지표가 <strong>숫자</strong>로 출력되고 <code>eval_baseline.csv · eval_hybrid.csv · eval_rerank.csv</code>가 생기면 통과.
+        기대대로 오르지 않은 지표가 있어도 괜찮습니다 — <strong>"왜 안 올랐는지" 분석이 오히려 좋은 면접 소재</strong>가 됩니다(위 표의 "낮으면 손볼 곳" 참고).
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>정량 평가 언어(recall/precision/faithfulness)와 평가셋 설계 — <strong>세 공고 모두</strong>의 핵심 요구. "지표 없이 개선 없다"를 체득.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./6.html"><small>← 이전</small> STEP 6 · Langfuse 관측</a>
+      <a class="next" href="./8.html"><small>다음 →</small> STEP 8 · 튜닝(선택)</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

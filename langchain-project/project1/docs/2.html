@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 2 · 검색 + 생성 + 근거(Citation) — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html" class="current">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 2</p>
+
+<section class="step" id="step2">
+      <div class="step-head">
+        <div class="step-num">2</div>
+        <h2>검색 + 생성 + 근거(Citation)</h2>
+        <span class="badge badge-green">복습</span> <span class="badge badge-yellow">+ Citation 신규</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>질문을 받아 <strong>검색 → 생성 → 근거 반환</strong>까지 하는 <code>answer()</code> 함수를 완성한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        RAG의 핵심 원칙: <strong>모델은 검색된 문맥으로만 답한다</strong>(환각 억제). 그리고 실무 RAG는 반드시
+        <strong>"이 답의 근거가 어느 문서 몇 페이지냐"</strong>를 함께 줘야 신뢰할 수 있습니다 — 금융 약관·의료처럼 정확성이 생명인 도메인에서 필수.
+        그래서 <code>metadata</code>의 <code>source·page</code>를 답변과 함께 반환합니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">rag.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 2 · 검색 + 생성 + 근거(Citation): 질문 → 관련 청크 검색 → LLM이 그 문맥으로만 답변.
+# 핵심 원칙  (1) 모델은 검색된 CONTEXT만 근거로 답한다(환각 억제)
+#           (2) 답과 함께 '어느 문서 몇 쪽'(source·page)을 근거로 돌려준다
+# 이 answer()가 이후 하이브리드(STEP 3)·서빙(STEP 5)·평가(STEP 7)의 공통 진입점이 된다.
+# ═══════════════════════════════════════════════════════════════════
+from dotenv import load_dotenv
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain.chat_models import init_chat_model          # 문자열 하나로 챗 모델을 만드는 헬퍼
+from langchain_core.prompts import ChatPromptTemplate      # system/human 메시지 템플릿
+
+load_dotenv()                                              # .env의 OPENAI_API_KEY 로드
+emb = OpenAIEmbeddings(model="text-embedding-3-small")     # STEP 1과 '같은' 임베딩 모델이어야 검색이 맞는다
+# 이미 인덱싱된 벡터DB를 연다(새로 저장하지 않고 읽기 전용). collection·경로는 STEP 1과 동일하게
+vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_function=emb)
+retriever = vs.as_retriever(search_kwargs={"k": 4})        # 질문당 가장 유사한 청크 4개를 가져오는 검색기
+llm = init_chat_model("gpt-5-mini")                        # 답변을 생성할 LLM
+
+# 프롬프트: system=규칙(문서 밖 내용은 지어내지 말 것 = 환각 억제), human=질문 + 검색된 문맥
+PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "너는 제공된 CONTEXT만 근거로 답한다. "
+     "CONTEXT에 근거가 없으면 '문서에서 찾을 수 없습니다'라고 답하고 추측하지 마라. "
+     "답변 끝에 사용한 근거 번호를 [1][2]처럼 표기하라."),
+    ("human", "질문: {question}\n\nCONTEXT:\n{context}"),   # {question}·{context}는 invoke 때 채워짐
+])
+
+def format_context(docs):
+    """검색된 청크들을 '[번호] (source, page) + 본문' 형태의 한 문자열로 합친다.
+
+    번호를 매겨두면 LLM이 답변 끝에 [1][2]로 어떤 근거를 썼는지 가리킬 수 있다.
+    """
+    return "\n\n".join(
+        f"[{i+1}] (source={d.metadata.get('source')}, page={d.metadata.get('page')})\n{d.page_content}"
+        for i, d in enumerate(docs)                        # i=0,1,2... 각 청크에 번호 부여
+    )
+
+def answer(question: str):
+    """질문 하나를 받아 검색 → 생성 → 근거까지 끝낸 결과 dict를 돌려준다."""
+    docs = retriever.invoke(question)                      # (1) 검색: 질문과 유사한 청크 4개
+    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})  # (2) 프롬프트에 질문·문맥 주입
+    resp = llm.invoke(msg)                                 # (3) 생성: LLM이 문맥 기반으로 답변
+    return {
+        "answer": resp.content,                            # 최종 답변 텍스트
+        # 근거 목록: 답이 어느 파일 몇 쪽에서 왔는지 (신뢰성의 핵심)
+        "citations": [{"source": d.metadata.get("source"), "page": d.metadata.get("page")} for d in docs],
+        "contexts": [d.page_content for d in docs],   # 검색된 원문들 → STEP 7 RAGAS 평가에서 사용
+    }
+
+if __name__ == "__main__":
+    import json
+    # 직접 실행하면 질문 하나를 넣어 결과를 보기 좋게 출력(한글 안 깨지게 ensure_ascii=False)
+    print(json.dumps(answer("가장 궁금한 질문"), ensure_ascii=False, indent=2))</code></pre>
+      <p>실행: <code>uv run python rag.py</code></p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        문서에 있는 내용을 물으면 <strong>답변 + citations(source·page)</strong>가 나오고,
+        문서에 <em>없는</em> 내용을 물으면 <strong>"문서에서 찾을 수 없습니다"</strong>가 나오면 통과.
+        (환각을 막는지 반드시 두 경우 다 확인하세요.)
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>RAG 체인을 함수로 캡슐화 + <strong>citation 설계</strong> + 프롬프트로 환각 억제. 이 <code>answer()</code>가 이후 서빙·평가·하이브리드의 공통 진입점이 됩니다.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./1.html"><small>← 이전</small> STEP 1 · 인제스천</a>
+      <a class="next" href="./3.html"><small>다음 →</small> STEP 3 · Hybrid 검색</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

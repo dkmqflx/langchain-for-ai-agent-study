@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 4 · 검색 개선 ② Reranker (2-stage) — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html" class="current">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 4</p>
+
+<section class="step" id="step4">
+      <div class="step-head">
+        <div class="step-num">4</div>
+        <h2>검색 개선 ② Reranker (2-stage retrieval)</h2>
+        <span class="badge badge-green">랭체인 집중</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>후보를 넉넉히 뽑은 뒤 <strong>Cross-Encoder</strong>로 재정렬해 문맥의 정밀도를 끌어올린다. <code>_build_retriever()</code>에 <code>"rerank"</code> 분기를 추가한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        검색은 빠르지만 정밀도가 낮고, Cross-Encoder(질문·문서를 함께 보는 모델)는 느리지만 정밀합니다.
+        그래서 <strong>1단계로 top-10을 빠르게 검색 → 2단계로 rerank해 상위 4개만</strong> 남기는 것이 실무 표준(2-stage retrieval).
+        노이즈 청크가 걸러져 생성 품질이 오릅니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">rag.py (_build_retriever에 rerank 분기 추가)</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 4 · Reranker(2-stage retrieval): 후보를 넉넉히 뽑은 뒤 정밀 모델로 재정렬한다.
+# 1단계(빠름): 하이브리드로 top-10을 넓게 검색  →  2단계(정밀): Cross-Encoder가 질문·문서를
+# 함께 보며 다시 채점해 상위 4개만 남긴다. 노이즈 청크가 걸러진다.
+# _build_retriever()에 "rerank" 분기를 추가하고, answer()의 기본 mode를 "rerank"로 올린다.
+# ═══════════════════════════════════════════════════════════════════
+from langchain_classic.retrievers import ContextualCompressionRetriever          # 검색 결과를 후처리(압축·재정렬)로 감싸는 검색기
+from langchain_classic.retrievers.document_compressors import CrossEncoderReranker  # rerank 로직
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder            # 로컬 Cross-Encoder 모델 래퍼
+# ImportError 시 경로 후보: langchain.retrievers / langchain.retrievers.document_compressors
+
+def _build_retriever(mode: str):
+    """mode 이름 → 검색기 객체. baseline | hybrid | rerank"""
+    dense = vs.as_retriever(search_kwargs={"k": 4})
+    if mode == "baseline":
+        return dense
+    bm25 = BM25Retriever.from_documents(chunks)
+    bm25.k = 4
+    if mode == "hybrid":
+        return EnsembleRetriever(retrievers=[bm25, dense], weights=[0.4, 0.6])
+    if mode == "rerank":
+        # 1단계: 후보를 넉넉히(top-10) — 여기선 '빠뜨리지 않기'가 목표, 정밀도는 2단계가 맡는다
+        bm25.k = 10
+        wide = vs.as_retriever(search_kwargs={"k": 10})
+        base = EnsembleRetriever(retrievers=[bm25, wide], weights=[0.4, 0.6])
+        # 2단계: Cross-Encoder가 질문·청크를 함께 보고 재채점 → 상위 4개만 남긴다
+        reranker = CrossEncoderReranker(
+            model=HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base"),   # 무료 로컬 모델(첫 실행 시 자동 다운로드)
+            top_n=4,                                                              # 재정렬 후 남길 청크 수
+        )
+        return ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base)
+    raise ValueError(f"unknown mode: {mode}")
+
+def answer(question: str, mode: str = "rerank"):   # 기본 mode 승격: hybrid → rerank
+    ...  # 본문은 STEP 3과 동일</code></pre>
+
+      <div class="callout callout-warn">
+        <strong>💡 대안</strong> 로컬 모델(sentence-transformers) 대신 API를 쓰고 싶으면 <code>langchain-cohere</code>의 <code>CohereRerank</code>도 좋습니다(키 필요). 처음엔 무료 로컬 모델 <code>bge-reranker-base</code>로 충분해요.
+      </div>
+
+      <div class="label">✅ 검증 게이트</div>
+      <div class="callout callout-result">
+        <strong>재정렬이 실제로 일어나는지 확인</strong> — hybrid의 top-4와 rerank의 top-4를 나란히 비교하세요.
+<pre><code>uv run python - &lt;&lt;'EOF'
+from rag import get_retriever
+q = "문서에 있는 내용을 묻는 질문"
+for mode in ["hybrid", "rerank"]:
+    print(f"\n--- {mode}")
+    for d in get_retriever(mode).invoke(q):
+        print(d.metadata.get("page"), "|", d.page_content[:60].replace("\n", " "))
+EOF</code></pre>
+        rerank의 결과가 hybrid와 <strong>다른 구성/순서</strong>로 나오고(넓게 뽑은 top-10에서 재선별), 눈으로 봐도 질문과 더 밀접한 청크가 위로 오면 통과.
+        첫 실행은 모델 다운로드 때문에 오래 걸립니다. <strong>정량 비교는 STEP 7</strong>에서.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p><code>ContextualCompressionRetriever</code>로 검색기를 <strong>감싸서 확장</strong>하는 패턴 + 2-stage retrieval(카카오 "검색 정확도 고도화" 정조준). 속도↔정확도 트레이드오프 감각.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./3.html"><small>← 이전</small> STEP 3 · Hybrid 검색</a>
+      <a class="next" href="./5.html"><small>다음 →</small> STEP 5 · FastAPI 서빙</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

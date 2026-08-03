@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 1 · 문서 인제스천 (Load→Split→Embed→Store) — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html" class="current">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 1</p>
+
+<section class="step" id="step1">
+      <div class="step-head">
+        <div class="step-num">1</div>
+        <h2>문서 인제스천 — Load → Split → Embed → Store</h2>
+        <span class="badge badge-green">복습(04 RAG)</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>PDF들을 청크로 쪼개 임베딩해 Chroma에 저장하는 <strong>인덱싱 스크립트</strong>를 완성한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        RAG의 "사전 준비" 단계입니다. <strong>Split</strong>은 검색 단위를 정하고(너무 크면 노이즈, 너무 작으면 맥락 상실),
+        <strong>Embed</strong>는 의미를 벡터로 바꿉니다. <code>CacheBackedEmbeddings</code>로 같은 청크를 재임베딩하지 않아 비용·시간을 아낍니다(04에서 배운 그대로).
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">ingest.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 1 · 인제스천(indexing): 원본 PDF를 '검색 가능한 벡터'로 바꿔 저장한다.
+# 파이프라인  Load(읽기) → Split(쪼개기) → Embed(벡터화) → Store(저장)
+# 이 스크립트를 한 번 실행해 두면, 이후 rag.py는 저장된 벡터DB에서 '검색'만 하면 된다.
+#
+# 아래 import가 각각 파이프라인의 어느 단계를 맡는지:
+#   PyMuPDFLoader                        → Load  : PDF를 페이지별 Document로 읽기
+#   RecursiveCharacterTextSplitter       → Split : 긴 텍스트를 청크로 분할
+#   OpenAIEmbeddings                     → Embed : 텍스트를 의미 벡터로 변환
+#   CacheBackedEmbeddings/LocalFileStore → Embed : 임베딩 캐시(재계산·재과금 방지)
+#   Chroma                               → Store : 벡터 저장 + 유사도 검색(벡터DB)
+# ═══════════════════════════════════════════════════════════════════
+from pathlib import Path
+from dotenv import load_dotenv
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings
+from langchain_classic.embeddings import CacheBackedEmbeddings
+from langchain_classic.storage import LocalFileStore
+from langchain_chroma import Chroma
+
+load_dotenv()                    # .env를 읽어 환경변수로 등록 → OpenAI 임베딩 호출에 쓸 API 키가 준비됨
+DOCS_DIR = Path("data")          # 원본 PDF들이 들어 있는 폴더
+PERSIST_DIR = "chroma_db"        # 벡터DB를 저장할 폴더(디스크에 남아 다음 실행에서 그대로 재사용)
+COLLECTION = "p1_docs"           # 벡터DB 안에서 이 문서 묶음을 가리키는 이름표(테이블 이름 같은 것)
+
+def build_chunks():
+    """data/의 모든 PDF를 읽어 '청크(검색 단위 조각)' 리스트로 반환한다.  (Load → Split)
+
+    청크 = 검색의 기본 단위가 되는 문서 조각. 검색은 문서 전체가 아니라 이 조각
+    단위로 이뤄지므로, '어떻게 쪼개는가'가 검색 품질을 크게 좌우한다.
+    """
+    docs = []
+    for pdf in sorted(DOCS_DIR.glob("*.pdf")):   # data/의 모든 .pdf를 이름순으로 하나씩 순회
+        # PyMuPDFLoader(...).load() → PDF 1개를 '페이지별 Document' 리스트로 변환.
+        # 각 Document.metadata에 source(파일 경로)·page(쪽 번호)가 자동으로 담긴다
+        # → 이 값이 나중에 답변의 '근거(citation: 어느 문서 몇 쪽)'로 그대로 쓰인다.
+        docs.extend(PyMuPDFLoader(str(pdf)).load())
+    # chunk_size=1000  : 청크 하나의 최대 길이(글자). 크면 관련 없는 내용까지 섞여 노이즈↑, 작으면 문맥이 끊김
+    # chunk_overlap=150: 이웃한 청크를 150자 겹치게 → 경계에서 문장이 잘려 뜻이 사라지는 것을 완화
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    return splitter.split_documents(docs)        # 페이지 Document들을 청크 단위 Document로 다시 쪼개 반환
+
+def get_embeddings():
+    """청크를 벡터로 바꿀 임베딩기를 만든다. 단, 캐시를 씌워 같은 청크의 중복 계산을 막는다.  (Embed)"""
+    base = OpenAIEmbeddings(model="text-embedding-3-small")   # 실제 벡터를 만드는 OpenAI 임베딩 모델(가볍고 저렴한 소형)
+    store = LocalFileStore("./cache/embeddings")             # 임베딩 결과(벡터)를 저장해 둘 로컬 캐시 폴더
+    # 같은 청크는 다시 임베딩하지 않고 캐시에서 꺼내 씀 → 스크립트를 재실행해도 비용·시간 절약
+    # namespace=base.model : 모델이 다르면 벡터도 다르므로 캐시를 '모델 이름'별로 분리(캐시 섞임 방지)
+    return CacheBackedEmbeddings.from_bytes_store(base, store, namespace=base.model)
+
+def main():
+    chunks = build_chunks()             # (1) PDF들을 읽어 청크로 분할
+    print(f"청크 수: {len(chunks)}")     # 몇 조각으로 나뉘었는지 확인(0이면 PDF가 비었거나 스캔본=텍스트 없음 의심)
+    # (2) 각 청크를 임베딩해 Chroma에 저장. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
+    Chroma.from_documents(
+        documents=chunks,               # 저장할 청크(Document) 목록
+        embedding=get_embeddings(),     # 각 청크를 벡터로 바꿀 임베딩기(위에서 만든 캐시 버전)
+        collection_name=COLLECTION,     # 저장할 컬렉션 이름 → 검색할 때 같은 이름으로 접근
+        persist_directory=PERSIST_DIR,  # 저장 위치(폴더). 지정하면 메모리가 아닌 디스크에 남음
+    )
+    print(f"저장 완료 -&gt; {PERSIST_DIR} (collection={COLLECTION})")
+
+if __name__ == "__main__":   # 이 파일을 직접 실행할 때만 main() 호출(다른 파일에서 import하면 실행 안 됨)
+    main()</code></pre>
+      <p>실행: <code>uv run python ingest.py</code></p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        실행 후 <code>청크 수: N</code>(N&gt;0)이 찍히고 <code>chroma_db/</code> 폴더가 생기면 통과.
+        추가로 아래 한 줄 검색이 관련 있어 보이는 청크를 돌려주는지 확인하세요.
+<pre><code>uv run python -c "from langchain_chroma import Chroma; from langchain_openai import OpenAIEmbeddings; \
+vs=Chroma(collection_name='p1_docs', persist_directory='chroma_db', embedding_function=OpenAIEmbeddings(model='text-embedding-3-small')); \
+[print(d.metadata.get('source'), d.metadata.get('page'), d.page_content[:60]) for d in vs.similarity_search('가장 궁금한 주제 키워드', k=3)]"</code></pre>
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>인덱싱 파이프라인을 <strong>모듈</strong>로. <code>build_chunks()</code>를 함수로 뺀 이유는 STEP 3의 BM25가 같은 청크를 재사용하기 때문 — 재사용 가능한 설계 감각.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./0.html"><small>← 이전</small> STEP 0 · 셋업</a>
+      <a class="next" href="./2.html"><small>다음 →</small> STEP 2 · 검색+생성+근거</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

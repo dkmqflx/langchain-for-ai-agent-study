@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 8 · 파라미터 튜닝 &amp; 실험 정리 (선택) — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html" class="current">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 8</p>
+
+<section class="step" id="step8">
+      <div class="step-head">
+        <div class="step-num">8</div>
+        <h2>파라미터 튜닝 &amp; 실험 정리 (선택)</h2>
+        <span class="badge badge-gray">선택 · 심화</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>지금까지의 실험을 정리하고, 몇 개 파라미터를 바꿔 <strong>최적 설정</strong>을 근거와 함께 고른다.</p>
+
+      <div class="label">🛠 할 일</div>
+      <ul>
+        <li><code>chunk_size</code>(500 / 1000 / 1500), <code>top-k</code>(3 / 4 / 6), rerank <code>top_n</code>, hybrid <code>weights</code>를 바꿔가며 <code>evaluate.py rerank</code>로 점수를 남긴다. (CSV가 덮어써지지 않게 실행마다 파일명을 바꿔 보관)</li>
+        <li>결과를 하나의 표로 모아 <strong>"어떤 설정이 왜 최선인지"</strong> 한 문단으로 정리한다.</li>
+        <li>바꾼 설정마다 git commit — 커밋 히스토리가 곧 실험 로그가 된다.</li>
+      </ul>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong> 3가지 이상 설정의 지표를 한 표에 모으고, 최종 설정을 <strong>숫자 근거</strong>로 선택한 문장이 있으면 통과.
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>실험 관리와 의사결정 — "감이 아니라 지표로 정했다"는 이력서/면접 서사.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./7.html"><small>← 이전</small> STEP 7 · RAGAS 평가</a>
+      <a class="next" href="./9.html"><small>다음 →</small> STEP 9 · 포트폴리오화</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

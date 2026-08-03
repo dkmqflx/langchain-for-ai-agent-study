@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 5 · FastAPI로 서빙 — Project 1</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 1 · RAG 서비스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 인제스천</a>
+      <a href="./2.html">STEP 2 · 검색+생성+근거</a>
+      <a href="./3.html">STEP 3 · Hybrid 검색</a>
+      <a href="./4.html">STEP 4 · Reranker</a>
+      <a href="./5.html" class="current">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · RAGAS 평가</a>
+      <a href="./8.html">STEP 8 · 튜닝(선택)</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../index.html#p2">다음: P2 Agent API</a>
+      <a href="../../../langchain/docs/04.rag.html">04. RAG 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 1 · RAG 문서 검색 서비스</a> &nbsp;›&nbsp; STEP 5</p>
+
+<section class="step new-step" id="step5">
+      <div class="step-head">
+        <div class="step-num">5</div>
+        <h2>FastAPI로 서빙</h2>
+        <span class="badge badge-yellow">서비스화 층(얇음)</span> <span class="badge badge-gray">⏱ 반나절</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p><code>answer()</code>를 <strong>HTTP API</strong>로 노출한다. 이 순간 "노트북 코드"가 "서비스"가 됩니다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        FastAPI는 파이썬 함수를 <strong>타입이 검증되는 HTTP 엔드포인트</strong>로 바꿔줍니다.
+        <code>pydantic</code> 모델로 요청/응답 <strong>스키마</strong>를 정의하면, 잘못된 입력은 자동으로 거부되고 응답 형태가 문서화됩니다.
+        토스 "실험→<strong>서빙</strong>→운영", 카카오 "서비스에 탑재 가능한 형태"의 첫걸음입니다.
+        랭체인 관점에서 새로 배울 것은 없고, 이미 만든 함수를 <strong>감싸는</strong> 50줄입니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <div class="filename">main.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 5 · FastAPI 서빙: answer()를 HTTP API(POST /query)로 노출한다.
+# pydantic 모델로 요청/응답 '스키마'를 선언 → 잘못된 입력은 자동 거부, /docs에 문서가 자동 생성.
+# 이 순간 '노트북 코드'가 '서비스'가 된다.
+# ═══════════════════════════════════════════════════════════════════
+from fastapi import FastAPI
+from pydantic import BaseModel          # 요청/응답의 형태(스키마)를 선언하는 클래스
+from rag import answer                  # STEP 2~4에서 만든 핵심 함수 그대로 재사용
+
+app = FastAPI(title="P1 RAG Search Service")   # 앱 객체. title은 /docs 문서 제목에 표시됨
+
+class QueryIn(BaseModel):               # 요청 본문 스키마
+    question: str
+    mode: str = "rerank"                # baseline|hybrid|rerank — 검색 구성도 API로 고를 수 있게(실험용)
+
+class Citation(BaseModel):              # 근거 1건의 스키마
+    source: str | None = None           # 파일 경로 (없을 수 있어 None 허용)
+    page: int | None = None             # 쪽 번호
+
+class QueryOut(BaseModel):              # 응답 스키마: 답변 + 근거 목록
+    answer: str
+    citations: list[Citation]
+
+@app.get("/health")                     # 헬스체크: 서버가 살아있는지 확인하는 운영 기본 엔드포인트
+def health():
+    return {"status": "ok"}
+
+@app.post("/query", response_model=QueryOut)   # POST /query. 응답을 QueryOut 형태로 검증·문서화
+def query(body: QueryIn):               # body는 요청 JSON이 QueryIn으로 자동 파싱·검증된 결과
+    result = answer(body.question, mode=body.mode)   # RAG 실행(검색 + 생성 + 근거)
+    return {"answer": result["answer"], "citations": result["citations"]}   # contexts는 응답에서 제외</code></pre>
+      <p>실행: <code>uv run uvicorn main:app --reload</code></p>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        서버를 켜고 아래가 <strong>답변 + citations</strong> JSON을 돌려주면 통과. 브라우저로 <code>http://localhost:8000/docs</code>(자동 생성 API 문서)도 열어보세요.
+<pre><code>curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "문서에 있는 내용을 물어보세요"}'</code></pre>
+      </div>
+      <div class="label">🎓 배우는 것</div>
+      <p>LangChain 앱을 API로 서빙 + 스키마 기반 입출력. <code>/docs</code> 자동 문서, <code>/health</code> 헬스체크 같은 운영 기본기.</p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./4.html"><small>← 이전</small> STEP 4 · Reranker</a>
+      <a class="next" href="./6.html"><small>다음 →</small> STEP 6 · Langfuse 관측</a>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>
