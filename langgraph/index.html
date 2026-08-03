@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LangGraph 스터디 — 전체 목차</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 260px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav a.current { color: var(--text); font-weight: 700; background: var(--bg); }
+    nav a.muted { color: #a0a6ad; cursor: default; }
+    nav a.muted:hover { background: none; color: #a0a6ad; }
+    nav .nav-section { margin-top: 16px; }
+
+    main {
+      margin-left: 260px; max-width: 920px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callouts ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8d6e00; }
+    .badge-blue   { background: #e8f4fd; color: #0b4a86; }
+    .badge-gray   { background: #f1f2f4; color: #6a737d; }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+
+    /* ── Roadmap list ── */
+    .roadmap { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 4px; }
+    .roadmap-item {
+      display: flex; gap: 14px; align-items: flex-start;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 14px 16px;
+      transition: border-color 0.1s, box-shadow 0.1s;
+    }
+    .roadmap-item:hover { border-color: var(--accent); box-shadow: 0 1px 6px rgba(3,102,214,0.08); }
+    .roadmap-item.soon { background: #fbfbfc; border-style: dashed; }
+    .roadmap-item.soon:hover { border-color: var(--border); box-shadow: none; }
+    .roadmap-num {
+      flex-shrink: 0; width: 40px; height: 36px; border-radius: 8px;
+      background: var(--accent); color: #fff; font-weight: 700; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .roadmap-item.soon .roadmap-num { background: #c6cbd1; }
+    .roadmap-body { min-width: 0; flex: 1; }
+    a.rm-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    a.rm-title:hover { color: var(--accent); text-decoration: none; }
+    .rm-title-plain { font-size: 15px; font-weight: 700; color: var(--text-secondary); }
+    .roadmap-body p { font-size: 13px; color: var(--text-secondary); margin: 3px 0 0; }
+    .rm-tag {
+      display: inline-block; font-size: 11px; font-weight: 600; color: var(--text-secondary);
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1px 8px; margin-left: 8px; vertical-align: middle; white-space: nowrap;
+    }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    ul { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <div class="nav-title">LangGraph 스터디</div>
+    <a href="index.html" class="current">📚 전체 목차 (이 페이지)</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1강 · 소개</div>
+      <a href="01.Intro/1.html">1. LangGraph 소개</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">2강 · LangGraph 기초</div>
+      <a href="02.LangGraph%20기초/1.html">1. State · Node · Edge</a>
+      <a href="02.LangGraph%20기초/2.html">2. Agent 구축 실전</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">3강 · LangGraph 응용</div>
+      <a href="03.%20LangGraph%20응용/1-1.html">3-1. Chaining · Parallelization</a>
+      <a href="03.%20LangGraph%20응용/1-2.html">3-2. Routing</a>
+      <a href="03.%20LangGraph%20응용/2-1.html">3-3. Evaluator-Optimizer</a>
+      <a href="03.%20LangGraph%20응용/2-2.html">3-4. Orchestrator-Worker</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">준비 중</div>
+      <a class="muted">4강 · Memory</a>
+      <a class="muted">5강 · Multi Agent</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>LangGraph 스터디 — 전체 목차</h1>
+    <p class="doc-meta">
+      강의 자료 7편
+      &nbsp;·&nbsp; 실습 노트북: 각 강의 폴더의 <code>*.ipynb</code>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span> ~ <span class="badge badge-yellow">🟡 중급</span>
+    </p>
+
+    <p class="lead">
+      LangGraph로 <strong>Agent를 직접 조립해 보는 스터디</strong>의 강의 자료 모음입니다.
+      <strong>State·Node·Edge라는 부품 세 개</strong>에서 출발해서,
+      그 부품을 <strong>어떤 모양으로 이어 붙이느냐</strong>에 따라 달라지는
+      <strong>아키텍처 패턴</strong>까지 순서대로 다룹니다.
+      <strong>위에서부터 차례대로 읽으면 한 줄기로 이어집니다.</strong>
+    </p>
+
+    <div class="callout callout-info">
+      <strong>📖 읽는 방법</strong>
+      <p>각 문서는 <strong>①개념 → ②비유 → ③기획(그래프·State 설계) → ④코드 구현 → ⑤실행 결과 → ⑥함정 정리</strong>
+      순서로 되어 있습니다. <strong>코드보다 기획 파트를 먼저 이해하는 것</strong>이 훨씬 남는 게 많습니다.</p>
+      <p>문서 하단의 <strong>이전 / 다음</strong> 버튼으로 계속 이어서 읽을 수 있고,
+      가운데 <strong>목차</strong> 버튼을 누르면 언제든 이 페이지로 돌아옵니다.</p>
+    </div>
+
+    <!-- ══════════════ 1강 ══════════════ -->
+    <h2>1강 · LangGraph 소개</h2>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">1</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="01.Intro/1.html">LangGraph 소개 — 오케스트레이션 프레임워크와 API 키 발급</a><span class="rm-tag">01.Intro</span>
+          <p>왜 LangChain만으로는 부족한지, "오케스트레이션"이 무엇을 해결하는지부터.
+          실습 환경 세팅과 API 키 발급까지 마칩니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 2강 ══════════════ -->
+    <h2>2강 · LangGraph 기초 — 부품 익히기</h2>
+
+    <p>
+      LangGraph의 <strong>문법 전부</strong>가 사실상 이 두 문서에 들어 있습니다.
+      뒤의 3강은 <strong>여기서 배운 것을 어떻게 배치하느냐</strong>의 이야기일 뿐입니다.
+    </p>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">2-1</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="02.LangGraph%20기초/1.html">LangGraph 기초 — State · Node · Edge로 Agent 만들기</a><span class="rm-tag">02.LangGraph 기초</span>
+          <p>그래프의 부품 세 개를 익힙니다. <strong>State는 모두가 함께 보는 공책</strong>,
+          <strong>Node는 일하는 사람</strong>, <strong>Edge는 사람과 사람 사이의 화살표</strong>.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">2-2</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="02.LangGraph%20기초/2.html">Agent 구축 실전 — 기획부터 LLM·Tool 결합까지</a><span class="rm-tag">02.LangGraph 기초</span>
+          <p>부품을 실제 Agent로 조립합니다.
+          <strong>요구사항 → 그래프 → State</strong> 순서로 기획하는 습관이 여기서 만들어집니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 3강 ══════════════ -->
+    <h2>3강 · LangGraph 응용 — 아키텍처 패턴</h2>
+
+    <p>
+      같은 부품으로 <strong>모양을 다르게 만드는</strong> 다섯 가지 패턴입니다.
+      앞의 세 개가 <strong>기초 패턴</strong>, 뒤의 두 개가 그것들을 조합한 <strong>응용 패턴</strong>입니다.
+    </p>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">3-1</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="03.%20LangGraph%20응용/1-1.html">기초 패턴 — Prompt Chaining · Parallelization</a><span class="rm-tag">1-1.ipynb</span>
+          <p><strong>일자로 줄 세우기</strong>와 <strong>부챗살로 펼치기.</strong>
+          그리고 펼친 결과를 한 칸에 모을 때 필요한 <strong>리듀서(reducer)</strong>까지.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">3-2</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="03.%20LangGraph%20응용/1-2.html">기초 패턴 — Routing</a><span class="rm-tag">1-2.ipynb</span>
+          <p>여러 전문가를 만들어 두고 <strong>그중 하나에게만 토스</strong>합니다.
+          핵심은 <strong>라우터의 답을 미리 약속된 값으로 못 박는 것</strong>(<code>with_structured_output</code>).</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">3-3</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="03.%20LangGraph%20응용/2-1.html">응용 패턴 — Evaluator-Optimizer</a><span class="rm-tag">2-1.ipynb</span>
+          <p>만들고, 채점하고, 불합격이면 <strong>피드백을 들려 되돌려 보냅니다.</strong>
+          그래프에 <strong>처음으로 "뒤로 가는 화살표"</strong>가 등장하는 장.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">3-4</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="03.%20LangGraph%20응용/2-2.html">응용 패턴 — Orchestrator-Worker</a><span class="rm-tag">2-2.ipynb</span>
+          <p>지휘자가 <strong>일을 몇 조각으로 쪼갤지 실행 중에 정하고</strong> 그만큼 워커를 만들어 뿌립니다.
+          <strong>도면 자체를 실행 중에 그리는 구조.</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 준비 중 ══════════════ -->
+    <h2>준비 중</h2>
+
+    <div class="roadmap">
+      <div class="roadmap-item soon">
+        <div class="roadmap-num">4</div>
+        <div class="roadmap-body">
+          <span class="rm-title-plain">Memory</span><span class="rm-tag">04. Memory</span>
+          <p>실습 노트북만 있고 강의 자료는 아직 없습니다. <span class="badge badge-gray">작성 예정</span></p>
+        </div>
+      </div>
+      <div class="roadmap-item soon">
+        <div class="roadmap-num">5</div>
+        <div class="roadmap-body">
+          <span class="rm-title-plain">Multi Agent</span><span class="rm-tag">05.Multi Agent</span>
+          <p>아직 자료가 없습니다. <span class="badge badge-gray">작성 예정</span></p>
+        </div>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 패턴 요약 ══════════════ -->
+    <h2>한눈에 보는 아키텍처 패턴 5종</h2>
+
+    <p>
+      3강에서 다루는 다섯 패턴을 <strong>고르는 기준</strong>만 먼저 정리해 둡니다.
+      막힐 때 이 표로 돌아오세요.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>패턴</th><th>한 줄 요약</th><th>모양</th><th>이럴 때 쓴다</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong><a href="03.%20LangGraph%20응용/1-1.html">Prompt Chaining</a></strong></td>
+            <td>차례차례</td><td>일자</td>
+            <td>앞 결과가 있어야 뒤를 할 수 있을 때</td>
+          </tr>
+          <tr>
+            <td><strong><a href="03.%20LangGraph%20응용/1-1.html">Parallelization</a></strong></td>
+            <td>동시에</td><td>부챗살 → 깔때기</td>
+            <td>서로 독립적인 일을 여럿 돌려 모을 때</td>
+          </tr>
+          <tr>
+            <td><strong><a href="03.%20LangGraph%20응용/1-2.html">Routing</a></strong></td>
+            <td>골라서</td><td>갈림길</td>
+            <td>입력 종류가 다양해 담당을 나눠야 할 때</td>
+          </tr>
+          <tr>
+            <td><strong><a href="03.%20LangGraph%20응용/2-1.html">Evaluator-Optimizer</a></strong></td>
+            <td>될 때까지</td><td><strong>고리 (loop)</strong></td>
+            <td>속도보다 품질이 우선일 때</td>
+          </tr>
+          <tr>
+            <td><strong><a href="03.%20LangGraph%20응용/2-2.html">Orchestrator-Worker</a></strong></td>
+            <td>쪼개서</td><td><strong>실행 중에 결정</strong></td>
+            <td>일을 몇 조각으로 나눌지 미리 알 수 없을 때</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 패턴은 결국 "조직도"입니다</strong>
+      <p>같은 직원들로도 <strong>일렬 결재 라인</strong>을 만들 수도 있고,
+      <strong>전 부서 회람</strong>을 돌릴 수도 있고,
+      <strong>접수 창구가 담당 부서로 넘기게</strong> 할 수도 있습니다.</p>
+      <p>LangGraph에서 배우는 문법은 <strong>몇 개 안 됩니다.</strong>
+      진짜 배우는 건 <strong>그 몇 개로 조직도를 어떻게 그릴 것인가</strong>죠.
+      <strong>3강 문서들이 전부 이 이야기</strong>입니다.</p>
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

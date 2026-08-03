@@ -225,6 +225,14 @@
     .pager .next { text-align: right; }
     .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
     .pager span.disabled { color: var(--text-secondary); text-align: right; }
+    .pager { flex-wrap: wrap; }
+    .pager a.to-index {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+    }
+    .pager a.to-index:hover { color: var(--accent); }
+    .pager span.disabled.prev { text-align: left; }
+    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
 
     @media (max-width: 720px) {
       nav { display: none; }
@@ -240,6 +248,7 @@
 
   <!-- ── Sidebar ── -->
   <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
     <div class="nav-title">3강 · LangGraph 응용 (1)</div>
     <a href="#overview">개요 · 이 장에서 배우는 것</a>
     <a href="#why-shape">왜 "그래프 모양"을 배우나</a>
@@ -1617,12 +1626,13 @@ print(result["final_report"])</code></pre>
     <div class="pager">
       <a href="../02.LangGraph%20기초/2.html">
         <small>← 이전</small>
-        2. Agent 구축 실전 — 기획부터 LLM·Tool 결합까지
+        2강 · Agent 구축 실전 — 기획부터 LLM·Tool 결합까지
       </a>
-      <span class="disabled">
+      <a href="../index.html" class="to-index">📚 목차</a>
+      <a href="1-2.html" class="next">
         <small>다음 →</small>
-        3-2. Routing · 응용 아키텍처 패턴
-      </span>
+        3-2. 기초 아키텍처 패턴 — Routing
+      </a>
     </div>
 
   </main>

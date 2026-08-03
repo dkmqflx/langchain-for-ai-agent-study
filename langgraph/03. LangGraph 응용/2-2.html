@@ -225,6 +225,14 @@
     .pager .next { text-align: right; }
     .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
     .pager span.disabled { color: var(--text-secondary); text-align: right; }
+    .pager { flex-wrap: wrap; }
+    .pager a.to-index {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+    }
+    .pager a.to-index:hover { color: var(--accent); }
+    .pager span.disabled.prev { text-align: left; }
+    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
 
     @media (max-width: 720px) {
       nav { display: none; }
@@ -240,6 +248,7 @@
 
   <!-- ── Sidebar ── -->
   <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
     <div class="nav-title">3강 · LangGraph 응용 (4)</div>
     <a href="#overview">개요 · 이 장에서 배우는 것</a>
 
@@ -1884,13 +1893,14 @@ print(result["final_report"])</code></pre>
     </div>
 
     <div class="pager">
-      <a href="1-2.html">
+      <a href="2-1.html">
         <small>← 이전</small>
-        3-2. 기초 아키텍처 패턴 — Routing
+        3-3. 응용 아키텍처 패턴 — Evaluator-Optimizer
       </a>
+      <a href="../index.html" class="to-index">📚 목차</a>
       <span class="disabled">
         <small>다음 →</small>
-        4강
+        4강 · Memory (준비 중)
       </span>
     </div>
 

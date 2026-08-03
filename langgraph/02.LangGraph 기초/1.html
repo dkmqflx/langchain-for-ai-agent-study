@@ -223,6 +223,14 @@
     .pager .next { text-align: right; }
     .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
     .pager span.disabled { color: var(--text-secondary); text-align: right; }
+    .pager { flex-wrap: wrap; }
+    .pager a.to-index {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+    }
+    .pager a.to-index:hover { color: var(--accent); }
+    .pager span.disabled.prev { text-align: left; }
+    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
 
     @media (max-width: 720px) {
       nav { display: none; }
@@ -238,6 +246,7 @@
 
   <!-- ── Sidebar ── -->
   <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
     <div class="nav-title">2강 · LangGraph 기초 (1)</div>
     <a href="#overview">개요 · 이 장에서 배우는 것</a>
 
@@ -1631,10 +1640,14 @@ print(response["messages"][-1].content[-1]['text'])</code></pre>
     </div>
 
     <div class="pager">
-      <span></span>
+      <a href="../01.Intro/1.html">
+        <small>← 이전</small>
+        1강 · LangGraph 소개 — 오케스트레이션 프레임워크와 API 키 발급
+      </a>
+      <a href="../index.html" class="to-index">📚 목차</a>
       <a href="2.html" class="next">
         <small>다음 →</small>
-        2. Agent 구축 실전 — 기획부터 LLM·Tool 결합까지
+        2강 · Agent 구축 실전 — 기획부터 LLM·Tool 결합까지
       </a>
     </div>
 

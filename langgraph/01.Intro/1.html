@@ -213,6 +213,14 @@
     .pager .next { text-align: right; }
     .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
     .pager span.disabled { color: var(--text-secondary); text-align: right; }
+    .pager { flex-wrap: wrap; }
+    .pager a.to-index {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+    }
+    .pager a.to-index:hover { color: var(--accent); }
+    .pager span.disabled.prev { text-align: left; }
+    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
 
     @media (max-width: 720px) {
       nav { display: none; }
@@ -228,6 +236,7 @@
 
   <!-- ── Sidebar ── -->
   <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
     <div class="nav-title">1강 · LangGraph 소개</div>
     <a href="#overview">개요 · 이 시간에 하는 일</a>
 
@@ -736,13 +745,14 @@ response = client.models.generate_content(
     </div>
 
     <div class="pager">
-      <span class="disabled">
+      <span class="disabled prev">
         <small>← 이전</small>
         첫 강의입니다
       </span>
-      <a class="next" href="../02.LangGraph 기초/1.html">
+      <a href="../index.html" class="to-index">📚 목차</a>
+      <a href="../02.LangGraph%20기초/1.html" class="next">
         <small>다음 →</small>
-        2. LangGraph 기초
+        2강 · LangGraph 기초 — State · Node · Edge로 Agent 만들기
       </a>
     </div>
 

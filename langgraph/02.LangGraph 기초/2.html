@@ -224,6 +224,14 @@
     .pager .next { text-align: right; }
     .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
     .pager span.disabled { color: var(--text-secondary); text-align: right; }
+    .pager { flex-wrap: wrap; }
+    .pager a.to-index {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+    }
+    .pager a.to-index:hover { color: var(--accent); }
+    .pager span.disabled.prev { text-align: left; }
+    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
 
     @media (max-width: 720px) {
       nav { display: none; }
@@ -239,6 +247,7 @@
 
   <!-- ── Sidebar ── -->
   <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
     <div class="nav-title">2강 · LangGraph 기초 (2)</div>
     <a href="#overview">개요 · 이 장에서 배우는 것</a>
 
@@ -2259,12 +2268,13 @@ response = agent.invoke({"messages": [HumanMessage(content="당장 환불해줘!
     <div class="pager">
       <a href="1.html">
         <small>← 이전</small>
-        1. LangGraph 기초 — State · Node · Edge로 Agent 만들기
+        2강 · LangGraph 기초 — State · Node · Edge로 Agent 만들기
       </a>
-      <span class="disabled">
+      <a href="../index.html" class="to-index">📚 목차</a>
+      <a href="../03.%20LangGraph%20응용/1-1.html" class="next">
         <small>다음 →</small>
-        3. 오케스트레이션
-      </span>
+        3-1. 기초 아키텍처 패턴 — Prompt Chaining · Parallelization
+      </a>
     </div>
 
   </main>
