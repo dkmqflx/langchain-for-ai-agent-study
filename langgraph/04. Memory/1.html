@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4-1. Short-term Memory — Checkpointer와 State History</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-secondary: #586069;
+      --accent: #0366d6;
+      --green: #28a745;
+      --yellow: #f9a825;
+      --purple: #6f42c1;
+      --info-bg: #e8f4fd;
+      --info-border: #0366d6;
+      --warn-bg: #fff8e1;
+      --warn-border: #f9a825;
+      --danger-bg: #fce8e8;
+      --danger-border: #d32f2f;
+      --analogy-bg: #f5f1fb;
+      --analogy-border: #6f42c1;
+      --result-bg: #f1f8f2;
+      --result-border: #28a745;
+      --code-bg: #f6f8fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ── */
+    .page-wrapper { display: flex; min-height: 100vh; }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 260px; height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      font-size: 13px;
+    }
+    nav .nav-title {
+      font-weight: 700; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+    nav a {
+      display: block; padding: 5px 8px; border-radius: 4px;
+      color: var(--text-secondary); text-decoration: none;
+      line-height: 1.4; transition: background 0.1s;
+    }
+    nav a:hover { background: var(--bg); color: var(--accent); }
+    nav .nav-section { margin-top: 16px; }
+    nav .sub { padding-left: 20px; font-size: 12.5px; }
+
+    main {
+      margin-left: 260px; max-width: 920px;
+      padding: 48px 48px 80px; width: 100%;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+    p  { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 600; }
+
+    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
+    .lead {
+      font-size: 16px; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
+    }
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid; border-radius: 0 6px 6px 0;
+      padding: 14px 18px; margin: 16px 0; font-size: 14px;
+    }
+    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout > strong:first-child { display: block; margin-bottom: 4px; }
+    .callout-analogy > strong:first-child { color: var(--purple); }
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th {
+      background: var(--code-bg); font-weight: 600; text-align: left;
+      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px; font-size: 12px;
+      font-weight: 600; white-space: nowrap;
+    }
+    .badge-green  { background: #e8f5e9; color: #1b5e20; }
+    .badge-yellow { background: #fff8e1; color: #8d6e00; }
+    .badge-red    { background: #fce8e8; color: #a01818; }
+    .badge-blue   { background: #e8f4fd; color: #0b4a86; }
+
+    /* ── Code block ── */
+    pre.code-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--code-bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 16px 20px; overflow-x: auto; white-space: pre;
+      line-height: 1.6; margin: 8px 0 4px;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12.5px; background: var(--code-bg);
+      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
+    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
+
+    /* ── Python 문법 강조 (syntax highlighting) ── */
+    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
+    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
+    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
+    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
+    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
+    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
+    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
+    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
+
+    /* ── I/O labels + result block ── */
+    .io-label {
+      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-secondary);
+      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
+    }
+    pre.result-block {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px; background: var(--result-bg);
+      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
+      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
+    }
+
+    /* ── Info card ── */
+    .info-card {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 18px 22px; margin: 22px 0; background: var(--surface);
+    }
+    .info-card-title {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Step flow ── */
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
+    .flow-step {
+      flex: 1 1 0; min-width: 140px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); padding: 12px 14px; font-size: 13px;
+    }
+    .flow-step .n {
+      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
+      background: var(--accent); color: #fff; text-align: center;
+      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
+    }
+    .flow-step strong { display: block; margin-bottom: 2px; }
+    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+
+    /* ── Figure ── */
+    figure {
+      margin: 20px 0; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; background: var(--surface);
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption {
+      font-size: 12.5px; color: var(--text-secondary);
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
+    }
+
+    /* ── Trace box (실행 추적) ── */
+    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
+    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .trace-row:last-child { border-bottom: none; }
+    .trace-row .who {
+      flex: 0 0 170px; padding: 12px 14px; font-weight: 700;
+      background: var(--code-bg); border-right: 1px solid var(--border);
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
+    }
+    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
+    .trace-row .what p { margin: 0; }
+
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 4px 0; font-size: 14px; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    .pager {
+      display: flex; justify-content: space-between; gap: 12px;
+      margin-top: 40px; font-size: 14px;
+    }
+    .pager a, .pager span.disabled {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; background: var(--surface); flex: 1;
+    }
+    .pager a:hover { border-color: var(--accent); text-decoration: none; }
+    .pager .next { text-align: right; }
+    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
+    .pager span.disabled { color: var(--text-secondary); text-align: right; }
+    .pager { flex-wrap: wrap; }
+    .pager a.to-index {
+      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
+    }
+    .pager a.to-index:hover { color: var(--accent); }
+    .pager span.disabled.prev { text-align: left; }
+    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
+
+    @media (max-width: 720px) {
+      nav { display: none; }
+      main { margin-left: 0; padding: 24px 20px 60px; }
+      .trace-row { flex-direction: column; }
+      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
+    <div class="nav-title">4강 · Memory (1)</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+    <a href="#map">4강 지도 · 왜 빠르게 지나가나</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1. Short-term Memory 복습</div>
+      <a href="#two-memory">메모리 두 종류 · 수첩과 고객 카드</a>
+      <a href="#langchain-way" class="sub">LangChain에서는 이렇게 했다</a>
+      <a href="#thread" class="sub">thread_id — 대화방 번호표</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">2. Checkpointer</div>
+      <a href="#lg-way">LangGraph에서는 어디에 넣나</a>
+      <a href="#diff" class="sub">딱 한 줄만 다르다</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">3. 구현</div>
+      <a href="#step1">STEP 1. Model 정의</a>
+      <a href="#step2">STEP 2. State 정의</a>
+      <a href="#step3">STEP 3. Node 정의</a>
+      <a href="#step4">STEP 4. 그래프 · 체크포인터 장착</a>
+      <a href="#step5">STEP 5. 실행</a>
+      <a href="#run1" class="sub">① 첫 대화 — 이름 알려주기</a>
+      <a href="#run2" class="sub">② 같은 스레드 — 기억한다</a>
+      <a href="#run3" class="sub">③ 스레드를 바꾸면 — 잊는다</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">4. State History</div>
+      <a href="#blackbox">블랙박스를 돌려보자</a>
+      <a href="#state-recap" class="sub">State는 공책이었다</a>
+      <a href="#get-state">① get_state — 마지막 한 장</a>
+      <a href="#snapshot-fields" class="sub">StateSnapshot의 네 칸</a>
+      <a href="#get-history">② get_state_history — 전체 영상</a>
+      <a href="#six" class="sub">스냅샷 6장 읽기</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">마무리</div>
+      <a href="#pitfalls">자주 걸리는 함정</a>
+      <a href="#full-code">전체 코드 한눈에 보기</a>
+      <a href="#summary">📚 한 장 정리</a>
+      <a href="#next">다음 — Time Travel</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>4-1. Short-term Memory — Checkpointer와 State History</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>1.ipynb</code>
+      &nbsp;·&nbsp; 대상 범위: 4강 Memory 첫 번째 — 단기 메모리 저장과 그 기록 열어보기
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문~중급</span>
+    </p>
+
+    <p class="lead">
+      3강까지 우리가 만든 그래프는 전부 <strong>한 번 쓰고 잊어버리는 기계</strong>였습니다.
+      질문을 넣으면 답을 주고, 그걸로 끝. 다음 질문을 넣으면 <strong>앞의 대화를 하나도 기억하지 못했죠.</strong>
+      이번 장에서는 그 그래프에 <strong>기억</strong>을 붙입니다.
+      새로 배울 문법은 <strong>딱 세 개</strong>예요 —
+      <code>compile(checkpointer=...)</code>, <code>get_state()</code>, <code>get_state_history()</code>.
+      그리고 이 셋만으로 <strong>"에이전트가 지금 무엇을 어떻게 기억하고 있는지"</strong>를 통째로 열어볼 수 있게 됩니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      <p><strong>전반부</strong>는 <strong>기억을 저장하는 법</strong>입니다.
+      LangChain에서 이미 해봤던 <code>InMemorySaver</code>와 <code>thread_id</code>를
+      <strong>LangGraph 문법으로 옮기는 것</strong>뿐이라 금방 끝납니다.</p>
+      <p><strong>후반부</strong>가 이 장의 진짜 알맹이예요. 저장된 기억을 <strong>꺼내서 들여다봅니다.</strong>
+      자동차 블랙박스를 돌려보듯, <strong>어느 노드가 언제 무엇을 State에 적었는지</strong>를 한 장면씩 되감아 보는 거죠.
+      그리고 이 되감기가 <strong>다음 장 Time Travel(과거로 돌아가 사건을 바꾸기)의 준비 운동</strong>입니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="map">4강 지도 — 왜 이번 강의는 빠르게 지나가나</h2>
+
+    <p>
+      4강의 목차는 <strong>지난 LangChain 강의와 똑같습니다.</strong>
+      <strong>단기 메모리(Short-term)를 먼저 배우고, 장기 메모리(Long-term)를 배웁니다.</strong>
+    </p>
+
+    <p>
+      다만 진행 속도가 2·3강과는 다릅니다. <strong>훨씬 빠르게 갑니다.</strong>
+      이유는 단순해요 — <strong>메모리는 LangChain에서 배운 문법을 거의 그대로 이어서 쓰기 때문</strong>입니다.
+      완전히 새로운 개념을 배우는 게 아니라,
+      <strong>이미 아는 것을 LangGraph라는 새 그릇에 옮겨 담는 일</strong>에 가깝습니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>단기 메모리</strong><p>복습 → <strong>LangGraph 문법</strong> → State History → <strong>Time Travel</strong></p></div>
+      <div class="flow-step"><span class="n">2</span><strong>장기 메모리</strong><p>복습 → <strong>LangGraph에서 Store 구현</strong></p></div>
+      <div class="flow-step"><span class="n">3</span><strong>참고 자료</strong><p>LangGraph의 <strong>설계 철학</strong></p></div>
+    </div>
+
+    <p>
+      그러니 <strong>순수하게 새로 배우는 것</strong>만 추리면
+      <strong>타임 트래블처럼 "LangGraph에서만 되는 것들"</strong>입니다.
+      이번 문서는 그중 <strong>단기 메모리와 State History</strong>까지를 다룹니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 1. 복습 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="two-memory">1. Short-term Memory 복습 — 수첩 하나와 고객 카드 하나</h2>
+
+    <figure>
+      <img src="../images/04.%20Memory/01.png" alt="Short-term Memory 복습 슬라이드 — 다중 턴 대화 시 대화 맥락을 고려한 Tool 호출을 위해 메모리 관리 필요. 메모리 종류: Short-term memory는 Checkpointer를 통해 대화 스레드(세션) 저장, Long-term memory는 Store를 통해 장기 메모리 저장. 아래에 ChatGPT 새 대화 화면과 개인 맞춤 설정(메모리) 화면 캡처" />
+      <figcaption>메모리가 필요한 이유부터. <strong>"다중 턴 대화 시 대화 맥락을 고려한 Tool 호출"</strong> —
+      한 번 묻고 끝나는 게 아니라 <strong>주고받는 대화</strong>가 되려면 앞의 말을 붙들고 있어야 합니다.
+      그리고 붙드는 방식이 <strong>두 가지</strong>입니다.</figcaption>
+    </figure>
+
+    <p>
+      슬라이드가 메모리를 두 줄로 갈라놓았습니다. 이 두 줄이 4강 전체의 뼈대예요.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>구분</th><th>Short-term memory (단기)</th><th>Long-term memory (장기)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>담당 부품</strong></td><td><strong><code>Checkpointer</code></strong></td><td><strong><code>Store</code></strong></td></tr>
+          <tr><td><strong>저장 단위</strong></td><td><strong>대화 스레드(세션)</strong> 하나</td><td><strong>사용자</strong> 하나</td></tr>
+          <tr><td><strong>유효 범위</strong></td><td>그 <strong>채팅방 안에서만</strong></td><td><strong>모든 채팅방에 걸쳐</strong></td></tr>
+          <tr><td><strong>ChatGPT로 치면</strong></td><td>지금 열어둔 <strong>대화창의 스크롤</strong></td><td><strong>개인 맞춤 설정</strong> (닉네임 · 직업 · 나에 대한 정보)</td></tr>
+          <tr><td><strong>다루는 곳</strong></td><td><strong>이번 문서</strong></td><td>4강 후반부</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 단골 미용실의 수첩과 고객 카드</strong>
+      <p><strong>단기 메모리는 오늘 상담하면서 적는 수첩</strong>입니다.
+      <em>"앞머리는 눈썹 위로, 옆은 좀 남기고"</em> — 오늘 이 자리에서 오간 말이 순서대로 적혀 있어서
+      <strong>30분 뒤에도 대화가 이어집니다.</strong> 하지만 <strong>그 수첩은 오늘 이 자리에만 놓여 있어요.</strong></p>
+      <p><strong>장기 메모리는 카운터의 고객 카드</strong>입니다.
+      <em>"모발이 얇음, 파마 알러지 있음"</em> — <strong>몇 달 뒤 다른 날 다른 자리에 앉아도 따라옵니다.</strong></p>
+      <p>ChatGPT에서 <strong>새 대화를 열면 앞 대화 내용은 사라지지만</strong>,
+      개인 맞춤 설정에 적어둔 <strong>내 직업과 닉네임은 어느 방에서든 반영</strong>되죠.
+      정확히 그 차이입니다.</p>
+    </div>
+
+    <h3 id="langchain-way">LangChain에서는 이렇게 했다 — 에이전트에게 수첩과 펜을 쥐여주기</h3>
+
+    <figure>
+      <img src="../images/04.%20Memory/02.png" alt="Short-term Memory 복습 슬라이드 — Checkpointer는 스레드(대화 상태)를 저장할 저장소. checkpointer=InMemorySaver()는 기억용 수첩과 펜을 Agent에게 쥐여주기. 코드: from langgraph.checkpoint.memory import InMemorySaver, agent = create_agent(model, tools, checkpointer=InMemorySaver(),)" />
+      <figcaption>LangChain 강의에서 썼던 코드. <strong><code>create_agent</code>의 인자로 <code>checkpointer</code>를 넘겼습니다.</strong>
+      슬라이드의 표현이 정확해요 — <strong>"기억용 수첩과 펜을 Agent에게 쥐여주기".</strong></figcaption>
+    </figure>
+
+    <p>
+      두 가지만 짚고 넘어갑시다.
+    </p>
+
+    <p>
+      <strong>첫째, <code>Checkpointer</code>는 "저장소"입니다.</strong>
+      대화 상태를 어디에 어떻게 담아둘지 정하는 부품이에요.
+      그리고 <strong><code>InMemorySaver</code>는 그 저장소의 가장 간단한 구현체</strong>입니다.
+      이름 그대로 <strong>메모리(RAM)에 담아둔다</strong>는 뜻이고요.
+    </p>
+
+    <p>
+      <strong>둘째, <code>import</code> 경로를 보세요.</strong>
+      <code>from langgraph.checkpoint.memory import InMemorySaver</code> —
+      <strong>LangChain 강의에서도 이미 <code>langgraph</code> 패키지에서 가져왔습니다.</strong>
+      메모리는 원래부터 LangGraph의 기능이었고, LangChain의 에이전트가 그걸 빌려 쓴 것이죠.
+      <strong>이번 장이 빠르게 진행되는 이유가 여기 있습니다.</strong>
+    </p>
+
+    <h3 id="thread">thread_id — 대화방마다 붙는 번호표</h3>
+
+    <figure>
+      <img src="../images/04.%20Memory/03.png" alt="Short-term Memory 복습 슬라이드 — 대화 저장 1, thread_id 1에 첫 번째 대화 저장. 코드: response = agent.invoke({'messages': [{'role':'user','content':'안녕하세요! 저는 Bloom ai의 Jay 입니다.'}]}, {'configurable': {'thread_id': '1'}},) 아래에 모델의 답변 출력 캡처" />
+      <figcaption>저장소만 달아두면 소용이 없습니다. <strong>어느 방의 기억인지 지목</strong>해야죠.
+      그 지목이 <code>invoke</code>의 두 번째 인자 — <strong><code>{'configurable': {'thread_id': '1'}}</code></strong>입니다.</figcaption>
+    </figure>
+
+    <p>
+      <code>invoke</code>에 들어가는 것이 <strong>두 덩어리</strong>라는 데 주목하세요.
+      <strong>앞은 이번에 할 말(<code>messages</code>), 뒤는 어느 방에서 할 말인지(<code>thread_id</code>)</strong>입니다.
+      같은 <code>thread_id</code>로 계속 호출하면 <strong>그 방의 대화 실타래가 이어지고</strong>,
+      번호를 바꾸면 <strong>새 방이 열립니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 병원 차트 번호</strong>
+      <p>병원에 가서 <strong>"3번 차트요"</strong>라고 하면 간호사가 <strong>그 차트를 꺼내 옵니다.</strong>
+      지난번에 무슨 약을 처방받았는지가 거기 다 적혀 있죠. 의사는 그걸 보고 <strong>이어서</strong> 진료합니다.</p>
+      <p><strong>"4번 차트요"</strong>라고 하면? <strong>다른 사람의 차트</strong>가 나옵니다.
+      아무리 같은 의사, 같은 진료실이어도 <strong>3번 환자의 병력은 거기 없습니다.</strong></p>
+      <p><strong><code>Checkpointer</code>는 차트 보관함, <code>thread_id</code>는 차트 번호</strong>입니다.
+      <strong>보관함을 달아주는 것과 번호를 대는 것은 별개의 동작</strong>이에요 — 이 구분이 뒤에서 계속 쓰입니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 2. Checkpointer ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="lg-way">2. Checkpointer — LangGraph에서는 어디에 넣나</h2>
+
+    <figure>
+      <img src="../images/04.%20Memory/04.png" alt="Checkpointer 챕터 표지 슬라이드 — 'LangGraph에서 Checkpointer를 사용해 대화 세션을 저장해보자!'" />
+      <figcaption>이제 같은 일을 LangGraph에서 합니다. <strong>개념은 그대로, 넣는 자리만 달라집니다.</strong></figcaption>
+    </figure>
+
+    <p>
+      문제는 이겁니다. LangChain에서는 <code>create_agent(...)</code>라는 <strong>완성품 함수</strong>가 있었고
+      거기에 <code>checkpointer=</code>를 끼워 넣으면 됐습니다.
+      그런데 <strong>LangGraph에서는 <code>create_agent</code>를 더 이상 쓰지 않습니다.</strong>
+      우리가 <code>StateGraph</code>로 그래프를 직접 조립하잖아요.
+      <strong>그러면 수첩은 어디서 쥐여주죠?</strong>
+    </p>
+
+    <p>
+      답은 <strong>맨 마지막, <code>compile()</code>할 때</strong>입니다.
+    </p>
+
+    <figure>
+      <img src="../images/04.%20Memory/05.png" alt="Checkpointer 슬라이드 — compile() 메서드로 그래프 생성 시, checkpointer 인자에 메모리 전달. 코드: from langgraph.checkpoint.memory import InMemorySaver / memory = InMemorySaver() / app = workflow.compile(checkpointer=memory) 아래에 '〈랭그래프〉' 표기" />
+      <figcaption>이 슬라이드 한 장이 <strong>2장 전체의 내용</strong>입니다.
+      <strong><code>workflow.compile(checkpointer=memory)</code></strong> — 정말 이게 전부예요.</figcaption>
+    </figure>
+
+    <p>
+      순서를 다시 떠올려 봅시다.
+      <strong>그래프를 초기화하고 → 노드를 등록하고 → 엣지를 연결하고 → 마지막에 컴파일</strong>했죠.
+      <strong>컴파일은 "이제 조립 끝, 실행 가능한 물건으로 만들어줘"라는 신호</strong>입니다.
+      바로 그 순간에 <code>checkpointer</code>를 함께 넘기면
+      <strong>단기 메모리가 지원되는 그래프가 만들어집니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 출고 직전에 블랙박스를 장착한다</strong>
+      <p>차를 만드는 과정을 생각해보세요. <strong>엔진을 얹고(<code>add_node</code>), 배선을 연결하고(<code>add_edge</code>)</strong> —
+      여기까지는 <strong>주행 기록과 아무 상관이 없는 조립 공정</strong>입니다.</p>
+      <p>그리고 <strong>출고 직전(<code>compile</code>)에 블랙박스를 달아줍니다.</strong>
+      차의 구조는 하나도 안 바뀌었지만, 이제부터 <strong>이 차가 어디를 어떻게 달렸는지가 전부 기록</strong>되죠.</p>
+      <p>이 비유는 뒤에서 한 번 더 씁니다.
+      <strong>4장 State History가 바로 그 블랙박스를 돌려보는 일</strong>이거든요.
+      <strong>블랙박스를 안 단 차는 아무리 오래 달려도 돌려볼 영상이 없습니다.</strong></p>
+    </div>
+
+    <h3 id="diff">딱 한 줄만 다르다 — 실행 방법은 완전히 같다</h3>
+
+    <figure>
+      <img src="../images/04.%20Memory/06.png" alt="Checkpointer 슬라이드 — Short-term memory 대화 저장, thread_id 1에 첫 번째 대화 저장. 앞의 03번 슬라이드와 같은 invoke 코드에서 configurable/thread_id 부분에 빨간 밑줄, 오른쪽 아래에 '〈랭체인 == 랭그래프〉' 판서" />
+      <figcaption>오른쪽 아래 판서를 보세요 — <strong>〈랭체인 == 랭그래프〉.</strong>
+      <strong>호출하는 방법은 조금도 다르지 않습니다.</strong> <code>invoke</code>에 메시지와 <code>config</code>를 함께 넘기면 끝.</figcaption>
+    </figure>
+
+    <p>
+      정리하면 이렇습니다. <strong>차이는 딱 한 군데, 체크포인터를 넘기는 위치뿐</strong>입니다.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>단계</th><th>LangChain</th><th>LangGraph</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>수첩 만들기</strong></td>
+            <td colspan="2" style="text-align:center"><code>memory = InMemorySaver()</code> &nbsp;— <strong>완전히 동일</strong></td>
+          </tr>
+          <tr>
+            <td><strong>수첩 쥐여주기</strong></td>
+            <td><code>create_agent(model, tools, checkpointer=memory)</code><br /><span class="badge badge-blue">에이전트 생성 시</span></td>
+            <td><code>workflow.compile(checkpointer=memory)</code><br /><span class="badge badge-blue">컴파일 시</span></td>
+          </tr>
+          <tr>
+            <td><strong>호출하기</strong></td>
+            <td colspan="2" style="text-align:center"><code>app.invoke(input, config={'configurable': {'thread_id': '1'}})</code> &nbsp;— <strong>완전히 동일</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 한 문장으로 기억하세요</strong>
+      <p><strong>"LangGraph에서 단기 메모리는 <code>compile</code>할 때 붙이고, <code>invoke</code>할 때 지목한다."</strong></p>
+      <p><strong>붙이는 건 그래프 전체에 한 번</strong>, <strong>지목은 호출할 때마다</strong>입니다.
+      이 둘을 헷갈리면 <em>"체크포인터는 넣었는데 왜 기억을 못 하지?"</em>라는 상황을 만나게 되는데,
+      십중팔구 <strong><code>config</code>를 빼먹은 경우</strong>입니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 3. 구현 ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="step1">STEP 1. Model 정의</h2>
+
+    <p>
+      순서는 늘 같습니다 — <strong>①모델 → ②State → ③Node → ④그래프 → ⑤실행.</strong>
+      이번 실습의 그래프는 <strong>지금까지 만든 것 중 가장 단순합니다.</strong>
+      도구도 없고, 분기도 없고, <strong>노드 하나짜리 챗봇</strong>이에요.
+      <strong>메모리만 도드라져 보이게 하려고 나머지를 일부러 다 걷어낸 것</strong>입니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano")</code></pre>
+
+    <!-- ══════════════ STEP 2 ══════════════ -->
+    <h2 id="step2">STEP 2. State 정의</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+from langchain.messages import HumanMessage, SystemMessage
+
+class ChatState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]</code></pre>
+
+    <p>
+      <strong>필드가 하나뿐</strong>입니다. 2강에서 썼던 그 <code>messages</code> 필드 그대로예요.
+      <code>add_messages</code> 리듀서가 붙어 있으니
+      <strong>새 메시지가 덮어쓰지 않고 뒤에 차곡차곡 쌓입니다.</strong>
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 여기서 흔히 생기는 오해 — "리듀서가 있으면 기억하는 것 아닌가?"</strong>
+      <p><code>add_messages</code>가 메시지를 쌓아주는 건 <strong>딱 한 번의 <code>invoke</code> 안에서</strong>입니다.
+      노드가 여러 번 돌면서 만든 메시지들을 <strong>한 실행 안에서</strong> 이어붙이는 역할이죠.</p>
+      <p>그런데 <strong><code>invoke</code>가 끝나면 그 State는 사라집니다.</strong>
+      다음 <code>invoke</code>는 <strong>빈 State에서 다시 시작</strong>해요.
+      <strong>리듀서는 "한 판 안에서의 누적", 체크포인터는 "판과 판 사이의 보존"</strong> — 층이 다릅니다.
+      <strong>둘 다 있어야 대화가 이어집니다.</strong></p>
+    </div>
+
+    <!-- ══════════════ STEP 3 ══════════════ -->
+    <h2 id="step3">STEP 3. Node 정의</h2>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>def chatbot_node(state: ChatState):
+    return {"messages": [model.invoke(state["messages"])]}</code></pre>
+
+    <p>
+      한 줄짜리 노드입니다. <strong>State에 쌓인 메시지를 통째로 꺼내 모델에게 주고</strong>,
+      <strong>돌아온 답변을 리스트로 감싸 반환</strong>합니다.
+      리스트로 감싸는 이유는 <code>add_messages</code>가 <strong>리스트를 이어붙이는 함수</strong>이기 때문이고요.
+    </p>
+
+    <p>
+      여기서 <strong>기억의 실체</strong>가 드러납니다. 모델은 사실 아무것도 기억하지 못해요.
+      <strong>매번 <code>state["messages"]</code>를 통째로 다시 받아 읽을 뿐</strong>입니다.
+      <strong>"기억한다"는 건 결국 "지난 대화를 매번 다시 읽혀준다"는 뜻</strong>이고,
+      <strong>체크포인터는 그 읽어줄 원고를 보관해주는 장치</strong>입니다.
+    </p>
+
+    <!-- ══════════════ STEP 4 ══════════════ -->
+    <h2 id="step4">STEP 4. 그래프 생성 — 그리고 체크포인터 장착</h2>
+
+    <div class="io-label">📥 코드 · 조립</div>
+<pre class="code-block"><code>from langgraph.graph import StateGraph, START, END
+
+workflow = StateGraph(ChatState)
+
+workflow.add_node("chatbot", chatbot_node)
+
+workflow.add_edge(START, "chatbot")
+workflow.add_edge("chatbot", END)</code></pre>
+
+    <p>
+      <strong><code>START → chatbot → END</code></strong>.
+      여기까지는 메모리와 아무 상관 없는 조립 공정입니다. 이제 <strong>블랙박스를 달 차례</strong>예요.
+    </p>
+
+    <div class="io-label">📥 코드 · 수첩 만들기</div>
+<pre class="code-block"><code># InMemorySaver 객체 import
+from langgraph.checkpoint.memory import InMemorySaver
+
+memory = InMemorySaver()</code></pre>
+
+    <div class="io-label">📥 코드 · 컴파일하며 장착</div>
+<pre class="code-block"><code>app = workflow.compile(checkpointer=memory)</code></pre>
+
+    <p>
+      <strong>끝입니다.</strong> 이 그래프는 이제 대화를 기억합니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 그래프 그림에는 아무 변화가 없습니다</strong>
+      <p><code>app</code>을 실행해 그래프를 시각화해보면
+      <strong>여전히 <code>__start__ → chatbot → __end__</code></strong>입니다.
+      <strong>"메모리 지원됨" 같은 표시는 그림에 나오지 않아요.</strong></p>
+      <p>당연합니다. <strong>체크포인터는 그래프의 구조가 아니라 실행 환경</strong>이니까요.
+      <strong>블랙박스를 달았다고 차의 설계도가 바뀌지는 않습니다.</strong>
+      그림으로는 확인할 수 없으니 <strong>실제로 대화를 시켜봐야</strong> 압니다 — 그게 STEP 5입니다.</p>
+    </div>
+
+    <!-- ══════════════ STEP 5 ══════════════ -->
+    <h2 id="step5">STEP 5. 실행 — 정말 기억하는지 확인하기</h2>
+
+    <p>
+      확인 시나리오는 <strong>세 번의 호출</strong>로 짭니다.
+      <strong>①이름을 알려주고 → ②같은 방에서 이름을 되묻고 → ③다른 방에서 똑같이 되묻습니다.</strong>
+      <strong>②는 맞히고 ③은 못 맞혀야</strong> "방 단위로 기억한다"는 게 증명되죠.
+    </p>
+
+    <div class="io-label">📥 코드 · 방 번호표 만들기</div>
+<pre class="code-block"><code>config_1 = {'configurable': {'thread_id': '1'}}</code></pre>
+
+    <p>
+      모양을 정확히 봐두세요. <strong>딕셔너리 안에 딕셔너리</strong>입니다.
+      바깥 키는 <strong>반드시 <code>'configurable'</code></strong>이고, 그 안에 <code>'thread_id'</code>가 들어갑니다.
+      <strong>이 두 겹을 헷갈리는 게 이 장에서 가장 흔한 오타</strong>예요.
+    </p>
+
+    <h3 id="run1">① 첫 대화 — 이름을 알려준다</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>from langchain.messages import HumanMessage
+
+input_msg1 = {"messages": [HumanMessage(content="안녕? 내 이름은 Jay야.")]}
+response1 = app.invoke(input_msg1, config=config_1)</code></pre>
+
+    <p>
+      <strong><code>config=config_1</code></strong>이 붙었다는 것 하나만 다릅니다. 반환값을 열어보면요.
+    </p>
+
+    <div class="io-label">📤 response1 (길어서 요약)</div>
+<pre class="result-block">{'messages': [
+  HumanMessage(content='안녕? 내 이름은 Jay야.', ...),
+  AIMessage(content='안녕하세요, Jay님! 만나서 반가워요. 오늘은 어떤 도움을 드릴까요? ...', ...)
+]}</pre>
+
+    <p>
+      내가 보낸 <code>HumanMessage</code>가 먼저 쌓이고, 그 뒤에 모델의 <code>AIMessage</code>가 붙었습니다.
+      <strong>마지막 답변만 깔끔하게 보고 싶다면</strong> 이렇게 꺼냅니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>response1['messages'][-1].content</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">'안녕하세요, Jay님! 만나서 반가워요. 오늘은 어떤 도움을 드릴까요? 관심 있는 주제나 하고 싶은 일,
+알고 싶은 게 있으면 말씀해 주세요. 공부, 코딩, 글쓰기, 여행 팁 등 뭐든 함께 이야기해볼게요.'</pre>
+
+    <h3 id="run2">② 같은 스레드에서 되묻기 — 기억한다</h3>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>input_msg2 = {"messages": [HumanMessage(content="내 이름이 뭐라고?")]}
+response2 = app.invoke(input_msg2, config=config_1)   # ★ 같은 config_1</code></pre>
+
+    <p>
+      <strong>새로 넣은 메시지는 "내 이름이 뭐라고?" 한 줄뿐</strong>입니다.
+      앞의 대화를 다시 넣어주지 않았어요. 그런데 반환값을 보면요.
+    </p>
+
+    <div class="io-label">📤 response2 (길어서 요약)</div>
+<pre class="result-block">{'messages': [
+  HumanMessage(content='안녕? 내 이름은 Jay야.', ...),               ← 지난 턴에 저장돼 있던 것
+  AIMessage(content='안녕하세요, Jay님! 만나서 반가워요. ...', ...),   ← 지난 턴에 저장돼 있던 것
+  HumanMessage(content='내 이름이 뭐라고?', ...),                     ← 이번에 새로 넣은 것
+  AIMessage(content='당신의 이름은 Jay예요. 세션 동안 Jay로 부를게요. ...', ...)
+]}</pre>
+
+    <p>
+      <strong>앞의 두 메시지가 되살아나 있습니다.</strong>
+      체크포인터가 <code>thread_id: '1'</code> 서랍에서 <strong>지난 대화를 꺼내와 앞에 붙여준 것</strong>이죠.
+      그래서 모델은 <strong>네 줄짜리 대화 전체를 읽고</strong> 답을 만들었습니다.
+    </p>
+
+    <div class="io-label">📤 response2['messages'][-1].content</div>
+<pre class="result-block">'당신의 이름은 Jay예요. 세션 동안 Jay로 부를게요. 다른 이름으로 불리고 싶으면 알려 주세요.'</pre>
+
+    <h3 id="run3">③ 스레드를 바꾸면 — 깨끗하게 잊는다</h3>
+
+    <p>
+      이제 반대를 확인할 차례입니다. <strong>번호표만 2번으로 바꾸고, 질문은 똑같이</strong> 던져봅니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>config_2 = {"configurable": {"thread_id": "2"}}   # ★ 방 번호만 2로
+
+input_msg3 = {"messages": [HumanMessage(content="내 이름이 뭐라고?")]}
+response3 = app.invoke(input_msg3, config=config_2)
+
+response3['messages'][-1].content</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">'제가 당신의 이름을 알 수 없어요. 지금 알려주시면 그 이름으로 불러드릴게요.
+원하시는 호칭이나 닉네임이 있으면 그것으로도 부를 수 있어요. 어떤 이름으로 부를까요?'</pre>
+
+    <p>
+      <strong>모른다고 합니다.</strong> 모델도 그대로, 그래프도 그대로, 체크포인터도 그대로인데
+      <strong>번호표 하나 바뀌었다고 완전한 초면</strong>이 됐죠.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>💡 이 세 번의 호출이 증명한 것</strong>
+      <p><strong>기억은 그래프가 아니라 스레드에 붙는다.</strong>
+      하나의 앱이 <strong>수천 개의 대화방을 동시에</strong> 굴릴 수 있다는 뜻이기도 합니다.
+      실제 챗봇 서비스에서 <strong>사용자마다, 대화창마다 <code>thread_id</code>를 다르게 발급</strong>하면
+      <strong>서로의 대화가 섞이지 않습니다.</strong></p>
+      <p>반대로 <strong>이걸 잘못 관리하면 A 사용자의 대화가 B에게 보이는 사고</strong>가 납니다.
+      <code>thread_id</code>는 <strong>단순한 문자열이지만 사실상 경계선</strong>이에요.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ <code>InMemorySaver</code>는 프로그램이 꺼지면 사라집니다</strong>
+      <p>이름 그대로 <strong>메모리(RAM)에만</strong> 담아둡니다.
+      노트북 런타임을 재시작하거나 서버를 껐다 켜면 <strong>모든 대화가 증발</strong>해요.</p>
+      <p><strong>학습·실습용으로는 이게 제일 편합니다.</strong> 설치할 것도, 연결할 것도 없으니까요.
+      실제 서비스에서는 <strong>파일이나 데이터베이스에 저장하는 체크포인터</strong>로 바꿔 끼웁니다.
+      <strong>바꿔 끼우는 자리는 정확히 같습니다</strong> — <code>compile(checkpointer=...)</code> 한 줄이요.
+      <strong>수첩을 서류함으로 바꾸는 것</strong>일 뿐, 나머지 코드는 손댈 필요가 없습니다.
+      (<a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank">공식 문서 — Persistence</a>)</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- ══════════════ 4. State History ══════════════ -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="blackbox">4. State History — 에이전트 속 블랙박스를 돌려보자</h2>
+
+    <figure>
+      <img src="../images/04.%20Memory/07.png" alt="Checkpointer 챕터 슬라이드 — '에이전트는 뭘 어떻게 기억하고 있을까?' 아래에 '→ Agent 속 블랙박스를 돌려보자!'" />
+      <figcaption>여기서부터가 <strong>LangGraph에서만 할 수 있는 이야기</strong>입니다.
+      기억을 <strong>저장하는 것</strong>과 저장된 기억을 <strong>열어보는 것</strong>은 다른 일이니까요.</figcaption>
+    </figure>
+
+    <p>
+      지금까지 우리는 <strong>결과만</strong> 봤습니다. 질문을 넣고 답을 받았죠.
+      그 사이에 그래프 안에서 무슨 일이 있었는지는 <strong>깜깜한 상자</strong>였습니다.
+    </p>
+
+    <p>
+      이제 그 상자를 엽니다. <strong>START로 들어와서 어떤 노드를 거쳐 END로 나가는 동안</strong>,
+      <strong>각 지점에서 에이전트가 어떤 기억을 들고 있었는지</strong>를 한 장면씩 돌려보는 겁니다.
+      <strong>자동차 블랙박스를 돌려보는 것과 정확히 같은 동작</strong>이고,
+      그래서 문법 이름도 <strong>State History</strong>입니다.
+    </p>
+
+    <h3 id="state-recap">잠깐 복습 — State는 "작업자가 쓰는 공책"이었다</h3>
+
+    <figure>
+      <img src="../images/04.%20Memory/08.png" alt="Agent 구축 기초 슬라이드 — State & Node. State: 데이터를 작성할 공책, Node: 데이터를 작성하는 작업자, Edge: Node를 연결하는 선, Conditional Edge: 라우팅 기능을 하는 선. 오른쪽에 __start__ → llm_call → (점선) __end__ 및 tool_node로 이어지는 그래프와 Parallelization 도식" />
+      <figcaption>2강에서 잡아둔 정의. <strong>State는 공책, Node는 작업자, Edge는 선.</strong>
+      이 정의가 <strong>State History를 이해하는 열쇠</strong>입니다.</figcaption>
+    </figure>
+
+    <p>
+      이 정의를 그대로 이어서 생각해봅시다.
+      <strong>노드라는 작업자가 일할 때마다 공책에 뭔가를 적습니다.</strong>
+    </p>
+
+    <ul>
+      <li><strong>사용자의 질문이 들어오면</strong> → <code>messages</code> 칸에 <code>HumanMessage</code>가 적히고</li>
+      <li><strong>LLM이 도구를 부르기로 하면</strong> → 그 결정이 <code>AIMessage</code>로 적히고</li>
+      <li><strong>도구 노드가 실행되면</strong> → 결과가 <code>ToolMessage</code>로 적히고</li>
+      <li><strong>END에 도달하면</strong> → 그때까지 적힌 공책을 통째로 반환합니다</li>
+    </ul>
+
+    <p>
+      그러니까 <strong>State의 히스토리를 돌려본다는 건,
+      각 작업자가 자기 차례에 공책에 무엇을 적었는지를 순서대로 확인하는 일</strong>입니다.
+      <strong>공책의 매 페이지를 사진 찍어둔 것</strong>이 있다고 보면 되고,
+      그 사진 한 장을 <strong><code>StateSnapshot</code></strong>이라고 부릅니다.
+    </p>
+
+    <p>
+      들여다보는 메서드는 <strong>두 개</strong>입니다. <strong>하나는 마지막 한 장만, 하나는 전부.</strong>
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>get_state(config)</strong><p><strong>현재 시점</strong>의 스냅샷 <strong>한 장</strong></p></div>
+      <div class="flow-step"><span class="n">2</span><strong>get_state_history(config)</strong><p>과거부터 현재까지 <strong>전부</strong> (역순)</p></div>
+    </div>
+
+    <!-- ══════════════ get_state ══════════════ -->
+    <h2 id="get-state">① <code>get_state</code> — 블랙박스의 마지막 한 장면</h2>
+
+    <figure>
+      <img src="../images/04.%20Memory/09.png" alt="State History 슬라이드 — Agent의 블랙박스를 보는 2가지 메서드 (1). get_state(config): 현재 시점의 스냅샷, StateSnapshot 객체 반환. values: 현재 시점의 State 상태(작업자가 작성한 공책 상태). next: 다음 할 일(interrupt, Multi-Agent에서 활용). config: 식별자 — 누구의 어떤 시점의 기억인지 식별, Time Travel에서 활용. metadata & parent_config: 이력 추적 — source는 loop 돌다가 저장됨, step은 4번째 단계에서 저장됨. 오른쪽에 current_state 출력 캡처" />
+      <figcaption>슬라이드 하나에 <strong>이 절의 내용이 전부</strong> 들어 있습니다.
+      <code>get_state</code>에 <strong>아까 쓰던 <code>config</code>를 그대로</strong> 넣으면
+      <strong><code>StateSnapshot</code> 객체 하나</strong>가 나옵니다.</figcaption>
+    </figure>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>current_state = app.get_state(config_1)   # ★ 조회할 때도 '어느 방인지'가 필요하다
+current_state</code></pre>
+
+    <div class="io-label">📤 출력 (길어서 줄바꿈해 옮김)</div>
+<pre class="result-block">StateSnapshot(
+  values={'messages': [HumanMessage(content='안녕? 내 이름은 Jay야.', ...),
+                       AIMessage(content='안녕, Jay! 반가워. ...', ...),
+                       HumanMessage(content='내 이름이 뭐라고?', ...),
+                       AIMessage(content='당신의 이름은 Jay야. 앞으로 Jay라고 부르면 될까?', ...)]},
+  next=(),
+  config={'configurable': {'thread_id': '1',
+                           'checkpoint_ns': '',
+                           'checkpoint_id': '1f18f1bc-3b00-6994-8004-52293e85e0f7'}},
+  metadata={'source': 'loop', 'step': 4, 'parents': {}},
+  created_at='2026-08-03T09:14:43.517873+00:00',
+  parent_config={'configurable': {...}},
+  tasks=(), interrupts=()
+)</pre>
+
+    <h3 id="snapshot-fields"><code>StateSnapshot</code>의 네 칸 — 하나씩 뜯어보기</h3>
+
+    <h4>① <code>values</code> — 그 시점의 공책 내용</h4>
+
+    <p>
+      말 그대로 <strong>State 딕셔너리에 무엇이 적혀 있는지</strong>입니다.
+      <code>messages</code> 필드에 <strong>휴먼 → AI → 휴먼 → AI</strong> 네 개가 순서대로 들어 있죠.
+      <strong>아까 <code>response2</code>로 봤던 그 값이 여기 그대로 들어 있습니다.</strong>
+    </p>
+
+    <div class="io-label">📥 코드 · 마지막 대화만 꺼내기</div>
+<pre class="code-block"><code># 현재 스텝
+current_state.values['messages'][-1].content</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">'당신의 이름은 Jay야. 앞으로 Jay라고 부르면 될까?'</pre>
+
+    <h4>② <code>next</code> — 다음에 실행될 노드</h4>
+
+    <p>
+      <strong>이 시점에서 그래프를 재개하면 누가 일하게 되는지</strong>를 담고 있습니다.
+      지금은 대화가 END까지 끝난 상태라 <strong>비어 있습니다.</strong>
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code># 다음 실행할 노드
+current_state.next</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">()</pre>
+
+    <p>
+      지금은 시시해 보이지만 <strong>이 칸이 나중에 크게 쓰입니다.</strong>
+      슬라이드에 적힌 대로 <strong><code>interrupt</code>(사람이 중간에 승인·수정하는 기능)와 멀티 에이전트</strong>에서
+      <strong>"어디서 멈춰 있는지"를 알려주는 표지판</strong> 역할을 하거든요.
+      <strong>비어 있지 않다는 건 "아직 할 일이 남아 있다"</strong>는 뜻입니다.
+    </p>
+
+    <h4>③ <code>config</code> — 이 장면의 좌표</h4>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>current_state.config</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">{'configurable': {'thread_id': '1',
+                  'checkpoint_ns': '',
+                  'checkpoint_id': '1f18f1bc-3b00-6994-8004-52293e85e0f7'}}</pre>
+
+    <p>
+      우리가 넣어준 <code>thread_id: '1'</code> 옆에 <strong>처음 보는 값</strong>이 붙어 있습니다 —
+      <strong><code>checkpoint_id</code></strong>. <strong>LangGraph가 자동으로 발급한 고유 식별자</strong>예요.
+    </p>
+
+    <p>
+      왜 이런 게 필요할까요? 그래프를 떠올려 보세요.
+      <strong>START → 에이전트 노드 → 도구 노드 → 다시 에이전트 노드 → END</strong>처럼
+      <strong>같은 노드가 여러 번 호출될 수 있습니다.</strong>
+      그러면 <strong>"에이전트 노드가 일한 시점"이라는 말만으로는 몇 번째인지 알 수 없죠.</strong>
+      그래서 <strong>저장되는 매 시점마다 고유 번호를 하나씩 찍어둡니다.</strong>
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 게임의 세이브 슬롯</strong>
+      <p><code>thread_id</code>는 <strong>"어떤 캐릭터의 플레이인가"</strong>이고,
+      <code>checkpoint_id</code>는 <strong>"그 플레이의 몇 번 세이브 파일인가"</strong>입니다.</p>
+      <p>캐릭터만 고르면 <strong>가장 최근 세이브</strong>로 이어서 하게 되죠 — 그게 지금까지 우리가 한 일입니다.
+      그런데 <strong>슬롯 번호까지 찍어서 부르면 "그 시점"으로 돌아갈 수 있습니다.</strong></p>
+      <p><strong>바로 그게 다음 장 Time Travel입니다.</strong>
+      <code>checkpoint_id</code>는 <strong>지금은 그냥 긴 문자열로 보이지만, 사실은 과거로 가는 좌표</strong>예요.</p>
+    </div>
+
+    <h4>④ <code>metadata</code>와 <code>parent_config</code> — 이력 추적용</h4>
+
+    <p>
+      <code>metadata={'source': 'loop', 'step': 4, 'parents': {}}</code> 같은 값이 들어 있습니다.
+      슬라이드의 설명을 그대로 옮기면 <strong><code>source</code>는 "루프를 돌다가 저장됨",
+      <code>step</code>은 "네 번째 단계에서 저장됨"</strong>이라는 뜻이에요.
+      <code>parent_config</code>는 <strong>바로 직전 스냅샷의 좌표</strong>고요.
+      스냅샷들이 <strong>부모-자식으로 사슬처럼 연결</strong>되어 있다고 보면 됩니다.
+    </p>
+
+    <p>
+      <strong>지금 당장 외울 필요는 없습니다.</strong>
+      <strong>"실행 이력을 추적하기 위한 메타 정보"</strong> 정도로 두고,
+      <strong><code>source</code>와 <code>step</code>만</strong> 눈에 익혀두세요.
+      바로 다음 절에서 이 두 값으로 순서를 읽습니다.
+    </p>
+
+    <!-- ══════════════ get_state_history ══════════════ -->
+    <h2 id="get-history">② <code>get_state_history</code> — 영상 전체를 되감기</h2>
+
+    <figure>
+      <img src="../images/04.%20Memory/10.png" alt="State History 슬라이드 — Agent의 블랙박스를 보는 2가지 메서드 (2). get_state_history(config): 과거부터 현재까지의 모든 기록. 다수의 StateSnapshot 객체를 역순으로 반환. Index 0 (Snapshot 1): 가장 최근 — 대화가 모두 끝난 상태. Index 1 (Snapshot 2): 두 번째 질문('내 이름이 뭐라고?')을 받고 챗봇이 답변하기 직전. Index 5 (Snapshot 6): 가장 옛날 — 아무 대화도 없는 초기 상태(messages:[]). 아래에 history[1] 출력 캡처에서 next=('chatbot',) 부분이 빨간 상자로 강조됨" />
+      <figcaption><code>get_state</code>가 <strong>마지막 프레임 한 장</strong>이라면,
+      <code>get_state_history</code>는 <strong>녹화 영상 전체</strong>입니다.
+      그리고 <strong>최신부터 거꾸로</strong> 나옵니다.</figcaption>
+    </figure>
+
+    <p>
+      쓰는 법은 <code>get_state</code>와 똑같습니다. <strong><code>config</code>를 넣는 것</strong>뿐이에요.
+      다만 반환값이 <strong>제너레이터</strong>라서 <strong><code>list()</code>로 감싸주는 습관</strong>을 들이는 게 좋습니다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>history = list(app.get_state_history(config_1))</code></pre>
+
+    <p>
+      그러면 <strong><code>StateSnapshot</code> 객체들이 리스트에 담겨</strong> 나옵니다.
+      실행할 때마다 스냅샷이 하나씩 쌓였던 것이 <strong>전부 되돌아오는 것</strong>이죠.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 순서에 주의 — <code>history[0]</code>이 가장 최근입니다</strong>
+      <p><strong>시간의 역순</strong>으로 반환됩니다. 슬라이드에 정확히 적혀 있죠 —
+      <strong>Index 0이 "대화가 모두 끝난 상태"(가장 최근), Index 5가 "아무 대화도 없는 초기 상태"(가장 옛날)</strong>입니다.</p>
+      <p>실습 노트북의 <code>history[1]</code> 줄에 <em>"역순이므로 마지막 스냅샷이 최신"</em>이라는 주석이 붙어 있는데,
+      <strong>역순이니까 리스트의 앞쪽이 최신</strong>입니다.
+      <strong>맨 앞이 방금, 맨 뒤가 태초</strong>로 기억하세요.</p>
+      <p>왜 뒤집어 줄까요? <strong>블랙박스는 보통 "방금 무슨 일이 있었지?"를 보려고 돌립니다.</strong>
+      <strong>찾는 장면은 대개 영상 끝에 있으니 뒤에서부터 재생</strong>하는 게 자연스럽죠.</p>
+    </div>
+
+    <h3 id="six">스냅샷 6장 읽기 — 반복문으로 한눈에</h3>
+
+    <p>
+      스냅샷을 통째로 출력하면 화면이 지저분해서 읽기가 어렵습니다.
+      <strong>필요한 칸만 뽑아 출력하는 반복문</strong>을 돌려봅시다.
+    </p>
+
+    <div class="io-label">📥 코드</div>
+<pre class="code-block"><code>for i, snapshot in enumerate(history):
+    print(f"\n[Snapshot {i}]")
+    print(f" - Created At: {snapshot.created_at}") # 생성 시간
+
+    # 해당 시점의 대화 내용
+    msgs = snapshot.values.get("messages", [])
+    if msgs:
+        last_msg = msgs[-1]
+        sender = "AI" if last_msg.type == "ai" else "User"
+        print(f" - 마지막 대화: [{sender}] {last_msg.content}")
+    else:
+        print(" - (대화 시작 전 초기 상태)")
+
+    print(f" - Next: {snapshot.next}") # 다음 행선지 단계 정보
+    print(f" - Metadata: {snapshot.metadata}") # 단계 정보 (step, source 등)</code></pre>
+
+    <div class="io-label">📤 출력</div>
+<pre class="result-block">[Snapshot 0]
+ - Created At: 2026-08-03T09:14:43.517873+00:00
+ - 마지막 대화: [AI] 당신의 이름은 Jay야. 앞으로 Jay라고 부르면 될까?
+ - Next: ()
+ - Metadata: {'source': 'loop', 'step': 4, 'parents': {}}
+
+[Snapshot 1]
+ - Created At: 2026-08-03T09:14:39.360165+00:00
+ - 마지막 대화: [User] 내 이름이 뭐라고?
+ - Next: ('chatbot',)
+ - Metadata: {'source': 'loop', 'step': 3, 'parents': {}}
+
+[Snapshot 2]
+ - Created At: 2026-08-03T09:14:39.359421+00:00
+ - 마지막 대화: [AI] 안녕, Jay! 반가워. 무엇을 도와줄까? ...
+ - Next: ('__start__',)
+ - Metadata: {'source': 'input', 'step': 2, 'parents': {}}
+
+[Snapshot 3]
+ - Created At: 2026-08-03T09:14:39.333941+00:00
+ - 마지막 대화: [AI] 안녕, Jay! 반가워. 무엇을 도와줄까? ...
+ - Next: ()
+ - Metadata: {'source': 'loop', 'step': 1, 'parents': {}}
+
+[Snapshot 4]
+ - Created At: 2026-08-03T09:14:33.622724+00:00
+ - 마지막 대화: [User] 안녕? 내 이름은 Jay야.
+ - Next: ('chatbot',)
+ - Metadata: {'source': 'loop', 'step': 0, 'parents': {}}
+
+[Snapshot 5]
+ - Created At: 2026-08-03T09:14:33.622112+00:00
+ - (대화 시작 전 초기 상태)
+ - Next: ('__start__',)
+ - Metadata: {'source': 'input', 'step': -1, 'parents': {}}</pre>
+
+    <p>
+      <strong>이 여섯 장을 아래에서 위로(= 옛날에서 최신으로) 읽으면</strong>
+      우리가 한 두 번의 대화가 <strong>영화처럼 재생</strong>됩니다.
+      <code>step</code> 번호를 따라가 보세요.
+    </p>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">Snapshot 5<br />step -1</div>
+        <div class="what">
+          <p><strong>첫 <code>invoke</code>가 막 도착한 순간.</strong>
+          공책은 아직 <strong>백지</strong>입니다(대화 시작 전 초기 상태).
+          <code>next</code>가 <strong><code>('__start__',)</code></strong> —
+          <strong>"이제 그래프 입구로 들어갈 차례"</strong>라는 뜻이죠.
+          <code>source</code>가 <strong><code>'input'</code></strong>인 것에 주목하세요.
+          <strong>바깥에서 입력이 들어와 찍힌 도장</strong>입니다.</p>
+        </div>
+      </div>
+      <div class="trace-row">
+        <div class="who">Snapshot 4<br />step 0</div>
+        <div class="what">
+          <p><strong>입력이 공책에 적혔습니다.</strong>
+          마지막 대화가 <strong>[User] 안녕? 내 이름은 Jay야.</strong>
+          <code>next</code>는 <strong><code>('chatbot',)</code></strong> — <strong>"다음은 챗봇 노드가 일할 차례".</strong>
+          <strong>일감은 들어왔고 작업자는 아직 손을 대지 않은 상태</strong>입니다.</p>
+        </div>
+      </div>
+      <div class="trace-row">
+        <div class="who">Snapshot 3<br />step 1</div>
+        <div class="what">
+          <p><strong>챗봇이 일을 마쳤습니다.</strong>
+          마지막 대화가 <strong>[AI] 안녕, Jay! 반가워…</strong>로 바뀌었죠.
+          <code>next</code>는 <strong>비어 있습니다</strong> —
+          <strong>END에 도달해 첫 번째 <code>invoke</code>가 끝났다</strong>는 뜻입니다.
+          <strong>여기까지가 첫 번째 턴</strong>이에요.</p>
+        </div>
+      </div>
+      <div class="trace-row">
+        <div class="who">Snapshot 2<br />step 2</div>
+        <div class="what">
+          <p><strong>두 번째 <code>invoke</code>가 도착했습니다.</strong>
+          <code>source</code>가 다시 <strong><code>'input'</code></strong>,
+          <code>next</code>가 다시 <strong><code>('__start__',)</code></strong>.
+          <strong>같은 문 앞에 다시 선 것</strong>이죠.
+          공책의 마지막 줄이 <strong>아직 AI의 첫 답변</strong>인 게 중요합니다 —
+          <strong>새 질문은 아직 적히기 직전</strong>이거든요.</p>
+        </div>
+      </div>
+      <div class="trace-row">
+        <div class="who">Snapshot 1<br />step 3</div>
+        <div class="what">
+          <p><strong>두 번째 질문이 공책에 적혔습니다.</strong> <strong>[User] 내 이름이 뭐라고?</strong>
+          <code>next</code>는 <strong><code>('chatbot',)</code></strong>.
+          슬라이드가 이 장면을 콕 집어 설명했죠 — <strong>"질문을 받고 챗봇이 답변하기 직전".</strong>
+          <strong>이 시점이 다음 장에서 우리가 돌아갈 지점</strong>입니다.</p>
+        </div>
+      </div>
+      <div class="trace-row">
+        <div class="who">Snapshot 0<br />step 4</div>
+        <div class="what">
+          <p><strong>챗봇이 앞의 대화를 읽고 답했습니다.</strong>
+          <strong>[AI] 당신의 이름은 Jay야.</strong>
+          <code>next</code>는 다시 <strong>비어 있고</strong>, 이게 <strong>현재 상태</strong>입니다.
+          그래서 <strong><code>get_state</code>가 돌려준 스냅샷과 정확히 같습니다</strong> —
+          <strong><code>get_state</code>는 <code>history[0]</code>을 보는 것</strong>과 마찬가지예요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 규칙 두 개만 잡으면 스냅샷은 다 읽힙니다</strong>
+      <p><strong>규칙 1 — <code>source</code>가 <code>'input'</code>이면 "바깥에서 새 요청이 들어온 순간",
+      <code>'loop'</code>면 "그래프가 안에서 한 걸음 나아간 순간"</strong>입니다.
+      <code>invoke</code>를 두 번 했으니 <code>'input'</code>도 두 번(step -1, step 2) 나왔죠.</p>
+      <p><strong>규칙 2 — <code>next</code>가 비어 있으면 그 턴이 끝난 것, 뭔가 들어 있으면 그 노드가 다음 차례</strong>입니다.
+      <strong><code>next</code>를 보면 "이 시점에서 재개했을 때 무슨 일이 벌어질지"를 알 수 있어요.</strong>
+      Time Travel이 가능한 이유가 바로 이겁니다 —
+      <strong>스냅샷에는 "그때의 데이터"뿐 아니라 "그때 이어서 할 일"까지 들어 있습니다.</strong></p>
+    </div>
+
+    <p>
+      노드가 하나뿐인 이 예제에서도 스냅샷이 <strong>여섯 장</strong>이나 나왔습니다.
+      <strong>도구가 붙고 분기가 생기면 훨씬 촘촘해지죠.</strong>
+      바로 그래서 <strong>State History가 LangGraph의 디버깅 도구</strong>로 쓰입니다.
+      <em>"왜 이런 답이 나왔지?"</em> 싶을 때 <strong>결과가 아니라 과정을 열어볼 수 있으니까요.</strong>
+    </p>
+
+    <hr />
+
+    <!-- ══════════════ 함정 ══════════════ -->
+    <h2 id="pitfalls">자주 걸리는 함정 6가지</h2>
+
+    <div class="info-card">
+      <div class="info-card-title">🕳️ 메모리에서 실제로 밟게 되는 지뢰</div>
+
+      <h4>1. <code>compile()</code>에 체크포인터를 안 넘긴다</h4>
+      <p>
+        <code>memory = InMemorySaver()</code>까지만 써놓고 <code>workflow.compile()</code>을 그냥 호출하는 실수입니다.
+        <strong>수첩을 만들어놓고 손에 쥐여주지 않은 것</strong>이죠.
+        에러는 안 나고 <strong>그냥 아무것도 기억하지 못합니다.</strong>
+        <strong>조용히 실패하기 때문에 제일 찾기 어려운 부류</strong>예요.
+      </p>
+
+      <h4>2. <code>invoke</code>에 <code>config</code>를 빼먹는다</h4>
+      <p>
+        체크포인터를 붙여 컴파일한 그래프는 <strong><code>thread_id</code>를 반드시 요구</strong>합니다.
+        <strong>어느 서랍에 넣을지 모르니까요.</strong> 빼먹으면 실행 자체가 막힙니다.
+        <strong>"보관함은 달았는데 차트 번호를 안 댄" 상황</strong>입니다.
+      </p>
+
+      <h4>3. <code>configurable</code> 키를 빠뜨리거나 오타를 낸다</h4>
+      <p>
+        <code>{'thread_id': '1'}</code>처럼 <strong>한 겹으로 쓰는 실수</strong>가 정말 흔합니다.
+        올바른 모양은 <strong><code>{'configurable': {'thread_id': '1'}}</code></strong> —
+        <strong>딕셔너리 안에 딕셔너리</strong>예요.
+        강의 영상에서도 이 부분에서 오타가 한 번 났었죠. <strong>그만큼 자주 틀립니다.</strong>
+      </p>
+
+      <h4>4. 이전 대화를 직접 다시 넣어준다</h4>
+      <p>
+        기억이 되는지 확신이 안 서서 <strong>지난 메시지를 <code>messages</code>에 손으로 다시 넣는</strong> 경우가 있습니다.
+        그러면 <strong>체크포인터가 꺼내온 것 위에 또 쌓여서 대화가 두 벌</strong>이 됩니다.
+        <strong>새 메시지만 넣으세요.</strong> 앞의 것은 <strong>체크포인터가 알아서 붙여줍니다.</strong>
+      </p>
+
+      <h4>5. <code>get_state_history</code>의 순서를 거꾸로 안다</h4>
+      <p>
+        <strong><code>history[0]</code>이 최신, 마지막 원소가 가장 옛날</strong>입니다.
+        <strong>일반적인 로그와 반대</strong>라 헷갈리기 쉬워요.
+        <strong>"블랙박스는 뒤에서부터 돌린다"</strong>로 기억하면 안 헷갈립니다.
+        그리고 <strong>제너레이터라서 <code>list()</code>로 감싸야</strong> 인덱스로 접근할 수 있습니다.
+      </p>
+
+      <h4>6. <code>InMemorySaver</code>를 실서비스에 쓴다</h4>
+      <p>
+        실습에서는 최고의 선택이지만, <strong>프로세스가 죽으면 전부 사라집니다.</strong>
+        서버를 재배포하는 순간 <strong>모든 사용자의 대화가 초기화</strong>돼요.
+        <strong>바꿔 낄 자리는 <code>compile(checkpointer=...)</code> 딱 한 곳</strong>이니
+        <strong>실서비스로 넘어갈 때 이 한 줄만 교체</strong>하면 됩니다.
+      </p>
+
+      <div class="callout callout-info" style="margin-bottom:0">
+        <strong>💡 디버깅 요령 — 기억이 되는지 3초 만에 확인하는 법</strong>
+        <p>복잡한 시나리오를 짜지 마세요. <strong>이름 알려주기 → 이름 되묻기</strong>가 가장 빠른 테스트입니다.</p>
+        <p>그래도 이상하면 <strong><code>app.get_state(config).values['messages']</code>의 길이</strong>를 찍어보세요.
+        <strong>턴이 하나 늘 때마다 2씩 늘어야 정상</strong>입니다.
+        <strong>늘 2에서 멈춰 있으면 저장이 안 되는 것</strong>이고,
+        <strong>4, 8, 16처럼 뛰면 대화를 중복으로 넣고 있는 것</strong>입니다.</p>
+      </div>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════ 전체 코드 ══════════════ -->
+    <h2 id="full-code">전체 코드 한눈에 보기</h2>
+
+<pre class="code-block"><code># ══ STEP 1. Model ═════════════════════════════════════
+from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano")
+
+# ══ STEP 2. State ═════════════════════════════════════
+from langchain.messages import AnyMessage, HumanMessage, SystemMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class ChatState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]   # ★ 한 판 안에서의 누적
+
+# ══ STEP 3. Node ══════════════════════════════════════
+def chatbot_node(state: ChatState):
+    return {"messages": [model.invoke(state["messages"])]}
+
+# ══ STEP 4. Graph ═════════════════════════════════════
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import InMemorySaver
+
+workflow = StateGraph(ChatState)
+workflow.add_node("chatbot", chatbot_node)
+workflow.add_edge(START, "chatbot")
+workflow.add_edge("chatbot", END)
+
+memory = InMemorySaver()                          # ★ 수첩 만들기
+app = workflow.compile(checkpointer=memory)       # ★ 컴파일할 때 쥐여주기 = 판과 판 사이의 보존
+
+# ══ STEP 5. Run ═══════════════════════════════════════
+config_1 = {'configurable': {'thread_id': '1'}}   # ★ 두 겹 딕셔너리
+
+input_msg1 = {"messages": [HumanMessage(content="안녕? 내 이름은 Jay야.")]}
+response1 = app.invoke(input_msg1, config=config_1)
+print(response1['messages'][-1].content)
+
+input_msg2 = {"messages": [HumanMessage(content="내 이름이 뭐라고?")]}
+response2 = app.invoke(input_msg2, config=config_1)   # ★ 같은 방 → 기억함
+print(response2['messages'][-1].content)
+
+config_2 = {"configurable": {"thread_id": "2"}}
+input_msg3 = {"messages": [HumanMessage(content="내 이름이 뭐라고?")]}
+response3 = app.invoke(input_msg3, config=config_2)   # ★ 다른 방 → 못 기억함
+print(response3['messages'][-1].content)
+
+# ══ State History ═════════════════════════════════════
+# ① 현재 시점 스냅샷 한 장
+current_state = app.get_state(config_1)
+current_state.values['messages'][-1].content   # 그 시점의 공책
+current_state.next                             # 다음에 실행될 노드
+current_state.config                           # thread_id + checkpoint_id (= 시점 좌표)
+
+# ② 과거부터 현재까지 전부 (역순, 제너레이터이므로 list로 감싸기)
+history = list(app.get_state_history(config_1))
+
+for i, snapshot in enumerate(history):
+    print(f"\n[Snapshot {i}]")
+    print(f" - Created At: {snapshot.created_at}")
+    msgs = snapshot.values.get("messages", [])
+    if msgs:
+        last_msg = msgs[-1]
+        sender = "AI" if last_msg.type == "ai" else "User"
+        print(f" - 마지막 대화: [{sender}] {last_msg.content}")
+    else:
+        print(" - (대화 시작 전 초기 상태)")
+    print(f" - Next: {snapshot.next}")
+    print(f" - Metadata: {snapshot.metadata}")</code></pre>
+
+    <hr />
+
+    <!-- ══════════════ 정리 ══════════════ -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="callout callout-info">
+      <strong>오늘의 핵심 한 문장</strong>
+      <p><strong>기억은 <code>compile</code>할 때 붙이고(<code>checkpointer</code>),
+      <code>invoke</code>할 때 지목하며(<code>thread_id</code>),
+      <code>get_state_history</code>로 되감아 볼 수 있다.</strong></p>
+    </div>
+
+    <ul>
+      <li><strong>메모리는 두 종류다</strong> —
+      <strong>단기(<code>Checkpointer</code>)는 대화 스레드 단위</strong>,
+      <strong>장기(<code>Store</code>)는 사용자 단위.</strong>
+      ChatGPT로 치면 <strong>대화창의 스크롤 vs 개인 맞춤 설정</strong>이다. 이번 장은 <strong>단기</strong>만 다뤘다.</li>
+
+      <li><strong>LangChain과 딱 한 군데만 다르다</strong> —
+      <code>create_agent(..., checkpointer=memory)</code> 대신
+      <strong><code>workflow.compile(checkpointer=memory)</code></strong>.
+      <strong>호출 방법(<code>config</code>)은 완전히 동일</strong>하다.
+      슬라이드 판서 그대로 <strong>〈랭체인 == 랭그래프〉.</strong></li>
+
+      <li><strong><code>thread_id</code>는 방 번호표다</strong> —
+      <code>{'configurable': {'thread_id': '1'}}</code>, <strong>딕셔너리 두 겹.</strong>
+      같은 번호면 <strong>대화가 이어지고</strong>, 번호를 바꾸면 <strong>완전한 초면</strong>이 된다.
+      <strong>기억은 그래프가 아니라 스레드에 붙는다.</strong></li>
+
+      <li><strong>리듀서와 체크포인터는 층이 다르다</strong> —
+      <code>add_messages</code>는 <strong>한 번의 <code>invoke</code> 안에서의 누적</strong>,
+      체크포인터는 <strong><code>invoke</code>와 <code>invoke</code> 사이의 보존.</strong>
+      둘 다 있어야 대화가 된다.</li>
+
+      <li><strong>State History = 블랙박스</strong> —
+      <strong>State는 공책, Node는 작업자</strong>였으니
+      <strong>State의 이력을 보면 각 작업자가 언제 무엇을 적었는지</strong>가 다 보인다.</li>
+
+      <li><strong>두 메서드</strong>
+        <ul>
+          <li><code>get_state(config)</code> → <strong><code>StateSnapshot</code> 한 개</strong> (현재 시점)</li>
+          <li><code>get_state_history(config)</code> → <strong>스냅샷 여러 개, 시간 역순</strong> (<code>list()</code>로 감싸기)</li>
+          <li><strong><code>get_state</code>는 곧 <code>history[0]</code></strong>이다</li>
+        </ul>
+      </li>
+
+      <li><strong><code>StateSnapshot</code>의 네 칸</strong>
+        <ul>
+          <li><code>values</code> — <strong>그 시점의 공책 내용</strong> (State 딕셔너리)</li>
+          <li><code>next</code> — <strong>다음에 실행될 노드.</strong> 비면 그 턴이 끝난 것. <code>interrupt</code>·멀티 에이전트에서 활용</li>
+          <li><code>config</code> — <strong><code>thread_id</code> + <code>checkpoint_id</code>.</strong> <strong>Time Travel의 좌표</strong></li>
+          <li><code>metadata</code>·<code>parent_config</code> — <code>source</code>(input/loop)와 <code>step</code>으로 <strong>이력 추적</strong></li>
+        </ul>
+      </li>
+
+      <li><strong>스냅샷 읽는 규칙 두 개</strong> —
+      <strong><code>source</code>가 <code>'input'</code>이면 새 요청이 들어온 순간, <code>'loop'</code>면 그래프가 한 걸음 나아간 순간.</strong>
+      <strong><code>next</code>가 비면 끝, 차 있으면 그 노드가 다음 차례.</strong></li>
+
+      <li><strong><code>InMemorySaver</code>는 휘발성이다</strong> —
+      프로세스가 죽으면 전부 사라진다. <strong>실습엔 최적, 실서비스엔 DB 기반 체크포인터.</strong>
+      <strong>교체 지점은 <code>compile</code> 한 줄</strong>뿐이다.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 마지막으로 — 이 장을 한 장면으로 기억한다면</strong>
+      <p><strong>블랙박스를 단 자동차</strong>를 떠올리세요.
+      <strong>차를 조립하는 공정(<code>add_node</code>·<code>add_edge</code>)과 블랙박스를 다는 일(<code>compile</code>)은 별개</strong>입니다.
+      블랙박스를 달아도 <strong>차의 설계도(그래프 그림)는 그대로</strong>고요.</p>
+      <p><strong>주행 기록은 차량 번호(<code>thread_id</code>)별로 폴더가 나뉩니다.</strong>
+      <strong>다른 번호를 대면 남의 기록</strong>이 나올 뿐이죠.</p>
+      <p>그리고 <strong>영상을 돌려보면(<code>get_state_history</code>) 최신 장면부터 거꾸로 재생</strong>되고,
+      <strong>매 장면에는 타임코드(<code>checkpoint_id</code>)가 찍혀</strong> 있습니다.
+      <strong>그 타임코드가 다음 장의 입장권</strong>입니다.</p>
+    </div>
+
+    <!-- ══════════════ 다음 예고 ══════════════ -->
+    <h2 id="next">다음 — 과거로 돌아가 사건을 바꾸기</h2>
+
+    <figure>
+      <img src="../images/04.%20Memory/11.png" alt="State History 챕터 마무리 슬라이드 — '과거로 돌아가 사건을 바꿔보자!' 아래에 '→ Time Travel'" />
+      <figcaption>지금까지는 <strong>블랙박스를 "보는"</strong> 수준이었습니다.
+      다음은 <strong>그 시점으로 돌아가 "바꾸는"</strong> 단계입니다.</figcaption>
+    </figure>
+
+    <p>
+      필요한 재료는 이미 다 모았습니다.
+      <strong>스냅샷마다 찍혀 있던 <code>checkpoint_id</code></strong>가 <strong>돌아갈 좌표</strong>이고,
+      <strong><code>next</code>에 적힌 노드</strong>가 <strong>그 시점에서 다시 시작될 지점</strong>입니다.
+    </p>
+
+    <p>
+      특히 <strong>Snapshot 1 — "질문은 들어왔지만 챗봇이 아직 답하지 않은 상태"</strong>를 기억해두세요.
+      <strong>이런 "실행 직전" 시점이 되돌리기에 가장 쓸모 있는 지점</strong>입니다.
+      <strong>에이전트가 엉뚱한 결정을 내리려는 순간으로 돌아가 그 결정을 갈아끼우는 것</strong> —
+      그게 다음 장 <strong>Time Travel</strong>에서 할 일입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>참고 자료</strong>
+      <p><a href="https://docs.langchain.com/oss/python/langgraph/persistence" target="_blank">LangGraph 공식 문서 — Persistence (Checkpointer · StateSnapshot)</a></p>
+      <p><a href="https://docs.langchain.com/oss/python/langgraph/add-memory#add-short-term-memory" target="_blank">LangGraph 공식 문서 — Add short-term memory</a></p>
+    </div>
+
+    <div class="pager">
+      <a href="../03.%20LangGraph%20응용/2-2.html">
+        <small>← 이전</small>
+        3-4. 응용 아키텍처 패턴 — Orchestrator-Worker
+      </a>
+      <a href="../index.html" class="to-index">📚 목차</a>
+      <span class="disabled">
+        <small>다음 →</small>
+        4-2. Time Travel (준비 중)
+      </span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 자체 포함 Python 문법 강조기 (외부 라이브러리·인터넷 불필요) ── -->
+<script>
+(function () {
+  var KEYWORDS = {'from':1,'import':1,'as':1,'def':1,'return':1,'class':1,'if':1,'elif':1,'else':1,'for':1,'while':1,'in':1,'not':1,'and':1,'or':1,'is':1,'with':1,'lambda':1,'pass':1,'break':1,'continue':1,'try':1,'except':1,'finally':1,'raise':1,'yield':1,'global':1,'nonlocal':1,'assert':1,'del':1,'async':1,'await':1,'None':1,'True':1,'False':1};
+  var BUILTINS = {'print':1,'len':1,'range':1,'int':1,'float':1,'str':1,'list':1,'dict':1,'set':1,'tuple':1,'bool':1,'self':1,'super':1,'isinstance':1,'enumerate':1,'zip':1,'map':1,'filter':1,'open':1,'type':1};
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function span(cls, s){ return '<span class="'+cls+'">'+esc(s)+'</span>'; }
+  function highlight(src){
+    var out='', i=0, n=src.length, expectName=false, m;
+    while(i<n){
+      var ch=src[i], rest=src.slice(i);
+      if(ch==='#'){ m=rest.match(/^#[^\n]*/); out+=span('tok-com',m[0]); i+=m[0].length; continue; }              // 주석
+      if((m=rest.match(/^("""[\s\S]*?"""|'''[\s\S]*?''')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 삼중따옴표 문자열
+      if((m=rest.match(/^("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 일반 문자열
+      if(ch==='!' && (i===0 || src[i-1]==='\n')){ m=rest.match(/^![^\n]*/); out+=span('tok-shell',m[0]); i+=m[0].length; continue; } // 셸 명령
+      if((m=rest.match(/^@[A-Za-z_]\w*/))){ out+=span('tok-dec',m[0]); i+=m[0].length; continue; }                 // 데코레이터
+      if((m=rest.match(/^\d[\d_]*\.?\d*/))){ out+=span('tok-num',m[0]); i+=m[0].length; continue; }                // 숫자
+      if((m=rest.match(/^[A-Za-z_]\w*/))){                                                                         // 식별자
+        var w=m[0];
+        if(expectName){ out+=span('tok-fn',w); expectName=false; }
+        else if(KEYWORDS[w]){ out+=span('tok-kw',w); if(w==='def'||w==='class') expectName=true; }
+        else if(BUILTINS[w]){ out+=span('tok-bi',w); }
+        else { out+=esc(w); }
+        i+=w.length; continue;
+      }
+      out+=esc(ch); i++;                                                                                           // 그 외 문자
+    }
+    return out;
+  }
+  function run(){
+    var blocks=document.querySelectorAll('pre.code-block > code');
+    for(var k=0;k<blocks.length;k++){ blocks[k].innerHTML=highlight(blocks[k].textContent); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+</script>
+
+</body>
+</html>
