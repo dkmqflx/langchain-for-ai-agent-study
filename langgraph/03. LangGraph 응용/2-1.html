@@ -276,6 +276,7 @@
       <a href="#step2">STEP 2. State 정의</a>
       <a href="#schema">🔑 EvaluationResult 스키마</a>
       <a href="#evaluator-llm" class="sub">evaluator_llm 만들기</a>
+      <a href="#why-typeddict" class="sub">왜 State는 TypedDict인가</a>
       <a href="#step3">STEP 3. Node 정의</a>
       <a href="#node-copywriter" class="sub">① copywriter_node — 신입</a>
       <a href="#node-manager" class="sub">② manager_node — 팀장</a>
@@ -879,6 +880,99 @@ class EvaluationResult(BaseModel):
       <strong>어느 모델을 불렀는지</strong>를 항상 의식하세요.</p>
       <p>기억법: <strong>State는 딕셔너리라 대괄호(<code>state["ad_copy"]</code>),
       스키마 객체는 클래스라 점(<code>result.status</code>).</strong></p>
+    </div>
+
+    <!-- ══════════════ TypedDict vs Pydantic ══════════════ -->
+    <h3 id="why-typeddict">왜 State는 <code>TypedDict</code>이고, 스키마만 <code>Pydantic</code>일까</h3>
+
+    <p>
+      여기까지 오면 자연스럽게 걸리는 게 있습니다.
+      <strong>같은 <code>status</code>인데 State에서는 <code>str</code>, 스키마에서는 <code>Literal["pass", "fail"]</code>입니다.</strong>
+      State에도 <code>Literal</code>을 쓰면 더 안전하지 않을까요? 아예 State를
+      <strong><code>BaseModel</code>로 만들면 안 되나요?</strong>
+    </p>
+
+    <h4>① State에 <code>Literal</code>을 써도 — 문법은 되는데 아무 일도 안 일어난다</h4>
+    <p>
+      <code>status: Literal["pass", "fail"]</code>이라고 써도 <strong>에러는 안 납니다.</strong>
+      다만 <strong>아무것도 막아주지 않습니다.</strong>
+      <code>TypedDict</code>의 타입은 <strong>런타임에 검사되지 않는 메모</strong>이고,
+      LangGraph도 State에서는 <strong>"어떤 칸이 있고 리듀서가 뭔지"만</strong> 읽어갑니다.
+    </p>
+    <p>
+      그래서 노드가 <code>{"status": "통과시켜도 될 것 같습니다"}</code>를 반환하면
+      <strong><code>Literal</code>을 선언했든 안 했든 그 문장이 그대로 State에 들어갑니다.</strong>
+      그리고 <code>route_submission</code>의 <code>status == 'pass'</code>가 <strong>영원히 거짓</strong>이 되죠 —
+      <strong>합격해도 안 끝나는 그래프</strong>입니다.
+    </p>
+    <p>
+      반면 <code>EvaluationResult</code>의 <code>Literal</code>은 <strong>실제로 힘을 씁니다.</strong>
+      <code>with_structured_output()</code>이 이 클래스를 <strong>JSON 스키마로 변환해 모델에게 넘기면서</strong>
+      <code>Literal["pass", "fail"]</code>은 <strong>"이 두 값 말고는 쓰지 마"라는 지시</strong>가 되고,
+      그래도 이상한 값이 오면 <strong>Pydantic이 런타임에 에러</strong>를 냅니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 자물쇠는 현관문에 답니다</strong>
+      <p>집에 자물쇠를 달 때 <strong>안방 문마다 다 달지는 않습니다.</strong> 현관문 하나면 됩니다.
+      바깥에서 들어오는 통로가 <strong>거기 하나</strong>니까요.</p>
+      <p>이 그래프에서 <strong>믿을 수 없는 값이 들어오는 유일한 입구는 LLM의 출력</strong>이고,
+      그 자리가 <code>EvaluationResult</code>입니다. <strong>거기서 한 번 걸러내면</strong>
+      State에 올라오는 <code>status</code>는 <strong>이미 <code>pass</code> 아니면 <code>fail</code></strong>이에요.
+      State에 <code>Literal</code>을 또 쓰는 건 <strong>잠기지 않는 자물쇠를 하나 더 다는 것</strong>입니다.</p>
+    </div>
+
+    <h4>② 그럼 State를 통째로 Pydantic으로 만들면?</h4>
+    <p>
+      <code>StateGraph(AdState)</code>에 <strong><code>BaseModel</code>을 넘겨도 동작은 합니다.</strong>
+      그런데 <strong>State의 생김새가 딕셔너리에 훨씬 잘 맞습니다.</strong> 이유가 셋입니다.
+    </p>
+
+    <p><strong>첫째, 노드는 State 전체가 아니라 "바뀐 칸"만 반환합니다.</strong>
+      <code>manager_node</code>의 마지막 줄을 보세요 —
+      <code>return {"status": ..., "feedback": ...}</code>. <code>product_name</code>도 <code>ad_copy</code>도
+      안 돌려주죠. LangGraph가 이 <strong>부분 딕셔너리를 기존 State에 덮어써서 합칩니다.</strong>
+      State를 Pydantic으로 바꿔도 <strong>노드가 반환하는 건 여전히 딕셔너리</strong>라서,
+      <strong>검증을 기대했던 지점(노드가 값을 뱉는 순간)은 그대로 뚫려 있습니다.</strong>
+    </p>
+
+    <p><strong>둘째, State는 "아직 안 채워진 칸"이 정상입니다.</strong>
+      <code>copywriter_node</code>가 <code>state.get('feedback')</code>처럼 <strong><code>.get()</code>을 쓰는 이유</strong>죠.
+      첫 <code>invoke({"product_name": ...})</code> 시점에 <strong>나머지 네 칸은 존재하지도 않습니다.</strong>
+      Pydantic 모델은 <strong>만들어지는 순간 모든 필드가 있어야 하는 물건</strong>이라
+      다섯 칸 전부에 <code>Optional[...] = None</code>을 달아야 하고,
+      그러면 <em>"이 칸은 str이다"</em>라는 약속이 <em>"str일 수도, None일 수도"</em>로 흐려져
+      <strong>Pydantic을 쓴 이유가 사라집니다.</strong>
+    </p>
+
+    <p><strong>셋째, 매 스텝마다 지불하는 비용입니다.</strong>
+      그래프는 노드를 지날 때마다 <strong>State를 복사하고 체크포인터에 직렬화</strong>합니다.
+      <code>TypedDict</code>는 런타임에 <strong>그냥 딕셔너리</strong>라 이게 공짜지만,
+      Pydantic이면 <strong>단계마다 검증 + 객체↔딕셔너리 변환 비용</strong>이 붙습니다.
+      <strong>루프를 도는 그래프라면 이게 계속 쌓입니다.</strong>
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구분</th><th><code>AdState</code> (TypedDict)</th><th><code>EvaluationResult</code> (Pydantic)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>역할</strong></td><td>노드들이 나눠 채우는 <strong>공유 화이트보드</strong></td><td>바깥 값이 들어오는 <strong>세관 검사대</strong></td></tr>
+          <tr><td><strong>런타임 검증</strong></td><td><strong>없음</strong> (타입은 메모)</td><td><strong>있음</strong> (+ 모델에게 제약 전달)</td></tr>
+          <tr><td><strong>빈 칸</strong></td><td><strong>정상</strong> — <code>.get()</code>으로 접근</td><td>불가 — 모든 필드가 채워져야 함</td></tr>
+          <tr><td><strong>채우는 방식</strong></td><td>바뀐 칸만 부분 반환</td><td>한 번에 통째로 생성</td></tr>
+          <tr><td><strong>비용</strong></td><td>공짜 (그냥 dict)</td><td>검증 · 변환 비용</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-info">
+      <strong>💡 정리 — 둘은 경쟁 관계가 아니라 자리가 다릅니다</strong>
+      <p><strong>화이트보드</strong>는 누구나 자기 칸을 채우고, 빈 칸이 있어도 되고, <strong>쓰는 데 절차가 없어야</strong> 합니다.
+      <strong>검사대</strong>는 바깥에서 들어오는 <strong>딱 한 곳</strong>에만 세웁니다.</p>
+      <p><strong>검사대를 복도마다 세우면 통행만 느려지지 안전해지지는 않습니다.</strong></p>
+      <p>다만 State에 <code>Literal</code>을 쓰는 게 <strong>틀린 건 아닙니다</strong> —
+      타입 체커를 쓴다면 <code>state["status"] == "passed"</code> 같은 <strong>오타를 에디터에서 잡아주는 이득</strong>은 있어요.
+      <strong>그건 나를 돕는 주석이지 런타임 보증이 아니라는 것</strong>만 구분하면 됩니다.</p>
     </div>
 
     <hr />
