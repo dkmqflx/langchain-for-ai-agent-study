@@ -55,7 +55,11 @@ def get_embeddings():
 def main():
     chunks = build_chunks()             # (1) PDF들을 읽어 청크로 분할
     print(f"청크 수: {len(chunks)}")     # 몇 조각으로 나뉘었는지 확인(0이면 PDF가 비었거나 스캔본=텍스트 없음 의심)
-    # (2) 각 청크를 임베딩해 Chroma에 저장. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
+    # (2) 재실행 대비: 기존 컬렉션을 통째로 비운다(처음 실행이면 빈 것을 지우고 지나간다).
+    #     아래 from_documents는 '덮어쓰기'가 아니라 '추가'라서, 비우지 않고 다시 돌리면 같은 청크가 중복으로 쌓인다.
+    #     전부 다시 저장해도 임베딩은 cache/에서 꺼내 쓰므로 API를 다시 부르지 않는다(= 사실상 공짜).
+    Chroma(collection_name=COLLECTION, persist_directory=PERSIST_DIR).delete_collection()
+    # (3) 각 청크를 임베딩해 Chroma에 저장. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
     Chroma.from_documents(
         documents=chunks,               # 저장할 청크(Document) 목록
         embedding=get_embeddings(),     # 각 청크를 벡터로 바꿀 임베딩기(위에서 만든 캐시 버전)

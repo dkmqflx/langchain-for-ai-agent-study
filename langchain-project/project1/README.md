@@ -9,7 +9,7 @@
 ## 진행 상태
 - [x] **STEP 0** · [프로젝트 셋업 & 준비물](docs/0.html) (환경/의존성/키)
 - [x] **STEP 1** · [문서 인제스천](docs/1.html) (`ingest.py`) — 164 청크 / `chroma_db`(collection=`p1_docs`)
-- [ ] STEP 2 · [검색 + 생성 + 근거](docs/2.html) (`rag.py`)
+- [x] **STEP 2** · [검색 + 생성 + 근거](docs/2.html) (`rag.py`) — `answer()` 완성 / top-k=4 · `gpt-5-mini`
 - [ ] STEP 3 · [Hybrid 검색](docs/3.html) — BM25 + Dense, mode 팩토리 (`rag.py`)
 - [ ] STEP 4 · [Reranker](docs/4.html) — 2-stage retrieval (`rag.py`)
 - [ ] STEP 5 · [FastAPI 서빙](docs/5.html) (`main.py`)
