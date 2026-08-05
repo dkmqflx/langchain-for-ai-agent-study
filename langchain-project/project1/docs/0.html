@@ -52,20 +52,87 @@
       <p>학습은 노트북에서 했지만, <strong>서비스는 재실행 가능한 스크립트/모듈</strong>이어야 합니다. 그래서 노트북이 아니라 <code>.py</code> 파일로 구조를 잡습니다.</p>
 
       <div class="label">🛠 할 일</div>
-      <p>1) <code>langchain-project</code> 안에 작업 폴더를 만들고 <code>uv</code>로 환경을 초기화합니다. (학습 때 쓴 <code>uv</code> 그대로)</p>
+      <p>
+        다섯 조각으로 나눠 하나씩 보고, <a href="#full-code">맨 아래에 이어 붙인 전체 명령어</a>를 그대로 복사해 쓰면 됩니다.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 다섯 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 폴더·가상환경 만들기 &nbsp;→&nbsp; <b>②</b> 의존성 설치(세 묶음) &nbsp;→&nbsp;
+          <b>③</b> 폴더 구조 잡기 &nbsp;→&nbsp; <b>④</b> <code>.env</code>로 비밀키 분리 &nbsp;→&nbsp;
+          <b>⑤</b> <code>data/</code>에 PDF 넣기
+        </p>
+      </div>
+
+      <h3>① 프로젝트 폴더와 가상환경 만들기</h3>
+      <p>
+        학습은 노트북(<code>.ipynb</code>)에서 했지만, 서비스는 <strong>언제든 다시 실행되는 폴더</strong>여야 합니다.
+        <code>uv init</code>은 그 폴더에 <strong>이 프로젝트 전용 파이썬 환경</strong>을 만들어 줍니다 —
+        다른 프로젝트와 패키지 버전이 섞이지 않게 칸막이를 치는 것이라고 보면 됩니다.
+      </p>
       <div class="filename">터미널</div>
-<pre><code>cd ~/Documents/langchain-study/langchain-project
+<pre><code># 프로젝트들을 모아 두는 상위 폴더로 이동한다 (~ 는 내 홈 폴더를 뜻함)
+cd ~/Documents/langchain-study/langchain-project
+
+# 이번 프로젝트 폴더를 새로 만들고(mkdir), 그 안으로 들어간다(cd).
+# &amp;&amp; 는 "앞 명령이 성공하면 뒤 명령도 실행" — 폴더 생성에 실패하면 들어가지도 않는다
 mkdir p1-rag-service &amp;&amp; cd p1-rag-service
 
-uv init .
+# 지금 폴더(.)를 파이썬 프로젝트로 초기화한다. 실행하면 아래가 만들어진다:
+#   pyproject.toml   → '이 프로젝트가 쓰는 패키지 목록' 파일 (앞으로 uv add 할 때마다 여기에 기록됨)
+#   .python-version  → 이 프로젝트가 쓸 파이썬 버전
+#   .gitignore       → 깃에 올리지 않을 파일 목록 (.env 등)
+#   .venv/           → 이 프로젝트 전용 파이썬 환경 (다른 프로젝트와 패키지가 섞이지 않게 하는 칸막이)
+uv init .</code></pre>
+
+      <h3>② 의존성 설치 — 필요한 시점별로 세 묶음</h3>
+      <p>
+        한 번에 다 깔지만, <strong>어느 패키지가 어느 STEP에서 쓰이는지</strong> 알고 넘어가는 게 좋습니다.
+        나중에 <code>ImportError</code>가 났을 때 "아 이건 STEP 4용이었지" 하고 바로 짚을 수 있거든요.
+      </p>
+      <div class="filename">터미널</div>
+<pre><code># uv add = 패키지를 설치하고, 동시에 pyproject.toml에 '이 프로젝트가 쓰는 패키지'로 기록한다.
+#          기록이 남기 때문에 나중에 다른 컴퓨터에서 uv sync 한 번으로 똑같은 환경을 재현할 수 있다.
+# 줄 끝의 \ 는 "명령이 다음 줄로 이어진다"는 표시일 뿐 (한 줄이 너무 길어서 나눠 쓴 것)
+
+# 1묶음 · RAG 파이프라인 핵심 (STEP 1~2에서 사용)
 uv add langchain langchain-openai langchain-chroma langchain-community \
        langchain-text-splitters langchain-classic pymupdf python-dotenv
-# 하이브리드·리랭커 (STEP 3~4)
-uv add rank-bm25 sentence-transformers
-# 서빙·관측·평가 (STEP 5~7에서 사용)
-uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas</code></pre>
 
-      <p>2) 폴더 구조를 아래처럼 잡아 둡니다(파일은 STEP마다 채웁니다).</p>
+# 2묶음 · 검색 개선 (STEP 3~4에서 사용)
+#   rank-bm25             → 키워드 검색(BM25)
+#   sentence-transformers → 리랭커 모델을 내 컴퓨터에서 돌리기 위한 실행기
+uv add rank-bm25 sentence-transformers
+
+# 3묶음 · 서비스화 (STEP 5~7에서 사용)
+#   "uvicorn[standard]" 의 따옴표는 필수 — 없으면 셸이 [ ] 를 파일이름 패턴으로 오해한다.
+#   [standard]는 '기본 부가기능까지 함께 설치'를 뜻한다.
+uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas</code></pre>
+      <table>
+        <thead>
+          <tr><th style="width:34%">패키지</th><th style="width:16%">쓰이는 곳</th><th>역할</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>langchain</code> · <code>langchain-openai</code></td><td><span class="badge badge-gray">1~2</span></td><td>본체 + OpenAI 모델(임베딩·챗) 연결</td></tr>
+          <tr><td><code>langchain-chroma</code></td><td><span class="badge badge-gray">1~2</span></td><td>벡터DB(Chroma) 저장·검색</td></tr>
+          <tr><td><code>langchain-text-splitters</code> · <code>pymupdf</code></td><td><span class="badge badge-gray">1</span></td><td>PDF 읽기, 청크 쪼개기</td></tr>
+          <tr><td><code>langchain-classic</code></td><td><span class="badge badge-gray">1</span></td><td>임베딩 캐시 등 <b>1.x에서 이쪽으로 옮겨간</b> 유틸</td></tr>
+          <tr><td><code>python-dotenv</code></td><td><span class="badge badge-gray">전체</span></td><td><code>.env</code>의 키를 환경변수로 로드</td></tr>
+          <tr><td><code>rank-bm25</code></td><td><span class="badge badge-gray">3</span></td><td>키워드 검색(BM25) — Hybrid의 한 축</td></tr>
+          <tr><td><code>sentence-transformers</code></td><td><span class="badge badge-gray">4</span></td><td>Cross-Encoder 리랭커(로컬 모델)</td></tr>
+          <tr><td><code>fastapi</code> · <code>uvicorn</code></td><td><span class="badge badge-gray">5</span></td><td>HTTP API 서버</td></tr>
+          <tr><td><code>langfuse</code></td><td><span class="badge badge-gray">6</span></td><td>추적·비용·지연 대시보드</td></tr>
+          <tr><td><code>ragas</code> · <code>datasets</code> · <code>pandas</code></td><td><span class="badge badge-gray">7</span></td><td>검색·생성 품질 자동 채점과 비교표</td></tr>
+        </tbody>
+      </table>
+
+      <h3>③ 폴더 구조 잡기 — 파일 하나가 STEP 하나</h3>
+      <p>
+        지금은 <strong>빈 파일만 만들어 두고</strong> STEP마다 채웁니다.
+        구조를 먼저 잡아 두면 "지금 내가 어디쯤 왔는지"가 폴더만 봐도 보입니다.
+        <code>cache/</code>·<code>chroma_db/</code>는 직접 만들 필요 없이 <strong>실행하면 자동으로 생깁니다.</strong>
+      </p>
 <pre><code>p1-rag-service/
 ├── data/                # 여기에 PDF를 넣습니다 (3~10개)
 ├── cache/               # 임베딩 캐시 (자동 생성)
@@ -78,15 +145,55 @@ uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas</code></pre>
 ├── .env
 └── README.md            # STEP 9</code></pre>
 
-      <p>3) <code>.env</code>를 만듭니다. (OpenAI 키는 학습 때 쓰던 것 재사용, Langfuse는 STEP 6에서 발급)</p>
+      <h3>④ <code>.env</code> — 비밀키를 코드 밖으로</h3>
+      <p>
+        API 키를 코드에 직접 적으면 <strong>깃에 올리는 순간 그대로 유출됩니다.</strong>
+        그래서 키는 <code>.env</code>라는 별도 파일에 두고, 코드에서는 <code>load_dotenv()</code>로 읽어 씁니다.
+        Langfuse 항목은 지금 <strong>비워 두고</strong> STEP 6에서 발급받아 채웁니다.
+      </p>
       <div class="filename">.env</div>
 <pre><code>OPENAI_API_KEY=sk-...
 # STEP 6에서 채웁니다
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 LANGFUSE_HOST=https://cloud.langfuse.com</code></pre>
+      <div class="callout callout-warn">
+        <strong>⚠️ <code>.gitignore</code>에 <code>.env</code>가 있는지 꼭 확인하세요</strong>
+        <p style="margin-top:6px">
+          <code>uv init</code>이 만들어 주는 기본 <code>.gitignore</code>에 보통 들어 있지만, <strong>없으면 직접 한 줄 추가하세요.</strong>
+          이미 커밋한 뒤에 지우는 건 훨씬 번거롭고, 그사이 키가 노출됩니다.
+          <code>cache/</code>·<code>chroma_db/</code>도 용량이 크고 재생성 가능하니 함께 제외하는 게 좋습니다.
+        </p>
+      </div>
 
-      <p>4) <code>data/</code>에 PDF 몇 개를 넣습니다(도메인 선택 참고).</p>
+      <h3>⑤ <code>data/</code>에 PDF 넣기</h3>
+      <p>
+        <strong>3~10개면 충분합니다.</strong> 개수보다 중요한 건 "내가 질문을 만들어 낼 수 있는 문서"인지예요 —
+        STEP 7에서 이 문서들로 골든 평가셋을 직접 만들어야 하니까요.
+      </p>
+      <div class="callout callout-warn">
+        <strong>⚠️ 스캔본 PDF는 안 됩니다</strong>
+        <p style="margin-top:6px">
+          종이를 찍은 <strong>이미지 PDF</strong>는 텍스트가 없어서, STEP 1을 돌리면 <code>청크 수: 0</code>이 나옵니다.
+          PDF를 열어 <strong>본문 글자가 드래그로 선택되는지</strong> 확인해 보세요. 선택되면 텍스트 PDF입니다.
+        </p>
+      </div>
+
+      <div class="label" id="full-code">📄 전체 명령어 (①~② 한 번에)</div>
+      <div class="filename">터미널</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project
+mkdir p1-rag-service &amp;&amp; cd p1-rag-service
+
+uv init .
+uv add langchain langchain-openai langchain-chroma langchain-community \
+       langchain-text-splitters langchain-classic pymupdf python-dotenv
+# 하이브리드·리랭커 (STEP 3~4)
+uv add rank-bm25 sentence-transformers
+# 서빙·관측·평가 (STEP 5~7에서 사용)
+uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas
+
+mkdir -p data
+touch ingest.py rag.py main.py evaluate.py .env README.md</code></pre>
 
       <div class="callout callout-result">
         <strong>✅ 검증 게이트</strong>
@@ -105,5 +212,6 @@ LANGFUSE_HOST=https://cloud.langfuse.com</code></pre>
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

@@ -56,8 +56,91 @@
       </p>
 
       <div class="label">🛠 할 일</div>
-      <p>1) <a href="https://cloud.langfuse.com">cloud.langfuse.com</a>에서 무료 프로젝트를 만들고 키 2개를 <code>.env</code>에 채웁니다(STEP 0의 빈칸).</p>
-      <p>2) <code>rag.py</code>에 콜백 핸들러를 추가하고, 검색·생성 호출에 전달합니다.</p>
+      <p>
+        <strong>코드 변경은 사실상 세 줄입니다.</strong> 세 조각으로 나눠 보고,
+        <a href="#full-code">맨 아래 전체 코드</a>로 <code>answer()</code>를 교체하세요.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 세 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> Langfuse 키 발급해 <code>.env</code> 채우기 &nbsp;→&nbsp; <b>②</b> 콜백 핸들러 하나 만들기
+          &nbsp;→&nbsp; <b>③</b> 기록하고 싶은 호출에 <code>config</code> 붙이기
+        </p>
+      </div>
+
+      <h3>① 키 발급 — STEP 0에서 비워 둔 칸 채우기</h3>
+      <p>
+        <a href="https://cloud.langfuse.com">cloud.langfuse.com</a>에서 무료 프로젝트를 만들고 키 2개를 받아
+        STEP 0에서 <strong>빈칸으로 남겨 둔 자리</strong>에 채웁니다.
+      </p>
+      <div class="filename">.env</div>
+<pre><code>LANGFUSE_PUBLIC_KEY=pk-lf-...              # 공개 키 (pk-lf- 로 시작)
+LANGFUSE_SECRET_KEY=sk-lf-...              # 비밀 키 (sk-lf- 로 시작) — 절대 깃에 올리지 말 것
+LANGFUSE_HOST=https://cloud.langfuse.com   # 로그를 보낼 서버 주소 (직접 설치해 쓴다면 그 주소로 바꾼다)</code></pre>
+
+      <h3>② 콜백 핸들러 만들기</h3>
+      <p>
+        <strong>콜백(callback)</strong>은 "무슨 일이 생길 때마다 나한테도 알려줘"라고 등록해 두는 <strong>참관인</strong>입니다.
+        랭체인이 검색을 시작할 때, LLM이 답을 마칠 때마다 이 참관인이 호출되고,
+        핸들러는 그 내용을 Langfuse 서버로 보냅니다.
+      </p>
+      <div class="filename">rag.py (맨 위에 추가)</div>
+<pre><code>from langfuse.langchain import CallbackHandler   # langfuse v3~v4 경로 (v2라면 langfuse.callback)
+
+# 랭체인 실행 중 일어나는 일(검색 시작·LLM 응답 완료 등)을 넘겨받아 Langfuse 서버로 보내는 '참관인'.
+# 키를 인자로 넘기지 않는 점에 주목 — .env에 정해진 이름(LANGFUSE_*)으로 있으면 알아서 찾아 읽는다.
+langfuse_handler = CallbackHandler()</code></pre>
+      <p>
+        <code>CallbackHandler()</code>에 키를 <strong>직접 넘기지 않는다는 점</strong>을 눈여겨보세요.
+        <code>.env</code>에 정해진 이름으로 넣어 두면 <strong>알아서 찾아 읽습니다.</strong>
+      </p>
+      <div class="callout callout-warn">
+        <strong>⚠️ import 경로가 langfuse 버전에 민감합니다</strong>
+        <p style="margin-top:6px">
+          설치된 버전을 <code>uv run python -c "import langfuse; print(langfuse.__version__)"</code>로 먼저 확인하세요.
+          <b>v3~v4</b>는 <code>langfuse.langchain</code>, <b>v2</b>는 <code>langfuse.callback</code>입니다.
+        </p>
+      </div>
+
+      <h3>③ 기록하고 싶은 호출에 <code>config</code> 붙이기</h3>
+      <p>
+        핸들러를 만들어 둔다고 자동으로 기록되지는 않습니다.
+        <strong><code>config</code>를 넘긴 호출만</strong> 남아요. 그래서 검색과 생성, 두 군데에 붙입니다.
+      </p>
+      <div class="filename">rag.py (answer 교체)</div>
+<pre><code>def answer(question: str, mode: str = "rerank"):
+    # 이 config를 넘긴 호출만 Langfuse에 기록된다. 한 번 만들어 두 군데에 재사용한다.
+    cfg = {"callbacks": [langfuse_handler]}
+
+    # 검색에 붙인다 → trace에 'retriever' 노드로 남는다 (어떤 청크를 가져왔는지 나중에 확인 가능)
+    docs = get_retriever(mode).invoke(question, config=cfg)
+
+    # 여기엔 일부러 안 붙인다 — 빈칸에 값을 끼우는 문자열 조립일 뿐이라 시간도 비용도 안 들고, 기록할 게 없다
+    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+
+    # 생성에 붙인다 → 'LLM' 노드로 남고 토큰 수·비용·지연까지 함께 기록된다
+    resp = llm.invoke(msg, config=cfg)
+
+    ...   # return 부분은 STEP 3과 동일하다 (바뀌는 건 위 세 줄뿐)</code></pre>
+      <div class="callout callout-analogy">
+        <strong>🤔 <code>PROMPT.invoke</code>에는 왜 안 붙였을까요?</strong>
+        <p style="margin-top:6px">
+          <code>invoke</code>가 세 번 나오는데 <code>config</code>는 두 개만 붙었습니다. 일부러예요.
+          <code>PROMPT.invoke</code>는 <strong>빈칸에 값을 끼우는 문자열 조립</strong>일 뿐,
+          네트워크도 안 타고 시간도 비용도 들지 않습니다. <strong>기록할 게 없는 거죠.</strong>
+          반대로 <code>retriever</code>(벡터DB 조회)와 <code>llm</code>(OpenAI 호출)은
+          <b>느려질 수도, 돈이 들 수도, 이상한 결과를 낼 수도</b> 있는 지점입니다.
+          관측은 <strong>바깥 세상과 이야기하는 곳</strong>에만 붙이면 됩니다.
+        </p>
+      </div>
+      <p>
+        이렇게 두 군데만 붙여도 대시보드에는 <strong><code>retriever</code> → <code>LLM</code> 트리</strong>가 그려집니다.
+        RAG가 틀린 답을 했을 때 <strong>"검색이 엉뚱한 걸 가져왔나, 아니면 문맥은 맞는데 생성이 틀렸나"</strong>를
+        추측이 아니라 <strong>기록으로</strong> 가를 수 있게 되는 겁니다. 덤으로 질의당 토큰·비용·지연도 함께 쌓입니다.
+      </p>
+
+      <div class="label" id="full-code">📄 전체 코드 (<code>rag.py</code>에 추가·교체할 부분)</div>
       <div class="filename">rag.py (수정)</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 6 · 관측성(Langfuse): 모든 질의의 검색·생성·토큰·비용·지연을 대시보드로 추적한다.
@@ -101,5 +184,6 @@ def answer(question: str, mode: str = "rerank"):
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

@@ -56,6 +56,109 @@
       </p>
 
       <div class="label">🛠 할 일</div>
+      <p>
+        STEP 3에서 만든 <code>_build_retriever()</code>에 <strong><code>"rerank"</code> 분기 하나를 더하는</strong> 작업입니다.
+        세 조각으로 나눠 보고, <a href="#full-code">맨 아래 전체 코드</a>를 붙여 넣으세요.
+      </p>
+
+      <div class="callout callout-analogy">
+        <strong>🎯 비유 — 서류 심사 다음에 면접</strong>
+        <p style="margin-top:6px">
+          채용에서 지원자 500명을 <strong>전부 면접할 수는 없습니다.</strong> 그래서 먼저 이력서 키워드로 <b>10명을 빠르게 추리고</b>,
+          그 10명만 <b>면접해서 4명을 고릅니다.</b> 서류 심사는 거칠지만 빠르고, 면접은 느리지만 정확하죠.
+          2-stage retrieval이 정확히 이 구조입니다 — <strong>1단계로 넓게 top-10을 검색하고, 2단계로 정밀 모델이 4개를 고릅니다.</strong>
+        </p>
+      </div>
+
+      <div class="callout callout-info">
+        <strong>🧭 세 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 리랭커 부품 3개 불러오기 &nbsp;→&nbsp; <b>②</b> <code>"rerank"</code> 분기 추가(넓게 뽑고 → 좁게 고르기)
+          &nbsp;→&nbsp; <b>③</b> <code>answer()</code>의 기본 mode 승격
+        </p>
+      </div>
+
+      <h3>① 부품 세 개 불러오기</h3>
+      <p>이름이 길지만 역할은 <strong>모델 / 로직 / 껍데기</strong> 세 층으로 나뉩니다.</p>
+      <div class="filename">rag.py (STEP 3 코드에 이어서)</div>
+<pre><code># 껍데기 — 기존 검색기를 감싸서 '검색한 뒤 후처리'를 덧붙이는 검색기
+from langchain_classic.retrievers import ContextualCompressionRetriever
+# 로직 — 점수를 매겨 재정렬하고 상위 N개만 남기는 부분
+from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
+# 모델 — 실제로 점수를 매기는 AI 모델을 내 컴퓨터에서 돌리는 래퍼
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+# ImportError가 나면 경로 후보: langchain.retrievers / langchain.retrievers.document_compressors</code></pre>
+      <table>
+        <thead><tr><th style="width:38%">부품</th><th style="width:14%">층</th><th>하는 일</th></tr></thead>
+        <tbody>
+          <tr><td><code>HuggingFaceCrossEncoder</code></td><td><b>모델</b></td><td>실제로 점수를 매기는 로컬 AI 모델</td></tr>
+          <tr><td><code>CrossEncoderReranker</code></td><td><b>로직</b></td><td>그 점수로 <b>재정렬하고 상위 N개만</b> 남김</td></tr>
+          <tr><td><code>ContextualCompressionRetriever</code></td><td><b>껍데기</b></td><td>기존 검색기를 <b>감싸서</b> "검색 후 후처리"를 붙임</td></tr>
+        </tbody>
+      </table>
+      <p>
+        이 <strong>감싸기(wrapping) 패턴</strong>이 랭체인의 중요한 설계 감각입니다.
+        기존 검색기를 <strong>고치지 않고</strong> 겉을 한 겹 둘러 기능을 더하는 것 —
+        그래서 <code>baseline</code>·<code>hybrid</code> 코드는 손대지 않아도 됩니다.
+      </p>
+
+      <h3>② <code>"rerank"</code> 분기 — 넓게 뽑고, 좁게 고르기</h3>
+      <p>
+        여기서 눈여겨볼 건 <strong><code>k</code>가 4에서 10으로 늘어난다는 점</strong>입니다.
+        1단계의 목표가 <em>정확히 고르기</em>가 아니라 <strong>정답을 빠뜨리지 않기</strong>로 바뀌었기 때문이에요.
+        정밀하게 고르는 일은 2단계가 맡습니다.
+      </p>
+      <div class="filename">rag.py (_build_retriever에 분기 추가)</div>
+<pre><code>    if mode == "rerank":
+        # ── 1단계 (빠르게, 넓게) ────────────────────────────────────
+        # 여기서는 '정확히 고르기'가 목표가 아니라 '정답을 빠뜨리지 않기'가 목표다.
+        # 그래서 hybrid에서 4였던 k를 10으로 늘려 후보를 넉넉히 확보한다.
+        bm25.k = 10                                       # 키워드 검색도 10개
+        wide = vs.as_retriever(search_kwargs={"k": 10})   # 의미 검색도 10개
+        base = EnsembleRetriever(retrievers=[bm25, wide], weights=[0.4, 0.6])  # 둘을 섞어 넓은 후보군을 만든다
+
+        # ── 2단계 (느리지만 정밀하게) ───────────────────────────────
+        # Cross-Encoder는 질문과 청크를 '한 쌍으로 묶어' 모델에 함께 넣고 관련도를 직접 채점한다.
+        # 미리 계산해 둘 수 없어 느리므로, 위에서 10개로 좁힌 뒤에야 쓸 수 있다.
+        reranker = CrossEncoderReranker(
+            model=HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base"),  # 무료 로컬 모델(첫 실행 시 자동 다운로드)
+            top_n=4,                                      # 재채점 후 최종적으로 남길 청크 수
+        )
+
+        # 두 단계를 하나로 묶는다. base_retriever로 넓게 뽑고 → base_compressor로 걸러 낸다.
+        # 기존 검색기를 고치지 않고 '감싸서' 기능을 더하는 방식이라 baseline·hybrid는 그대로 남는다.
+        return ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base)</code></pre>
+
+      <div class="callout callout-analogy">
+        <strong>🧩 왜 Cross-Encoder가 더 정확한가요?</strong>
+        <p style="margin-top:6px">
+          지금까지의 임베딩 검색은 질문과 문서를 <strong>따로따로</strong> 벡터로 만든 뒤 거리를 쟀습니다.
+          문서 벡터는 <b>미리 계산해 둘 수 있어서 빠르지만</b>, 문서를 벡터로 압축하는 순간
+          <b>질문과의 미묘한 관계</b>는 사라집니다.
+        </p>
+        <p style="margin-top:6px">
+          Cross-Encoder는 <strong>질문과 문서를 한 쌍으로 묶어 모델에 함께 넣고</strong> "이 둘이 얼마나 맞나"를 직접 점수로 냅니다.
+          미리 계산해 둘 수 없어 <b>매번 10번을 새로 돌려야 하니 느리지만</b>, 훨씬 정확합니다.
+          그래서 <strong>전체 164개에는 못 쓰고, 10개로 좁힌 뒤에야 쓸 수 있는 겁니다.</strong>
+        </p>
+      </div>
+
+      <h3>③ <code>answer()</code>의 기본 mode 승격</h3>
+      <p>이제 가장 좋은 구성이 <code>rerank</code>이니 기본값을 올립니다. <strong>바뀌는 건 이 한 글자뿐</strong>이고 본문은 STEP 3과 같습니다.</p>
+      <div class="filename">rag.py (answer 서명만 수정)</div>
+<pre><code>def answer(question: str, mode: str = "rerank"):   # hybrid → rerank
+    ...  # 본문은 STEP 3과 동일</code></pre>
+      <div class="callout callout-warn">
+        <strong>⚠️ 첫 실행은 오래 걸립니다 (고장 아닙니다)</strong>
+        <p style="margin-top:6px">
+          <code>bge-reranker-base</code>는 <strong>내 컴퓨터에서 도는 무료 모델</strong>이라, 처음 한 번은 수백 MB를 내려받습니다.
+          몇 분 걸릴 수 있고 그동안 화면이 멈춘 것처럼 보여요. 두 번째부터는 캐시에서 바로 뜹니다.
+          다만 <strong>매 질문마다 로컬 연산이 붙으니 <code>rerank</code>는 <code>hybrid</code>보다 느립니다</strong> —
+          이게 STEP 7에서 재보게 될 <b>속도↔정확도 맞바꿈</b>입니다.
+        </p>
+      </div>
+
+      <div class="label" id="full-code">📄 전체 코드 (<code>rag.py</code>에 추가·교체할 부분)</div>
       <div class="filename">rag.py (_build_retriever에 rerank 분기 추가)</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 4 · Reranker(2-stage retrieval): 후보를 넉넉히 뽑은 뒤 정밀 모델로 재정렬한다.
@@ -123,5 +226,6 @@ EOF</code></pre>
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

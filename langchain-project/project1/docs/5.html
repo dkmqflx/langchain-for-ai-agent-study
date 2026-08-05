@@ -57,6 +57,107 @@
       </p>
 
       <div class="label">🛠 할 일</div>
+      <p>
+        만들 파일은 <code>main.py</code> 하나입니다. <strong>RAG 로직은 한 줄도 새로 안 씁니다</strong> —
+        이미 완성된 <code>answer()</code>를 HTTP로 감싸기만 해요. 네 조각으로 나눠 보고,
+        <a href="#full-code">맨 아래 전체 코드</a>를 복사하세요.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 네 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 앱 만들고 <code>answer</code> 가져오기 &nbsp;→&nbsp; <b>②</b> 주고받을 데이터 모양 선언
+          &nbsp;→&nbsp; <b>③</b> <code>/health</code> &nbsp;→&nbsp; <b>④</b> <code>/query</code>
+        </p>
+      </div>
+
+      <h3>① 앱 만들고 <code>answer</code> 가져오기</h3>
+      <div class="filename">main.py</div>
+<pre><code>from fastapi import FastAPI          # 파이썬 함수를 HTTP 창구로 바꿔 주는 웹 프레임워크
+from pydantic import BaseModel       # 주고받을 데이터의 '모양(스키마)'을 선언하는 클래스
+from rag import answer               # STEP 2~4에서 만든 RAG 함수를 그대로 가져다 쓴다
+
+# 앱 객체 — 앞으로 만들 창구(엔드포인트)들이 여기에 등록된다.
+# title은 서버를 켠 뒤 http://localhost:8000/docs 에 자동 생성되는 문서 페이지의 제목이 된다.
+app = FastAPI(title="P1 RAG Search Service")</code></pre>
+      <p>
+        <code>from rag import answer</code> — 이 한 줄이 STEP 2~4를 <strong>통째로 재사용</strong>합니다.
+        검색기를 <code>mode</code> 문자열로 갈아끼울 수 있게 만들어 둔 덕분에, API 쪽은 그저 함수를 부르기만 하면 돼요.
+        <code>title</code>은 잠시 뒤 자동 생성되는 문서 페이지의 제목이 됩니다.
+      </p>
+
+      <h3>② 주고받을 데이터의 "모양" 선언하기</h3>
+      <p>
+        API는 낯선 사람이 아무 JSON이나 보낼 수 있는 창구입니다. 그래서 먼저 <strong>계약서</strong>를 씁니다 —
+        <em>"요청은 이런 모양이어야 하고, 응답은 이런 모양으로 주겠다."</em>
+        이걸 <strong>스키마</strong>라 하고, <code>pydantic</code>의 <code>BaseModel</code>로 선언합니다.
+      </p>
+      <div class="filename">main.py (이어서)</div>
+<pre><code># 요청 스키마 — 사용자가 보내야 하는 JSON의 모양
+class QueryIn(BaseModel):
+    question: str          # 반드시 있어야 한다. 없으면 FastAPI가 자동으로 422 에러로 거절한다
+    mode: str = "rerank"   # 기본값이 있으니 안 보내도 된다. 보내면 검색 구성을 골라 실험할 수 있다
+
+# 근거 1건의 스키마
+class Citation(BaseModel):
+    source: str | None = None   # 파일 경로. | None = '없어도 된다'는 뜻
+    page: int | None = None     # 쪽 번호. PDF에 따라 안 잡히는 경우가 있어 없음을 허용해 둔다
+                                # (허용 안 하면 page가 없는 순간 응답 전체가 에러로 터진다)
+
+# 응답 스키마 — 우리가 돌려주겠다고 약속하는 JSON의 모양
+class QueryOut(BaseModel):
+    answer: str                 # 답변 텍스트
+    citations: list[Citation]   # 위 Citation이 여러 개 담긴 목록</code></pre>
+      <p>
+        선언만 해두면 <strong>FastAPI가 알아서 검사합니다.</strong> <code>question</code> 없이 요청이 오면
+        내 코드가 실행되기 <em>전에</em> 자동으로 거절되고(<code>422</code> 응답), 무엇이 잘못됐는지도 알려줍니다.
+        <code>if not question: return "에러"</code> 같은 검사 코드를 직접 안 써도 되는 거죠.
+      </p>
+      <ul>
+        <li><code>mode: str = "rerank"</code> — 기본값이 있으니 <b>안 보내도 됩니다.</b> 대신 보내면 검색 구성을 골라 실험할 수 있어요.</li>
+        <li><code>source: str | None = None</code> — <b>"없을 수도 있음"</b>을 허용합니다. PDF에 따라 <code>page</code>가 안 잡히는 경우가 있는데, 이걸 허용 안 하면 그때 <b>응답 전체가 에러</b>로 터집니다.</li>
+      </ul>
+
+      <h3>③ <code>/health</code> — 서버가 살아있는지 묻는 창구</h3>
+      <div class="filename">main.py (이어서)</div>
+<pre><code># @app.get("/health") = "누가 GET 방식으로 /health 주소를 찾아오면 아래 함수를 실행해라"는 등록표.
+# 함수 위에 붙는 이런 표시를 데코레이터라 한다.
+@app.get("/health")
+def health():
+    return {"status": "ok"}   # dict를 돌려주면 FastAPI가 알아서 JSON으로 바꿔 보낸다
+                              # RAG를 태우지 않으므로 빠르고 공짜 — 그래서 감시 도구가 몇 초마다 찔러볼 수 있다</code></pre>
+      <p>
+        하는 일이 없어 보이지만 <strong>운영의 기본기</strong>입니다. 실제 서비스에서는 감시 도구가
+        이 주소를 <strong>몇 초마다 찔러 보고</strong>, 응답이 없으면 "서버가 죽었다"고 알림을 보내거나 자동으로 다시 띄웁니다.
+        RAG를 태우지 않아 <strong>빠르고 공짜</strong>라는 게 핵심이에요 — 살아있는지 확인하는 데 매번 LLM을 부를 순 없으니까요.
+      </p>
+
+      <h3>④ <code>/query</code> — 진짜 창구</h3>
+      <div class="filename">main.py (이어서)</div>
+<pre><code># post = 질문을 주소창이 아니라 '본문(body)'에 담아 보내는 방식. 긴 문장·한글을 담기에 적합하다.
+# response_model=QueryOut → 돌려주는 값이 QueryOut 모양인지 검사하고, /docs 문서에도 그 모양이 적힌다.
+@app.post("/query", response_model=QueryOut)
+def query(body: QueryIn):                              # body: QueryIn → 들어온 JSON이 자동으로 검사·변환되어 넘어온다
+    result = answer(body.question, mode=body.mode)     # RAG 실행 (검색 + 생성 + 근거)
+    # contexts(검색된 원문 전체)는 일부러 뺀다 — 응답만 무거워지고 사용자에게는 필요 없다.
+    # 그건 STEP 7 채점용이며, response_model이 이 약속을 강제해 준다.
+    return {"answer": result["answer"], "citations": result["citations"]}</code></pre>
+      <p>
+        <code>post</code>인 이유는 질문을 <strong>본문(body)에 담아</strong> 보내기 때문입니다.
+        <code>get</code>은 주소창에 정보를 붙이는 방식이라 긴 문장이나 한글을 담기에 불편하죠.
+        <code>body: QueryIn</code>이라고 적어두면 <strong>들어온 JSON이 자동으로 검사·변환되어</strong> 넘어옵니다.
+      </p>
+      <div class="callout callout-info">
+        <strong>💡 <code>contexts</code>는 왜 응답에서 뺐을까요?</strong>
+        <p style="margin-top:6px">
+          <code>answer()</code>는 <code>answer</code>·<code>citations</code>·<code>contexts</code> 셋을 돌려주지만,
+          API는 앞의 둘만 내보냅니다. <code>contexts</code>는 <strong>검색된 원문 전체</strong>라 응답이 몇 배로 무거워지는데,
+          정작 사용자에게는 필요 없거든요(어디서 왔는지는 <code>citations</code>로 충분). 그건 <strong>STEP 7의 채점용</strong>입니다.
+          <code>response_model=QueryOut</code>이 이 약속을 강제해서, 실수로 딴 게 섞여 나가는 것도 막아 줍니다.
+        </p>
+      </div>
+
+      <div class="label" id="full-code">📄 전체 코드 (위 네 조각을 이어 붙인 것)</div>
       <div class="filename">main.py</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 5 · FastAPI 서빙: answer()를 HTTP API(POST /query)로 노출한다.
@@ -110,5 +211,6 @@ def query(body: QueryIn):               # body는 요청 JSON이 QueryIn으로 �
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

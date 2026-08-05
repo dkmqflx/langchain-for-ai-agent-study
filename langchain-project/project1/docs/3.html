@@ -60,7 +60,142 @@
       </p>
 
       <div class="label">🛠 할 일</div>
-      <p><code>rag.py</code>의 기존 <code>retriever = vs.as_retriever(...)</code> 한 줄을 아래 구조로 <strong>교체</strong>하고, <code>answer()</code>에 <code>mode</code> 인자를 추가합니다. BM25는 원문 청크가 필요하므로 STEP 1의 <code>build_chunks()</code>를 재사용합니다.</p>
+      <p>
+        <code>rag.py</code>의 기존 <code>retriever = vs.as_retriever(...)</code> <strong>한 줄을 교체</strong>하는 작업입니다.
+        네 조각으로 나눠 보고, <a href="#full-code">맨 아래 전체 코드</a>를 붙여 넣으세요.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 네 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> BM25용 원문 청크 준비 &nbsp;→&nbsp; <b>②</b> <code>_build_retriever()</code> — mode를 검색기로
+          &nbsp;→&nbsp; <b>③</b> <code>get_retriever()</code> — 만든 검색기 재사용
+          &nbsp;→&nbsp; <b>④</b> <code>answer()</code>에 <code>mode</code> 인자 추가
+        </p>
+      </div>
+
+      <h3>① BM25용 원문 청크 준비 — STEP 1의 함수를 다시 쓴다</h3>
+      <p>
+        여기서 STEP 1의 설계가 값을 합니다. <strong>BM25는 벡터를 쓰지 않습니다.</strong>
+        "이 단어가 이 문서에 몇 번 나왔나"를 세는 방식이라 <strong>원문 텍스트가 그대로 필요해요.</strong>
+        그런데 Chroma에는 벡터가 들어 있죠. 그래서 <code>ingest.py</code>의 <code>build_chunks()</code>를 그대로 불러 씁니다 —
+        STEP 1에서 이걸 <strong>함수로 빼 둔 이유가 바로 지금 드러나는 겁니다.</strong>
+      </p>
+      <div class="filename">rag.py (STEP 2 코드에 이어서)</div>
+<pre><code>from langchain_community.retrievers import BM25Retriever    # 키워드(단어 일치) 기반 검색기
+from langchain_classic.retrievers import EnsembleRetriever  # 검색기 여러 개를 합쳐 순위를 섞어 주는 도구
+from ingest import build_chunks                             # STEP 1의 '청크 만들기' 함수를 그대로 재사용
+
+# BM25는 벡터가 아니라 '원문에 그 단어가 몇 번 나오나'를 세는 방식이라 텍스트 청크가 그대로 필요하다.
+# 그런데 Chroma에는 벡터만 들어 있으므로, PDF를 다시 읽어 청크를 만들어 둔다.
+#
+# 이 줄이 함수 '바깥'에 있는 게 중요하다 → 파일을 불러올 때 딱 한 번만 실행된다.
+# answer() 안에 넣으면 질문할 때마다 PDF 전체를 다시 읽게 되어 몹시 느려진다.
+chunks = build_chunks()</code></pre>
+      <p>
+        <code>chunks = build_chunks()</code>가 함수 <strong>바깥</strong>에 있는 게 중요합니다.
+        이러면 파일을 불러올 때 <strong>딱 한 번만</strong> PDF를 읽습니다.
+        <code>answer()</code> 안에 넣었다면 질문할 때마다 PDF 전체를 다시 읽어 몹시 느려집니다.
+      </p>
+      <div class="callout callout-warn">
+        <strong>⚠️ <code>ImportError</code>가 나면</strong>
+        <p style="margin-top:6px">
+          <code>EnsembleRetriever</code>는 LangChain 1.x에서 <code>langchain_classic</code> 아래로 옮겨졌습니다.
+          위 경로가 안 되면 <code>from langchain.retrievers import EnsembleRetriever</code>를 시도해 보세요.
+          이렇게 <strong>에러 메시지를 읽고 경로를 고치는 것</strong>도 연습 대상입니다.
+        </p>
+      </div>
+
+      <h3>② <code>_build_retriever()</code> — 문자열 하나로 검색 전략 갈아끼우기</h3>
+      <p>
+        이 STEP의 진짜 핵심은 BM25가 아니라 <strong>이 함수의 모양</strong>입니다.
+        <code>"baseline"</code>·<code>"hybrid"</code> 같은 <strong>문자열 하나로 검색기를 통째로 바꿀 수 있게</strong> 만드는 것 —
+        그래야 STEP 7에서 같은 질문으로 여러 구성을 나란히 채점할 수 있습니다.
+      </p>
+      <div class="filename">rag.py (이어서)</div>
+<pre><code>def _build_retriever(mode: str):
+    """mode 이름(문자열)을 받아 그에 해당하는 검색기 객체를 만들어 돌려준다."""
+    dense = vs.as_retriever(search_kwargs={"k": 4})   # 의미(임베딩) 검색 — STEP 2에서 쓰던 그 검색기
+
+    if mode == "baseline":
+        return dense                                  # STEP 2 그대로: 의미 검색만 쓴다
+
+    bm25 = BM25Retriever.from_documents(chunks)       # 청크들로 키워드 색인을 만든다
+    bm25.k = 4                                        # BM25가 돌려줄 청크 수 (의미 검색과 똑같이 4개)
+
+    if mode == "hybrid":
+        # EnsembleRetriever = 두 검색기에게 각자 top-4를 뽑게 한 뒤,
+        #                     weights 비율로 점수를 섞어 하나의 최종 순위를 만든다.
+        # [0.4, 0.6] → 앞의 bm25에 40%, 뒤의 dense에 60% 비중.
+        #   의미 검색이 평소 더 안정적이라 비중을 더 주고,
+        #   BM25는 의미 검색이 놓치는 순간(조항번호·고유용어)을 메우는 보험 역할을 맡는다.
+        return EnsembleRetriever(retrievers=[bm25, dense], weights=[0.4, 0.6])
+
+    # 오타 등으로 없는 이름이 들어오면 조용히 넘어가지 말고 즉시 에러를 내 알린다
+    raise ValueError(f"unknown mode: {mode}")</code></pre>
+      <p>
+        <code>EnsembleRetriever</code>는 두 검색기에게 <strong>각자 top-4를 뽑게 한 뒤</strong>,
+        <code>weights</code>로 점수를 섞어 최종 순위를 만듭니다. <code>[0.4, 0.6]</code>은 BM25 40%, 의미 검색 60%라는 뜻이고요.
+        의미 검색에 무게를 더 준 건 그게 <strong>평소에 더 안정적</strong>이기 때문이고, BM25는
+        <strong>의미 검색이 놓치는 순간</strong>을 메우는 보험에 가깝습니다.
+      </p>
+      <table>
+        <thead><tr><th style="width:44%">이런 질문에서는</th><th style="width:20%">누가 이기나</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td>"<b>제40조</b>가 뭐야?" · "<b>리볼빙</b> 수수료율"</td><td><b>BM25</b></td><td>희귀한 단어·번호는 <b>글자가 그대로 일치</b>해야 찾힘. 임베딩은 이런 걸 뭉갬</td></tr>
+          <tr><td>"카드 잃어버리면 <b>내가 물어내야 해?</b>"</td><td><b>의미 검색</b></td><td>문서에 없는 <b>말투로 물어봐도</b> 뜻이 비슷한 조항을 찾아냄</td></tr>
+        </tbody>
+      </table>
+
+      <h3>③ <code>get_retriever()</code> — 한 번 만든 검색기는 다시 쓰기</h3>
+      <p>
+        <code>BM25Retriever.from_documents(chunks)</code>는 <strong>호출할 때마다 색인을 처음부터 새로 만듭니다.</strong>
+        질문마다 이걸 반복하면 느려지니, 만들어 둔 검색기를 딕셔너리에 담아 두고 재사용합니다.
+      </p>
+      <div class="filename">rag.py (이어서)</div>
+<pre><code>_retrievers = {}   # 이미 만들어 둔 검색기를 담는 보관함 — {mode 이름: 검색기 객체}
+
+def get_retriever(mode: str = "hybrid"):
+    """검색기를 돌려준다. 처음 요청받은 mode만 새로 만들고, 그다음부터는 보관함에서 꺼내 쓴다."""
+    # BM25Retriever.from_documents()는 호출할 때마다 색인을 처음부터 새로 만들어 느리다.
+    # 질문이 올 때마다 반복하지 않도록, 한 번 만든 것을 보관해 두고 재사용한다.
+    if mode not in _retrievers:            # 보관함에 없으면 = 이 mode는 처음 쓰는 것
+        _retrievers[mode] = _build_retriever(mode)   # 그때만 만들어 보관한다
+    return _retrievers[mode]
+
+# 참고: 이름 앞의 _ 는 파이썬에서 '바깥에서 직접 쓰지 마세요'라는 관례적 표시다.
+#      바깥(main.py·evaluate.py)에 열어 둔 문은 get_retriever() 하나뿐이다.</code></pre>
+      <p>
+        처음 부를 때만 만들고 그다음부터는 꺼내 쓰는, <strong>"필요할 때 만들어 보관해 두기"</strong> 패턴입니다.
+        <code>_</code>로 시작하는 이름은 파이썬에서 <strong>"바깥에서 직접 쓰지 마세요"</strong>라는 관례적 표시고요 —
+        바깥에서 쓸 문은 <code>get_retriever()</code> 하나만 열어 둔 겁니다.
+      </p>
+
+      <h3>④ <code>answer()</code>에 <code>mode</code> 인자 추가</h3>
+      <p>
+        고칠 곳은 딱 두 군데입니다. 함수 서명에 <code>mode</code>를 받고, 검색 한 줄을 <code>get_retriever(mode)</code>로 바꾸는 것.
+        <strong>나머지(프롬프트·생성·근거)는 하나도 안 바뀝니다</strong> — 검색기를 부품으로 분리해 둔 덕분입니다.
+      </p>
+      <div class="filename">rag.py (answer 교체)</div>
+<pre><code># mode 인자가 추가됐다. 기본값이 있으므로 기존 호출부 answer("질문")은 그대로 동작한다.
+def answer(question: str, mode: str = "hybrid"):
+    # ← 바뀌는 건 이 한 줄뿐: 고정된 retriever 대신, mode에 해당하는 검색기를 꺼내 쓴다
+    docs = get_retriever(mode).invoke(question)
+
+    # 아래는 STEP 2와 완전히 같다. 검색기를 부품으로 떼어 놓은 덕분에 나머지는 손댈 필요가 없다.
+    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+    resp = llm.invoke(msg)
+    return {
+        "answer": resp.content,
+        "citations": [{"source": d.metadata.get("source"), "page": d.metadata.get("page")} for d in docs],
+        "contexts": [d.page_content for d in docs],
+    }</code></pre>
+      <p>
+        기본값을 <code>"hybrid"</code>로 둔 덕분에 <strong>기존 호출부(<code>answer("질문")</code>)는 그대로 동작합니다.</strong>
+        STEP 5의 API도, STEP 7의 평가 스크립트도 이 인자 하나로 구성을 바꿔 부를 수 있게 됩니다.
+      </p>
+
+      <div class="label" id="full-code">📄 전체 코드 (<code>rag.py</code>에서 교체·추가할 부분)</div>
       <div class="filename">rag.py (retriever → mode 팩토리로 교체)</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 3 · Hybrid 검색: 키워드 검색(BM25) + 의미 검색(임베딩)을 앙상블해 검색 누락을 줄인다.
@@ -135,5 +270,6 @@ EOF</code></pre>
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

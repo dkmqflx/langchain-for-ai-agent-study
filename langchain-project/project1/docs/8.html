@@ -49,11 +49,120 @@
       <p>지금까지의 실험을 정리하고, 몇 개 파라미터를 바꿔 <strong>최적 설정</strong>을 근거와 함께 고른다.</p>
 
       <div class="label">🛠 할 일</div>
-      <ul>
-        <li><code>chunk_size</code>(500 / 1000 / 1500), <code>top-k</code>(3 / 4 / 6), rerank <code>top_n</code>, hybrid <code>weights</code>를 바꿔가며 <code>evaluate.py rerank</code>로 점수를 남긴다. (CSV가 덮어써지지 않게 실행마다 파일명을 바꿔 보관)</li>
-        <li>결과를 하나의 표로 모아 <strong>"어떤 설정이 왜 최선인지"</strong> 한 문단으로 정리한다.</li>
-        <li>바꾼 설정마다 git commit — 커밋 히스토리가 곧 실험 로그가 된다.</li>
-      </ul>
+      <p>
+        이 STEP에는 새로 짤 코드가 없습니다. <strong>이미 만든 것의 숫자만 바꿔가며 점수를 남기는</strong> 단계예요.
+        세 조각으로 나눠 보고, <a href="#full-code">맨 아래 기록표 템플릿</a>을 채워 나가세요.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 세 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 무엇을 바꿔볼지 고르기 &nbsp;→&nbsp; <b>②</b> 한 번에 하나씩 바꿔 채점하기
+          &nbsp;→&nbsp; <b>③</b> 표로 모아 근거와 함께 결정하기
+        </p>
+      </div>
+
+      <h3>① 무엇을 바꿔볼까 — 손잡이는 네 개</h3>
+      <p>
+        지금까지 나온 숫자들은 대부분 <strong>"일단 이 값으로 시작하자"</strong>였습니다. 이제 근거를 만들 차례예요.
+        각 손잡이는 <strong>어느 지표를 움직이는지가 다릅니다.</strong>
+      </p>
+      <table>
+        <thead>
+          <tr><th style="width:22%">손잡이</th><th style="width:16%">어디에</th><th style="width:26%">올리면</th><th>주로 움직이는 지표</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>chunk_size</code><br /><span class="badge badge-gray">500·1000·1500</span></td>
+            <td><code>ingest.py</code></td>
+            <td>문맥은 풍부해지되 <b>관계없는 내용이 함께</b> 딸려옴</td>
+            <td>올리면 <code>context_precision</code>↓ · 내리면 <code>context_recall</code>↓</td>
+          </tr>
+          <tr>
+            <td><code>k</code> (검색 개수)<br /><span class="badge badge-gray">3·4·6</span></td>
+            <td><code>rag.py</code></td>
+            <td>정답을 놓칠 확률은 줄고 <b>노이즈와 비용</b>은 늚</td>
+            <td><code>context_recall</code>↑ · <code>context_precision</code>↓</td>
+          </tr>
+          <tr>
+            <td>rerank <code>top_n</code><br /><span class="badge badge-gray">3·4·6</span></td>
+            <td><code>rag.py</code></td>
+            <td>LLM에게 더 많은 근거를 주지만 <b>희석</b>됨</td>
+            <td><code>faithfulness</code> · <code>context_precision</code></td>
+          </tr>
+          <tr>
+            <td>hybrid <code>weights</code><br /><span class="badge badge-gray">[0.3,0.7]·[0.5,0.5]</span></td>
+            <td><code>rag.py</code></td>
+            <td>BM25 쪽을 키우면 <b>용어·조항번호 질문</b>에 강해짐</td>
+            <td><code>context_recall</code> (질문 유형에 따라)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warn">
+        <strong>⚠️ <code>chunk_size</code>를 바꿨다면 반드시 다시 인덱싱하세요</strong>
+        <p style="margin-top:6px">
+          이 값은 <strong>벡터DB에 이미 저장된 청크의 모양</strong>을 정하는 값이라, 코드만 고치면 아무 일도 일어나지 않습니다.
+          <code>uv run python ingest.py</code>를 다시 돌려야 반영됩니다.
+          (<code>ingest.py</code>가 저장 전에 기존 컬렉션을 비우므로 <b><code>chroma_db/</code>를 손으로 지울 필요는 없습니다.</b>
+          다만 청크 텍스트가 달라져 캐시가 안 먹으므로, <b>이때만은 임베딩 비용이 다시 듭니다.</b>)
+          나머지 세 개는 검색 시점의 값이라 <strong>재인덱싱 없이</strong> 바로 반영돼요.
+        </p>
+      </div>
+
+      <h3>② 한 번에 하나씩만 바꾸기</h3>
+      <p>
+        <strong>두 개를 동시에 바꾸면 무엇 때문에 좋아졌는지 알 수 없습니다.</strong>
+        하나 바꾸고 → 채점하고 → 기록하고 → 되돌리거나 유지하고, 이 순서를 지키세요.
+        <code>evaluate.py</code>는 <code>eval_&lt;mode&gt;.csv</code>로 저장하니 그대로 두면 <strong>덮어써집니다.</strong> 실행 직후 이름을 바꿔 보관하세요.
+      </p>
+      <div class="filename">터미널</div>
+<pre><code># 1) 설정을 '하나만' 바꾼다 (예: rag.py에서 k=4 → 6)
+#    두 개를 동시에 바꾸면 무엇 덕분에 좋아졌는지 알 수 없게 된다.
+
+# 2) 채점한다
+uv run python evaluate.py rerank
+
+# 3) 결과 파일 이름을 바꿔 보관한다.
+#    evaluate.py는 항상 eval_rerank.csv로 저장하므로, 그냥 두면 다음 실험이 덮어써 버린다.
+#    mv = 이름 바꾸기(이동). 파일명에 '무엇을 바꿨는지'를 적어 두면 나중에 찾기 쉽다.
+mv eval_rerank.csv exp_k6_rerank.csv
+
+# 4) 커밋한다. 메시지에 '바꾼 값 + 점수 변화'를 함께 적는 것이 요령 —
+#    이러면 git log가 그대로 실험 노트가 되고, STEP 9에서 README를 쓸 때 로그만 훑으면 된다.
+#    -am = 수정된 파일을 모두 담아(-a) 메시지와 함께(-m) 커밋
+git commit -am "실험: k=4 -&gt; 6 (context_recall 0.71 -&gt; 0.78, precision 0.66 -&gt; 0.59)"</code></pre>
+      <p>
+        커밋 메시지에 <strong>바꾼 값과 점수 변화를 같이 적어 두는 것</strong>이 요령입니다.
+        이러면 <code>git log</code>가 그대로 <strong>실험 노트</strong>가 되고, STEP 9에서 README를 쓸 때
+        기억을 더듬는 대신 로그만 훑으면 됩니다.
+      </p>
+
+      <h3>③ 표로 모아 "왜 이 설정인지" 한 문단</h3>
+      <p>
+        최종 산출물은 <strong>표 하나와 문단 하나</strong>입니다.
+        여기서 중요한 건 <strong>모든 지표가 함께 오르는 설정은 거의 없다는 점</strong>이에요.
+        보통 <code>recall</code>과 <code>precision</code>은 <strong>서로 반대로 움직입니다.</strong>
+        그래서 "다 좋은 설정"이 아니라 <strong>"우리 서비스는 어느 쪽이 더 중요한가"</strong>를 정하고 고르는 겁니다 —
+        약관 QA라면 <em>근거를 빠뜨리지 않는 쪽(recall)</em>에 무게를 두는 식으로요.
+        <strong>그 판단을 문장으로 적는 것</strong>이 이 STEP의 진짜 결과물입니다.
+      </p>
+
+      <div class="label" id="full-code">📄 실험 기록표 템플릿</div>
+      <table>
+        <thead>
+          <tr><th>실험</th><th>바꾼 것</th><th>faithfulness</th><th>answer_relevancy</th><th>context_precision</th><th>context_recall</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>기준</td><td>chunk 1000 · k4 · top_n4 · [0.4,0.6]</td><td>?</td><td>?</td><td>?</td><td>?</td></tr>
+          <tr><td>exp1</td><td>k 4 → 6</td><td>?</td><td>?</td><td>?</td><td>?</td></tr>
+          <tr><td>exp2</td><td>chunk 1000 → 500 <span class="badge badge-yellow">재인덱싱</span></td><td>?</td><td>?</td><td>?</td><td>?</td></tr>
+          <tr><td>exp3</td><td>weights → [0.5, 0.5]</td><td>?</td><td>?</td><td>?</td><td>?</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <strong>최종 선택:</strong> <code>___</code> — 이유: <code>_______________</code>
+        (예: <em>"exp1을 택했다. precision이 0.07 떨어졌지만 recall이 0.07 올랐고, 약관 QA에서는 근거를 빠뜨리는 쪽이 더 치명적이라고 판단했다."</em>)
+      </p>
 
       <div class="callout callout-result">
         <strong>✅ 검증 게이트</strong> 3가지 이상 설정의 지표를 한 표에 모으고, 최종 설정을 <strong>숫자 근거</strong>로 선택한 문장이 있으면 통과.
@@ -70,5 +179,6 @@
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

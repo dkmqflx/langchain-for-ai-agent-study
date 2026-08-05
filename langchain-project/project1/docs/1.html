@@ -55,6 +55,281 @@
       </p>
 
       <div class="label">🛠 할 일</div>
+      <p>
+        만들 파일은 <code>ingest.py</code> 하나입니다. 먼저 <strong>네 조각으로 나눠</strong> 보고,
+        <a href="#full-code">맨 아래 전체 코드</a>를 복사하면 됩니다.
+        (조각 코드에는 설명이 본문에 있으니 주석을 뺐고, 전체 코드에는 주석이 다 들어 있습니다.)
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 네 조각 = 파이프라인 네 단계</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 설정(어디서 읽고 어디에 쓸지) &nbsp;→&nbsp; <b>②</b> <code>build_chunks()</code> = <b>Load + Split</b>
+          &nbsp;→&nbsp; <b>③</b> <code>get_embeddings()</code> = <b>Embed</b> &nbsp;→&nbsp; <b>④</b> <code>main()</code> = <b>Store</b>
+        </p>
+      </div>
+
+      <h3>① 설정 — 어디서 읽어 어디에 저장할지 정하기</h3>
+      <p>
+        맨 위 import들은 각각 파이프라인의 한 단계를 맡습니다.
+        아래 상수 세 개는 <strong>STEP 2에서 벡터DB를 열 때 똑같이 써야 하는 값</strong>이라, 눈에 띄게 위로 빼 둡니다.
+      </p>
+      <div class="filename">ingest.py</div>
+<pre><code>from pathlib import Path                                          # 파일 경로를 다루는 파이썬 기본 도구
+from dotenv import load_dotenv                                    # .env 파일을 읽어오는 도구
+from langchain_community.document_loaders import PyMuPDFLoader    # Load  : PDF → 페이지별 Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter  # Split : 긴 글 → 청크로 분할
+from langchain_openai import OpenAIEmbeddings                     # Embed : 글 → 의미 벡터
+from langchain_classic.embeddings import CacheBackedEmbeddings    # Embed : 위 임베딩기에 캐시를 씌우는 껍데기
+from langchain_classic.storage import LocalFileStore              # Embed : 캐시를 로컬 폴더에 보관
+from langchain_chroma import Chroma                               # Store : 벡터DB (저장 + 유사도 검색)
+
+load_dotenv()               # .env를 읽어 환경변수로 등록 → 아래 임베딩 호출이 OPENAI_API_KEY를 찾아 쓸 수 있게 된다
+DOCS_DIR = Path("data")     # 원본 PDF들이 들어 있는 폴더
+PERSIST_DIR = "chroma_db"   # 벡터DB를 저장할 폴더. 디스크에 남기 때문에 다음 실행에서 그대로 재사용된다
+COLLECTION = "p1_docs"      # 벡터DB 안에서 이 문서 묶음을 가리키는 이름표(DB의 '테이블 이름' 같은 것)
+# ※ PERSIST_DIR·COLLECTION은 STEP 2에서 이 벡터DB를 '열 때' 똑같은 값을 써야 한다. 다르면 빈 DB를 열게 된다.</code></pre>
+      <table>
+        <thead><tr><th style="width:42%">import</th><th style="width:12%">단계</th><th>하는 일</th></tr></thead>
+        <tbody>
+          <tr><td><code>PyMuPDFLoader</code></td><td><b>Load</b></td><td>PDF를 <b>페이지별</b> Document로 읽기</td></tr>
+          <tr><td><code>RecursiveCharacterTextSplitter</code></td><td><b>Split</b></td><td>긴 텍스트를 청크로 분할</td></tr>
+          <tr><td><code>OpenAIEmbeddings</code></td><td><b>Embed</b></td><td>텍스트를 의미 벡터로 변환</td></tr>
+          <tr><td><code>CacheBackedEmbeddings</code> · <code>LocalFileStore</code></td><td><b>Embed</b></td><td>임베딩 캐시 — 재계산·재과금 방지</td></tr>
+          <tr><td><code>Chroma</code></td><td><b>Store</b></td><td>벡터 저장 + 유사도 검색(벡터DB)</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <code>COLLECTION</code>은 벡터DB 안에서 이 문서 묶음을 가리키는 <strong>이름표</strong>입니다(DB의 테이블 이름 같은 것).
+        <code>PERSIST_DIR</code>을 지정했기 때문에 벡터가 <strong>디스크에 남아</strong>, 이 스크립트를 한 번만 돌려 두면
+        이후 <code>rag.py</code>는 검색만 하면 됩니다.
+      </p>
+
+      <h3>② <code>build_chunks()</code> — PDF를 읽고(Load) 조각내기(Split)</h3>
+      <p>
+        <strong>청크(chunk)</strong>는 검색의 기본 단위가 되는 문서 조각입니다.
+        검색은 문서 전체가 아니라 이 조각 단위로 이뤄지기 때문에, <strong>"어떻게 쪼개는가"가 검색 품질을 크게 좌우합니다.</strong>
+      </p>
+      <div class="filename">ingest.py (이어서)</div>
+<pre><code>def build_chunks():
+    """data/의 PDF를 전부 읽어 '청크(검색 단위 조각)' 리스트로 반환한다.  (Load → Split)"""
+    docs = []                                        # 읽어들인 페이지들을 모아 둘 빈 리스트
+    for pdf in sorted(DOCS_DIR.glob("*.pdf")):       # data/ 안의 .pdf를 이름순으로 하나씩 순회
+        # PyMuPDFLoader(...).load() → PDF 1개를 '페이지별 Document' 리스트로 바꾼다.
+        # 이때 각 Document.metadata에 source(파일 경로)·page(쪽 번호)가 자동으로 담긴다.
+        # → 이 값이 STEP 2에서 답변의 근거(citation: 어느 문서 몇 쪽)로 그대로 쓰인다.
+        docs.extend(PyMuPDFLoader(str(pdf)).load())  # extend = 반환된 리스트를 docs 뒤에 통째로 이어 붙이기
+
+    # 페이지는 검색 단위로 쓰기엔 너무 크다 → 더 잘게 쪼갠다.
+    #   chunk_size=1000   : 청크 하나의 최대 글자 수. 크면 관련 없는 내용까지 섞여 노이즈↑, 작으면 문맥이 끊김
+    #   chunk_overlap=150 : 이웃한 청크를 150자 겹치게 만든다.
+    #                       안 겹치면 하필 경계에서 잘린 문장이 어느 쪽에서도 온전히 검색되지 않는다.
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    return splitter.split_documents(docs)            # 페이지 Document들을 청크 Document들로 다시 쪼개 반환</code></pre>
+      <p>
+        <code>PyMuPDFLoader(...).load()</code>는 PDF 하나를 <strong>페이지별 Document 리스트</strong>로 바꿉니다.
+        이때 각 Document의 <code>metadata</code>에 <code>source</code>(파일 경로)와 <code>page</code>(쪽 번호)가
+        <strong>자동으로</strong> 담기고, 이 값이 청크로 쪼갠 뒤에도 그대로 따라다닙니다.
+      </p>
+      <div class="callout callout-analogy">
+        <strong>🔗 여기서 챙긴 metadata가 STEP 2의 "근거(citation)"가 됩니다</strong>
+        <p style="margin-top:6px">
+          지금은 그냥 딸려오는 부수 정보처럼 보이지만, STEP 2에서 <em>"이 답변은 03_신용카드표준약관 25쪽에서 나왔습니다"</em>를
+          만들어 내는 재료가 바로 이 <code>source</code>·<code>page</code>입니다.
+          <strong>여기서 안 챙기면 나중에 만들어 낼 방법이 없어요</strong> — STEP 1로 되돌아와야 합니다.
+        </p>
+      </div>
+      <p>두 숫자는 <strong>맞바꿈(trade-off)</strong> 관계라, STEP 8의 튜닝 대상이 됩니다.</p>
+      <ul>
+        <li><code>chunk_size=1000</code> — 청크 하나의 최대 글자 수. <b>크면</b> 관련 없는 내용까지 섞여 노이즈가 늘고, <b>작으면</b> 문맥이 끊겨 뜻을 잃습니다.</li>
+        <li><code>chunk_overlap=150</code> — 이웃한 청크를 150자 겹치게 합니다. 안 겹치면 <b>하필 경계에서 잘린 문장</b>이 어느 쪽에서도 온전히 검색되지 않거든요.</li>
+      </ul>
+
+      <h3>③ <code>get_embeddings()</code> — 벡터로 바꾸되(Embed), 두 번 계산하지 않기</h3>
+      <p>
+        임베딩은 <strong>API 호출이라 돈과 시간이 듭니다.</strong> 그런데 인제스천은 설정을 바꿔가며 여러 번 돌리게 되고,
+        그때마다 <strong>안 바뀐 청크까지 다시 임베딩하면</strong> 낭비죠. 그래서 캐시를 한 겹 씌웁니다.
+      </p>
+      <div class="filename">ingest.py (이어서)</div>
+<pre><code>def get_embeddings():
+    """청크를 벡터로 바꿀 임베딩기를 만든다. 단, 캐시를 씌워 같은 청크를 두 번 계산하지 않게 한다.  (Embed)"""
+    base = OpenAIEmbeddings(model="text-embedding-3-small")  # 실제로 벡터를 만드는 OpenAI 모델(가볍고 저렴한 소형)
+    store = LocalFileStore("./cache/embeddings")             # 만들어진 벡터를 파일로 보관할 로컬 폴더
+
+    # from_bytes_store = "base 임베딩기에 store 캐시를 씌운, 캐시 달린 임베딩기"를 만들어 준다.
+    # 동작: 청크 텍스트로 지문(해시)을 만들어 store에서 찾아보고
+    #       → 있으면 저장된 벡터를 꺼내 쓰고, 없을 때만 OpenAI를 호출한다.
+    return CacheBackedEmbeddings.from_bytes_store(
+        base, store,
+        namespace=base.model,   # 캐시를 '모델 이름'별로 분리한다. 모델이 다르면 벡터도 다르므로 섞이면 안 되기 때문
+        key_encoder="sha256",   # 지문(캐시 파일명)을 만드는 해시 함수. 기본값 SHA-1은 충돌 내성이 없어 경고가 뜬다
+    )</code></pre>
+      <p>
+        동작은 단순합니다. 청크 텍스트로 <strong>지문(해시)</strong>을 만들어 <code>cache/embeddings</code> 폴더에서 찾아보고,
+        있으면 꺼내 쓰고 없으면 그때만 OpenAI를 부릅니다. 나머지 두 인자는 이런 이유로 붙습니다.
+      </p>
+      <ul>
+        <li><code>namespace=base.model</code> — 모델이 다르면 벡터도 다릅니다. 캐시를 <b>모델 이름별로 분리</b>해 섞이지 않게 합니다.</li>
+        <li><code>key_encoder="sha256"</code> — 지문을 만드는 해시 함수. 기본값 SHA-1은 충돌 내성이 없어 <b>경고가 뜨므로</b> 명시해 줍니다.</li>
+      </ul>
+      <p>
+        ※ 여기 <code>cache/</code>와 ④에서 만들 <code>chroma_db/</code>는 <strong>이름만 비슷한 완전히 다른 저장소</strong>입니다.
+        둘이 어떻게 다르고 어떻게 연결되는지는 <a href="#cache-vs-db">아래 「🧩 헷갈리는 지점」</a>에 따로 정리해 뒀어요 — 헷갈릴 때 거기로 오세요.
+      </p>
+
+      <h3>④ <code>main()</code> — 임베딩해서 Chroma에 저장하기(Store)</h3>
+      <p>
+        마지막입니다. 앞의 두 함수를 이어 붙여 벡터DB를 만듭니다.
+        딱 한 줄만 눈여겨보면 되는데, <code>from_documents</code> <b>앞에 붙은</b> <code>delete_collection()</code>입니다.
+      </p>
+      <div class="filename">ingest.py (이어서)</div>
+<pre><code>def main():
+    chunks = build_chunks()            # (1) PDF들을 읽어 청크로 쪼갠다  (Load → Split)
+    print(f"청크 수: {len(chunks)}")    # 첫 점검 지점: 0이면 PDF 읽기가 실패한 것(대개 텍스트 없는 스캔본 PDF)
+
+    # (2) 재실행 대비: 기존 컬렉션을 통째로 비운다(처음 실행이면 빈 것을 지우고 지나간다).
+    #     아래 from_documents는 '덮어쓰기'가 아니라 '추가'라서, 비우지 않으면 같은 청크가 중복으로 쌓인다.
+    Chroma(collection_name=COLLECTION, persist_directory=PERSIST_DIR).delete_collection()
+
+    # (3) 각 청크를 임베딩해 Chroma에 저장한다.  (Embed → Store)
+    #     from_documents = '문서 목록을 받아 벡터DB를 만들어 주는' 생성자.
+    #     이 한 번의 호출 안에서 임베딩 API 호출과 저장이 함께 일어난다.
+    Chroma.from_documents(
+        documents=chunks,              # 저장할 청크 목록
+        embedding=get_embeddings(),    # 각 청크를 벡터로 바꿀 임베딩기(위에서 만든 캐시 달린 버전)
+        collection_name=COLLECTION,    # 저장할 컬렉션 이름 → STEP 2에서 같은 이름으로 열어야 찾을 수 있다
+        persist_directory=PERSIST_DIR, # 저장 위치. 지정하면 메모리가 아니라 디스크에 남아 재사용된다
+    )
+    print(f"저장 완료 -&gt; {PERSIST_DIR} (collection={COLLECTION})")
+
+# 이 파일을 'python ingest.py'로 직접 실행할 때만 main()이 돌아간다.
+# 다른 파일에서 import 할 때는 실행되지 않는다 — STEP 3의 rag.py가 build_chunks()만 가져다 쓸 수 있는 이유.
+if __name__ == "__main__":
+    main()</code></pre>
+      <p>
+        <code>print(f"청크 수: {len(chunks)}")</code>는 그냥 로그가 아니라 <strong>첫 번째 점검 지점</strong>입니다.
+        여기서 <code>0</code>이 나오면 임베딩·저장까지 갈 것도 없이 <b>PDF 읽기</b>가 실패한 것이거든요(대개 스캔본 PDF).
+      </p>
+
+      <div class="callout callout-warn">
+        <strong>⚠️ 비우지 않고 두 번 돌리면 청크가 <u>중복</u>으로 쌓입니다</strong>
+        <p style="margin-top:6px">
+          <code>from_documents()</code>는 "기존 것을 갈아엎고 새로 저장"이 아니라 <strong>"추가로 저장"</strong>이고,
+          청크마다 <b>랜덤 id</b>를 붙입니다. 내용이 똑같아도 DB 입장에선 처음 보는 물건이라 새 행으로 들어가죠.
+          비우지 않고 재실행하면 164개가 328개가 되고, 검색 결과에 <b>똑같은 청크가 두 번씩</b> 나옵니다.
+        </p>
+      </div>
+
+      <p>
+        그래서 <strong>넣기 전에 비웁니다.</strong> 매번 전부 다시 넣는 게 낭비 같지만,
+        ③에서 씌워 둔 캐시 덕분에 <strong>안 바뀐 청크는 <code>cache/</code>에서 그대로 꺼내 쓰므로 API 호출이 없습니다.</strong>
+        돈이 다시 드는 건 <code>chunk_size</code>를 바꿔 <b>청크 텍스트 자체가 달라졌을 때</b>뿐이고, 그건 어차피 피할 수 없고요.
+        이 한 줄로 세 가지가 한꺼번에 해결됩니다.
+      </p>
+      <ul>
+        <li><b>두 번 돌려도</b> 164개 그대로</li>
+        <li><b><code>chunk_size</code>를 바꿔 다시 돌려도</b>(STEP 8) 옛 청크가 남지 않음</li>
+        <li><b><code>data/</code>에서 PDF를 빼면</b> 그 청크들도 같이 사라짐</li>
+      </ul>
+      <p>
+        세 가지가 각각 처리되는 게 아니라 <strong>하나의 성질에서 전부 파생됩니다.</strong>
+        매 실행이 "지우고 → 지금 <code>data/</code>에 있는 걸 전부 다시 넣기"라서,
+        실행이 끝나면 벡터DB가 <b>항상 지금 <code>data/</code> 폴더 상태와 정확히 일치</b>하게 되거든요.
+        화이트보드를 지우고 다시 그리는 것과 같습니다 — 어제 뭘 그렸든 결과는 오늘 그린 것뿐입니다.
+        (PDF를 빼면 사라지는 건 ②의 <code>glob("*.pdf")</code>가 매 실행마다 폴더를 새로 훑기 때문이고요.)
+      </p>
+
+      <h3 id="cache-vs-db">🧩 헷갈리는 지점 — <code>cache/</code>와 <code>chroma_db/</code>는 <u>다른 저장소</u>입니다</h3>
+      <p>
+        ③에서 캐시를 씌워 뒀는데 ④에서 또 "비운다"고 하니 헷갈리기 쉽습니다.
+        <strong>"캐시가 이미 있는데 왜 DB에는 중복이 쌓이지?"</strong> 하는 의문이 여기서 나오는데,
+        <b>두 폴더가 서로 다른 일을 하기 때문</b>입니다. 실제로 안을 열어보면 이렇게 생겼습니다.
+      </p>
+      <table>
+        <thead><tr><th style="width:20%"></th><th style="width:40%"><code>cache/embeddings/</code></th><th><code>chroma_db/</code></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>안에 든 것</b></td>
+            <td>청크 하나당 파일 하나.<br />
+              <b>이름</b> = 청크 텍스트의 지문(해시)<br />
+              <b>내용</b> = <code>[0.0094, 0.0003, …]</code> 숫자 목록</td>
+            <td><code>chroma.sqlite3</code>의 한 줄에<br />
+              청크 <b>원문</b> + 벡터 + <b>출처</b>(파일·쪽)가 함께</td>
+          </tr>
+          <tr><td><b>목적</b></td><td>돈 아끼기 — 같은 문장을 두 번 사지 않으려고</td><td>검색 — 질문이 들어오면 여기만 뒤진다</td></tr>
+          <tr><td><b>저장 방식</b></td><td>이름이 곧 <b>내용의 지문</b></td><td>넣을 때마다 <b>새 랜덤 id</b></td></tr>
+          <tr><td><b>그래서 중복은</b></td><td>구조적으로 <b>불가능</b><br />(같은 내용 = 같은 이름 = 파일 하나)</td><td>구조적으로 <b>당연</b><br />(내용이 같아도 번호가 다르면 딴 줄)</td></tr>
+          <tr><td><b>비워야 하나</b></td><td><b>아니오</b> — 쌓여도 무해하고, 지우면 돈을 다시 낸다</td><td><b>예</b> — 쌓이면 검색 결과에 그대로 튀어나온다</td></tr>
+        </tbody>
+      </table>
+      <p>
+        <code>cache/</code>로는 <strong>애초에 검색을 할 수가 없습니다.</strong> 파일 이름이 해시라 거꾸로 원문을 복원할 방법이 없거든요.
+        "비슷한 벡터 찾기"까지는 된다 쳐도 <em>"그게 어느 문장이고 몇 쪽인지"</em>를 답할 수 없으니, 검색은 반드시 <code>chroma_db</code> 몫입니다.
+      </p>
+
+      <div class="callout callout-analogy">
+        <strong>🔌 둘은 어떻게 연결되나 — 저장은 <u>두 단계</u>고, 뒷단계는 캐시를 모릅니다</strong>
+        <p style="margin-top:6px"><code>from_documents()</code> 안에서 실제로 벌어지는 일:</p>
+<pre><code>1단계   Chroma → 임베딩기 : "이 문장의 벡터 줘"
+                          ↳ 캐시에 있으면 파일에서 꺼내 줌  (OpenAI 호출 없음)
+                          ↳ 없으면 그때만 OpenAI에 물어봄
+
+2단계   Chroma : 받은 벡터를 DB에 '새 줄'로 추가
+                ↑ 여기서는 캐시를 쳐다보지도 않는다</code></pre>
+        <p style="margin-top:6px">
+          <b>2단계는 그 벡터가 캐시에서 나왔는지 방금 만들어졌는지 알지도 못하고 관심도 없습니다.</b>
+          벡터를 받았으니 새 줄로 넣을 뿐이죠. 캐시는 <em>DB에 넣을 벡터를 조달하는 납품업체</em>일 뿐,
+          <strong>DB 안에 뭐가 이미 들어 있는지와는 아무 상관이 없습니다.</strong>
+        </p>
+      </div>
+
+      <div class="callout callout-warn">
+        <strong>💡 헷갈리면 이 한 문장</strong>
+        <p style="margin-top:6px; font-size:15px">
+          <b>"임베딩은 한 번도 새로 안 했는데, DB만 두 배가 됐다."</b>
+        </p>
+        <p style="margin-top:6px">
+          똑같은 PDF로 두 번 돌리면(비우지 않았다면) 실제로 이렇게 됩니다 —
+          <b>캐시는 164개 그대로</b>(전부 히트, OpenAI 호출 0회), <b>그런데 DB는 328개.</b>
+          "돈이 안 나갔으니 아무 일도 안 일어났겠지"가 아닌 겁니다. 둘은 따로 노니까요.
+        </p>
+      </div>
+
+      <p>
+        방식별로도 정리해 두죠. <b>164개 중 딱 1개만 글자가 바뀐 채로 다시 돌렸을 때</b>입니다.
+      </p>
+      <table>
+        <thead><tr><th style="width:32%">방식</th><th><code>chroma_db</code>가 하는 일</th><th style="width:14%">결과</th><th style="width:15%">OpenAI 호출</th></tr></thead>
+        <tbody>
+          <tr><td><code>from_documents</code>만</td><td>164개를 <b>통째로 추가</b> — 기존에 뭐가 있는지 비교하지 않는다</td><td><b>328개</b><br />(중복)</td><td>1개</td></tr>
+          <tr><td><code>delete_collection</code> + <code>from_documents</code><br /><span class="badge badge-green">지금 코드</span></td><td>싹 비우고 164개를 다시 넣음</td><td>164개</td><td>1개</td></tr>
+          <tr><td><code>index()</code> + record manager</td><td>바뀐 <b>1개만 교체</b></td><td>164개</td><td>1개</td></tr>
+        </tbody>
+      </table>
+      <p>
+        아래 두 줄은 <strong>결과도 비용도 똑같습니다.</strong> 과정만 <em>"판을 엎고 새로 깔기"</em> vs <em>"1개만 갈아끼우기"</em>로 다를 뿐이죠.
+        문서가 적을 때 굳이 장부(record manager)까지 만들지 않는 이유가 이겁니다 —
+        <b>캐시가 이미 비용을 막아 주고 있어서, 복잡도를 더 얹어도 얻는 게 없습니다.</b>
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🏭 참고 · 실무 규모에서는 어떻게 할까</strong>
+        <p style="margin-top:6px">
+          "통째로 비우고 다시 넣기"가 통하는 건 <b>문서가 적고 서비스가 안 떠 있을 때</b>입니다.
+          운영 중이라면 비운 사이에 검색이 전부 깨지고, 문서가 수만 건이면 재임베딩도 부담이죠. 그래서 둘 중 하나를 씁니다.
+        </p>
+        <ul style="margin-top:6px">
+          <li><b>새로 만들고 갈아끼우기</b> — 새 컬렉션에 전체를 다시 색인한 뒤 <b>읽는 쪽이 보는 이름표만</b> 옮깁니다(배포의 blue-green과 같은 발상).</li>
+          <li><b>바뀐 것만 증분 갱신</b> — '무엇을 넣었는지' 장부에 적어 두고 대조해서, 그대로면 건너뛰고 바뀌었으면 교체하고 없어졌으면 지웁니다.
+            랭체인에는 이게 <code>SQLRecordManager</code> + <code>index()</code>로 이미 구현돼 있습니다.</li>
+        </ul>
+        <p style="margin-top:6px">
+          어느 쪽이든 공통점은 <strong>랜덤 id로 그냥 추가하지 않는다</strong>는 것입니다.
+          벡터DB도 결국 DB라서, <b>넣는 쪽이 id를 직접 정합니다.</b>
+        </p>
+      </div>
+
+      <div class="label" id="full-code">📄 전체 코드 (위 네 조각을 이어 붙인 것)</div>
       <div class="filename">ingest.py</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 1 · 인제스천(indexing): 원본 PDF를 '검색 가능한 벡터'로 바꿔 저장한다.
@@ -105,12 +380,19 @@ def get_embeddings():
     store = LocalFileStore("./cache/embeddings")             # 임베딩 결과(벡터)를 저장해 둘 로컬 캐시 폴더
     # 같은 청크는 다시 임베딩하지 않고 캐시에서 꺼내 씀 → 스크립트를 재실행해도 비용·시간 절약
     # namespace=base.model : 모델이 다르면 벡터도 다르므로 캐시를 '모델 이름'별로 분리(캐시 섞임 방지)
-    return CacheBackedEmbeddings.from_bytes_store(base, store, namespace=base.model)
+    # key_encoder="sha256" : 캐시 파일명(=청크 텍스트의 지문)을 만드는 해시. 기본값 SHA-1은 충돌 내성이 없어 경고가 뜬다
+    return CacheBackedEmbeddings.from_bytes_store(
+        base, store, namespace=base.model, key_encoder="sha256"
+    )
 
 def main():
     chunks = build_chunks()             # (1) PDF들을 읽어 청크로 분할
     print(f"청크 수: {len(chunks)}")     # 몇 조각으로 나뉘었는지 확인(0이면 PDF가 비었거나 스캔본=텍스트 없음 의심)
-    # (2) 각 청크를 임베딩해 Chroma에 저장. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
+    # (2) 재실행 대비: 기존 컬렉션을 통째로 비운다(처음 실행이면 빈 것을 지우고 지나간다).
+    #     아래 from_documents는 '덮어쓰기'가 아니라 '추가'라서, 비우지 않고 다시 돌리면 같은 청크가 중복으로 쌓인다.
+    #     전부 다시 저장해도 임베딩은 cache/에서 꺼내 쓰므로 API를 다시 부르지 않는다(= 사실상 공짜).
+    Chroma(collection_name=COLLECTION, persist_directory=PERSIST_DIR).delete_collection()
+    # (3) 각 청크를 임베딩해 Chroma에 저장. persist_directory를 주면 디스크에 영구 저장되어 재사용 가능
     Chroma.from_documents(
         documents=chunks,               # 저장할 청크(Document) 목록
         embedding=get_embeddings(),     # 각 청크를 벡터로 바꿀 임베딩기(위에서 만든 캐시 버전)
@@ -143,5 +425,6 @@ vs=Chroma(collection_name='p1_docs', persist_directory='chroma_db', embedding_fu
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>

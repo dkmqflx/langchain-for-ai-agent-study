@@ -67,14 +67,127 @@
       </table>
 
       <div class="label">🛠 할 일</div>
-      <p>1) 문서에서 답할 수 있는 질문–정답 쌍으로 <strong>골든셋</strong>을 만듭니다. 처음엔 5개로 시작해 <strong>20~50개</strong>까지 늘리세요.</p>
+      <p>
+        만들 것은 <strong>정답지(<code>eval_data.json</code>)</strong>와 <strong>채점기(<code>evaluate.py</code>)</strong> 둘입니다.
+        네 조각으로 나눠 보고, <a href="#full-code">맨 아래 전체 코드</a>를 복사하세요.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>🧭 네 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 골든셋(정답지) 만들기 &nbsp;→&nbsp; <b>②</b> 채점기 준비 &nbsp;→&nbsp;
+          <b>③</b> 질문마다 실제 RAG 돌리기 &nbsp;→&nbsp; <b>④</b> RAGAS로 채점하고 CSV로 저장
+        </p>
+      </div>
+
+      <h3>① 골든셋 — 손으로 만드는 정답지</h3>
+      <p>
+        시험을 채점하려면 <strong>답안지가 먼저</strong> 있어야 합니다. 골든셋이 그 답안지예요.
+        그리고 이건 <strong>직접 만들 수밖에 없습니다</strong> — 내 문서에 대한 정답을 아는 건 나뿐이니까요.
+        이 프로젝트에서 <strong>가장 귀찮지만 가장 중요한 작업</strong>이고, 실무 RAG도 똑같습니다.
+      </p>
       <div class="filename">eval_data.json</div>
 <pre><code>[
   {"question": "질문 1?", "ground_truth": "문서 기준 정답 1"},
   {"question": "질문 2?", "ground_truth": "문서 기준 정답 2"}
 ]</code></pre>
+      <p>
+        <strong>처음엔 5개로 시작해 20~50개까지 늘리세요.</strong> 5개로도 파이프라인이 도는지는 확인되지만,
+        그 정도로는 점수가 질문 하나에 크게 출렁여서 <strong>"좋아졌다"고 말하기 어렵습니다.</strong>
+      </p>
+      <div class="callout callout-warn">
+        <strong>⚠️ <code>ground_truth</code>는 "내 상식"이 아니라 "문서에 쓰인 말"로</strong>
+        <p style="margin-top:6px">
+          평가는 <em>우리 시스템이 이 문서에서 정답을 잘 찾아오는가</em>를 재는 것입니다.
+          그러니 정답도 <strong>문서에 실제로 적힌 내용</strong>이어야 해요.
+          문서에 없는 내용을 정답으로 적으면 시스템은 영원히 틀린 것으로 채점됩니다.
+          질문은 <strong>골고루</strong> 섞으세요 — 조항 번호나 고유 용어가 든 질문(BM25가 유리),
+          풀어쓴 일상적인 질문(의미 검색이 유리), 여러 쪽을 합쳐야 답이 되는 질문까지요.
+          그래야 세 구성의 <strong>차이가 드러납니다.</strong>
+        </p>
+      </div>
 
-      <p>2) <code>answer()</code>를 골든셋 전체에 돌려 RAGAS로 채점합니다. <code>mode</code>를 인자로 받아 세 구성을 각각 채점합니다.</p>
+      <h3>② 채점기 준비 — 부품 불러오고 mode 받기</h3>
+      <div class="filename">evaluate.py</div>
+<pre><code>import json, sys                                    # json: 골든셋 파일 읽기 / sys: 터미널 인자 읽기
+from datasets import Dataset                        # RAGAS에 넣을 '표' 형식
+from ragas import evaluate                          # 채점을 실행하는 함수
+from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall  # 지표 4종
+from ragas.llms import LangchainLLMWrapper          # 어댑터 — RAGAS가 우리 랭체인 LLM을 쓸 수 있게 모양을 맞춰 준다
+from ragas.embeddings import LangchainEmbeddingsWrapper  # 어댑터 — 임베딩용
+from langchain.chat_models import init_chat_model
+from langchain_openai import OpenAIEmbeddings
+from rag import answer                              # 평가 대상 — 우리가 만든 RAG 파이프라인
+
+# 어떤 검색 구성을 채점할지 터미널에서 받는다. 파일 하나로 세 구성을 각각 돌리기 위한 장치.
+#   uv run python evaluate.py hybrid  →  mode = "hybrid"
+#   uv run python evaluate.py         →  mode = "baseline" (기본값)
+mode = sys.argv[1] if len(sys.argv) &gt; 1 else "baseline"
+
+# 골든셋(정답지)을 읽어 온다. 형식: [{"question": ..., "ground_truth": ...}, ...]
+rows = json.load(open("eval_data.json", encoding="utf-8"))</code></pre>
+      <p>
+        <code>mode</code>를 <strong>실행 인자로 받는 게 핵심</strong>입니다. 파일 하나로 세 구성을 각각 채점하려는 것이고,
+        이게 가능한 건 STEP 3에서 검색기를 <strong>문자열로 갈아끼울 수 있게</strong> 만들어 뒀기 때문입니다.
+        <code>Wrapper</code>가 붙은 둘은 <strong>어댑터</strong>예요 — RAGAS가 우리 랭체인 모델을 쓸 수 있게 모양을 맞춰 주는 변환 플러그입니다.
+      </p>
+
+      <h3>③ 질문마다 실제 RAG를 돌려 답안 모으기</h3>
+      <p>채점 전에 <strong>답안지를 실제로 작성</strong>하는 단계입니다. 골든셋의 질문을 하나씩 우리 시스템에 넣습니다.</p>
+      <div class="filename">evaluate.py (이어서)</div>
+<pre><code>records = []                               # 채점기에 넘길 '표'의 행들을 모을 리스트
+for r in rows:                             # 골든셋의 질문을 하나씩 꺼내
+    out = answer(r["question"], mode=mode) # 실제로 RAG를 돌린다 (여기서 STEP 3~4의 mode 팩토리가 쓰인다)
+    records.append({
+        "question": r["question"],         # 물어본 질문
+        "answer": out["answer"],           # 우리 시스템이 낸 답  → ground_truth와 비교해 '답의 품질'을 잰다
+        "contexts": out["contexts"],       # 검색된 원문 전체    → 이게 없으면 검색 관련 지표를 계산할 수 없다
+        "ground_truth": r["ground_truth"], # 사람이 만든 정답    → 모든 비교의 기준
+    })
+# ※ 여기서 API 비용이 발생한다. 질문 수만큼 검색 + LLM 호출이 실제로 일어나기 때문.</code></pre>
+      <div class="callout callout-analogy">
+        <strong>🔗 STEP 2의 <code>contexts</code>가 여기서 쓰입니다</strong>
+        <p style="margin-top:6px">
+          STEP 2에서 <code>answer()</code>가 <code>contexts</code>(검색된 원문 전체)를 함께 돌려주게 만들었죠.
+          사람에게는 필요 없어서 STEP 5의 API 응답에서도 뺐던 그 값입니다.
+          그 이유가 지금 드러납니다 — <strong>검색 관련 지표 두 개는 이게 없으면 계산 자체가 안 됩니다.</strong>
+          답만 보고는 <em>"검색이 정답 근거를 가져오긴 했나"</em>를 알 수 없으니까요.
+        </p>
+      </div>
+      <p>
+        네 항목이 각각 <strong>채점의 재료</strong>입니다. <code>answer</code>와 <code>contexts</code>를 비교하면 <b>환각 여부</b>가,
+        <code>contexts</code>와 <code>ground_truth</code>를 비교하면 <b>검색 누락</b>이 드러납니다.
+      </p>
+
+      <h3>④ 채점하고 CSV로 남기기</h3>
+      <div class="filename">evaluate.py (이어서)</div>
+<pre><code>result = evaluate(
+    Dataset.from_list(records),   # 위에서 모은 행들을 RAGAS가 읽는 표 형식으로 변환
+    metrics=[faithfulness, answer_relevancy, context_precision, context_recall],  # 이 4개 지표로 채점
+    # 채점을 수행하는 '심판' LLM — 답을 만드는 모델이 아니라 판정하는 모델이다.
+    # "이 답이 저 문맥에 근거하고 있나?" 같은 판단은 규칙으로 짜기 어려워 LLM에게 맡긴다.
+    # → 그래서 평가를 돌릴 때도 API 비용이 든다 (질문 수 × 지표 4개만큼 호출)
+    llm=LangchainLLMWrapper(init_chat_model("gpt-5-mini")),
+    # 문장끼리 의미가 얼마나 가까운지 재는 데 쓰는 임베딩
+    embeddings=LangchainEmbeddingsWrapper(OpenAIEmbeddings(model="text-embedding-3-small")),
+)
+
+print(f"[{mode}]", result)                                  # 지표별 '평균'을 화면에 출력
+result.to_pandas().to_csv(f"eval_{mode}.csv", index=False)  # 문항별 상세 점수를 CSV로 저장
+# 평균만 보면 '왜' 떨어졌는지 모른다. 어떤 질문이 점수를 깎아먹었는지는 이 CSV를 열어야 보인다.</code></pre>
+      <p>
+        <code>llm=</code>에 넘기는 모델은 <strong>답을 만드는 모델이 아니라 채점하는 심판</strong>입니다.
+        "이 답이 저 문맥에 근거하고 있나?" 같은 판단은 규칙으로 짜기 어려워서, RAGAS는 <strong>LLM에게 채점을 시킵니다.</strong>
+        그래서 <strong>평가를 돌릴 때도 API 비용이 듭니다</strong> — 질문 수 × 지표 4개만큼 호출이 나가니,
+        골든셋을 50개로 늘릴 때는 감안하세요.
+      </p>
+      <p>
+        <code>print</code>는 <strong>평균</strong>만 보여주지만, CSV에는 <strong>문항별 점수</strong>가 다 들어갑니다.
+        평균이 떨어졌을 때 <strong>어떤 질문이 깎아먹었는지</strong>는 CSV를 열어야 보이고,
+        보통 거기에 개선의 실마리가 있습니다.
+      </p>
+
+      <div class="label" id="full-code">📄 전체 코드 (위 세 조각을 이어 붙인 것)</div>
       <div class="filename">evaluate.py</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 7 · RAGAS 평가: '좋아진 것 같다'를 숫자로 바꾼다.
@@ -147,5 +260,6 @@ result.to_pandas().to_csv(f"eval_{mode}.csv", index=False)    # 문항별 상세
   </main>
 </div>
 
+<script src="./highlight.js" defer></script>
 </body>
 </html>
