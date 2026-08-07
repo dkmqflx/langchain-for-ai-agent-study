@@ -17,6 +17,10 @@ from langchain_community.retrievers import BM25Retriever   # 키워드(단어 �
 # 에이전트 중심으로 다시 지으면서, 0.x의 나머지(chains·retrievers 등)를 이 패키지로 옮겼다.
 # EnsembleRetriever는 v1 네이티브 대안이 없다(core·community 어디에도 없음). deprecated도 아니다.
 from langchain_classic.retrievers import EnsembleRetriever # 검색기 여러 개를 합쳐 순위를 섞어 주는 도구
+# STEP 4 리랭커 부품 세 개 — 모델 / 로직 / 껍데기의 세 층으로 나뉜다.
+from langchain_classic.retrievers import ContextualCompressionRetriever              # 껍데기 — 기존 검색기를 감싸 '검색 후 후처리'를 덧붙인다
+from langchain_classic.retrievers.document_compressors import CrossEncoderReranker   # 로직 — 점수로 재정렬하고 상위 N개만 남긴다
+from langchain_community.cross_encoders import HuggingFaceCrossEncoder               # 모델 — 실제로 채점하는 로컬 Cross-Encoder
 from ingest import build_chunks                            # STEP 1의 '청크 만들기' 함수를 그대로 재사용
 
 load_dotenv()                                              # .env의 OPENAI_API_KEY 로드
@@ -52,7 +56,7 @@ def format_context(docs):
 # 임베딩은 '의미'에 강하나 정확한 용어·수치·희귀 단어(조항번호·상품명 등)에 약하고,
 # BM25는 '정확한 단어 일치'에 강하다 → 둘을 합쳐 서로의 빈틈을 메운다.
 #
-# 동시에 검색기를 'mode 팩토리'로 재구성한다: baseline | hybrid  (STEP 4에서 rerank 추가)
+# 동시에 검색기를 'mode 팩토리'로 재구성한다: baseline | hybrid  (→ STEP 4에서 rerank가 더해진다)
 # → STEP 7에서 같은 골든셋으로 여러 구성을 나란히 채점해 비교하기 위한 뼈대.
 # ═══════════════════════════════════════════════════════════════════
 # BM25는 벡터가 아니라 '원문에 그 단어가 몇 번 나오나'를 세는 방식이라 텍스트 청크가 그대로 필요하다.
@@ -62,6 +66,16 @@ def format_context(docs):
 # answer() 안에 넣으면 질문할 때마다 PDF 전체를 다시 읽게 되어 몹시 느려진다.
 chunks = build_chunks()
 
+# ═══════════════════════════════════════════════════════════════════
+# STEP 4 · Reranker(2-stage retrieval): 아래 _build_retriever()에 "rerank" 분기를 더한다.
+# 1단계(빠름) 하이브리드로 top-10을 넓게 검색 → 2단계(정밀) Cross-Encoder가 질문·청크를
+# 한 쌍으로 묶어 다시 채점해 상위 4개만 남긴다. 노이즈 청크가 걸러져 생성 품질이 오른다.
+#
+# 지금까지의 임베딩 검색은 질문과 문서를 '따로' 벡터로 만들어 거리를 쟀다(Bi-Encoder).
+# 문서 벡터를 미리 계산해 둘 수 있어 빠르지만, 그 시점엔 질문이 뭔지 모른다는 한계가 있다.
+# Cross-Encoder는 질문과 문서를 '함께' 모델에 넣어 관련도를 직접 점수로 낸다 — 정확하지만
+# 미리 계산이 불가능해 느리다. 그래서 후보를 10개로 좁힌 뒤에야 쓸 수 있다.
+# ═══════════════════════════════════════════════════════════════════
 def _build_retriever(mode: str):
     """mode 이름(문자열)을 받아 그에 해당하는 검색기 객체를 만들어 돌려준다.
 
@@ -83,6 +97,26 @@ def _build_retriever(mode: str):
         #   BM25는 의미 검색이 놓치는 순간(조항번호·고유용어)을 메우는 보험 역할을 맡는다.
         return EnsembleRetriever(retrievers=[bm25, dense], weights=[0.4, 0.6])
 
+    if mode == "rerank":
+        # ── 1단계 (빠르게, 넓게) ────────────────────────────────────
+        # 여기서는 '정확히 고르기'가 목표가 아니라 '정답을 빠뜨리지 않기'가 목표다.
+        # 그래서 hybrid에서 4였던 k를 10으로 늘려 후보를 넉넉히 확보한다.
+        bm25.k = 10                                        # 키워드 검색도 10개
+        wide = vs.as_retriever(search_kwargs={"k": 10})    # 의미 검색도 10개
+        base = EnsembleRetriever(retrievers=[bm25, wide], weights=[0.4, 0.6])  # 둘을 섞어 넓은 후보군을 만든다
+
+        # ── 2단계 (느리지만 정밀하게) ───────────────────────────────
+        # Cross-Encoder는 질문과 청크를 '한 쌍으로 묶어' 모델에 함께 넣고 관련도를 직접 채점한다.
+        # 미리 계산해 둘 수 없어 느리므로, 위에서 10개로 좁힌 뒤에야 쓸 수 있다.
+        reranker = CrossEncoderReranker(
+            model=HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base"),  # 무료 로컬 모델(첫 실행 시 자동 다운로드)
+            top_n=4,                                       # 재채점 후 최종적으로 남길 청크 수
+        )
+
+        # 두 단계를 하나로 묶는다. base_retriever로 넓게 뽑고 → base_compressor로 걸러 낸다.
+        # 기존 검색기를 고치지 않고 '감싸서' 기능을 더하는 방식이라 baseline·hybrid는 그대로 남는다.
+        return ContextualCompressionRetriever(base_compressor=reranker, base_retriever=base)
+
     # 오타 등으로 없는 이름이 들어오면 조용히 넘어가지 말고 즉시 에러를 내 알린다
     raise ValueError(f"unknown mode: {mode}")
 
@@ -99,7 +133,7 @@ def get_retriever(mode: str = "hybrid"):
 # 참고: 이름 앞의 _ 는 파이썬에서 '바깥에서 직접 쓰지 마세요'라는 관례적 표시다.
 #      바깥(main.py·evaluate.py)에 열어 둔 문은 get_retriever() 하나뿐이다.
 
-def answer(question: str, mode: str = "hybrid"):           # mode 인자 추가 — 기본은 hybrid
+def answer(question: str, mode: str = "rerank"):           # 기본 mode 승격: hybrid → rerank
     """질문 하나를 받아 검색 → 생성 → 근거까지 끝낸 결과 dict를 돌려준다."""
     docs = get_retriever(mode).invoke(question)            # (1) 검색: mode에 해당하는 검색기로
     msg = PROMPT.invoke({"question": question, "context": format_context(docs)})  # (2) 프롬프트에 질문·문맥 주입

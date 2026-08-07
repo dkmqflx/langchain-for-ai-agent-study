@@ -55,6 +55,48 @@
         노이즈 청크가 걸러져 생성 품질이 오릅니다.
       </p>
 
+      <div class="callout callout-info">
+        <strong>❓ 그래서 Cross-Encoder가 대체 뭔가요?</strong>
+        <p style="margin-top:6px">
+          <b>인코더(Encoder)</b>는 <strong>텍스트를 숫자 벡터로 바꾸는 모델</strong>입니다.
+          STEP 1에서 쓴 임베딩 모델이 바로 인코더예요.
+          지금까지 쓴 방식은 정확히는 <strong>Bi-Encoder</strong>(bi = 둘) —
+          인코더를 <b>질문에 한 번, 문서에 한 번 따로</b> 돌리기 때문입니다.
+        </p>
+<pre><code>질문  ──[인코더]──→ 벡터 A ─┐
+                          ├─→ 두 벡터 사이 거리 계산
+문서  ──[인코더]──→ 벡터 B ─┘   (미리 계산해 둔 것)</code></pre>
+        <p style="margin-top:6px">
+          여기서 핵심은 <strong>문서를 벡터로 만드는 시점에 질문이 뭔지 모른다</strong>는 점입니다.
+          그래서 164개를 미리 다 계산해 Chroma에 넣어 둘 수 있었고, 검색이 순식간에 끝났죠.
+        </p>
+        <p style="margin-top:6px">
+          <strong>Cross-Encoder</strong>는 질문과 문서를 <strong>한 덩어리로 이어붙여 모델에 한 번에</strong> 넣습니다.
+          출력은 벡터가 아니라 <b>관련도 점수 하나</b>예요.
+        </p>
+<pre><code>"환불은 며칠 안에 신청해야 하나요? [SEP] 환불 신청 기한은 14일입니다"
+                     ↓ (모델 한 번 실행)
+                   0.94  ← 점수 하나</code></pre>
+        <p style="margin-top:6px">
+          이름이 <b>cross(교차)</b>인 이유는, 모델 안에서 <strong>질문의 단어 하나하나가 문서의 단어 하나하나를 교차로 들여다보기</strong> 때문입니다.
+          Bi-Encoder에서는 이 교차가 <b>원천적으로 불가능</b>합니다 — 문서를 벡터로 만들 때 질문이 아직 존재하지 않으니까요.
+        </p>
+        <p style="margin-top:6px">
+          <b>순위가 실제로 어떻게 바뀌나?</b> 질문이 <em>"환불은 며칠 안에 신청해야 하나요?"</em>이고
+          문서 A는 <em>"교환은 수령 후 7일 이내 신청"</em>, 문서 B는 <em>"환불 신청 기한은 14일"</em>이라고 해 봅시다.
+          Bi-Encoder에게 A와 B는 둘 다 "반품 정책·기한·며칠"이라는 <b>비슷한 주제 덩어리</b>로 뭉개져
+          A가 위로 올라오기 쉽습니다. 벡터 하나로 압축하는 순간 <b>"환불이냐 교환이냐"</b>는 결정적 차이가 씻겨 나가거든요.
+          Cross-Encoder는 질문의 "환불"과 문서 A의 "교환"을 <strong>정면으로 맞대 보고</strong> A를 떨어뜨립니다.
+        </p>
+        <p style="margin-top:6px">
+          대신 <strong>문서 10개를 재채점하려면 모델을 10번 돌려야</strong> 합니다.
+          질문이 와야 계산이 시작되니 미리 계산해 둘 방법이 없어요.
+          그래서 <b>1단계로 10개까지 좁힌 다음에야</b> 쓸 수 있습니다.
+          아래 코드의 <code>BAAI/bge-reranker-base</code>가 바로 이 Cross-Encoder 모델이고,
+          출력이 점수 하나뿐이라 <b>검색용 인덱스를 만들 수 없어</b> 오직 재정렬 전용입니다.
+        </p>
+      </div>
+
       <div class="label">🛠 할 일</div>
       <p>
         STEP 3에서 만든 <code>_build_retriever()</code>에 <strong><code>"rerank"</code> 분기 하나를 더하는</strong> 작업입니다.
