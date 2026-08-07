@@ -12,6 +12,12 @@ from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain.chat_models import init_chat_model          # 문자열 하나로 챗 모델을 만드는 헬퍼
 from langchain_core.prompts import ChatPromptTemplate      # system/human 메시지 템플릿
+from langchain_community.retrievers import BM25Retriever   # 키워드(단어 일치) 기반 검색기
+# langchain_classic = '구식'이 아니라 '이사 간 옛 짐'. LangChain 1.0에서 langchain 패키지를
+# 에이전트 중심으로 다시 지으면서, 0.x의 나머지(chains·retrievers 등)를 이 패키지로 옮겼다.
+# EnsembleRetriever는 v1 네이티브 대안이 없다(core·community 어디에도 없음). deprecated도 아니다.
+from langchain_classic.retrievers import EnsembleRetriever # 검색기 여러 개를 합쳐 순위를 섞어 주는 도구
+from ingest import build_chunks                            # STEP 1의 '청크 만들기' 함수를 그대로 재사용
 
 load_dotenv()                                              # .env의 OPENAI_API_KEY 로드
 # 검색은 '질문도 같은 방식으로 벡터화해서' 청크 벡터와 비교하는 것 → STEP 1에서 저장할 때 쓴
@@ -19,7 +25,6 @@ load_dotenv()                                              # .env의 OPENAI_API_
 emb = OpenAIEmbeddings(model="text-embedding-3-small")
 # 이미 인덱싱된 벡터DB를 연다(새로 저장하지 않고 읽기 전용). collection·경로는 STEP 1과 동일하게
 vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_function=emb)
-retriever = vs.as_retriever(search_kwargs={"k": 4})        # 질문당 가장 유사한 청크 4개를 가져오는 검색기
 llm = init_chat_model("gpt-5-mini")                        # 답변을 생성할 LLM
 
 # 프롬프트: system=규칙(문서 밖 내용은 지어내지 말 것 = 환각 억제), human=질문 + 검색된 문맥
@@ -42,9 +47,61 @@ def format_context(docs):
         for i, d in enumerate(docs)                        # i=0,1,2... 각 청크에 번호 부여
     )
 
-def answer(question: str):
+# ═══════════════════════════════════════════════════════════════════
+# STEP 3 · Hybrid 검색: 키워드 검색(BM25) + 의미 검색(임베딩)을 앙상블해 검색 누락을 줄인다.
+# 임베딩은 '의미'에 강하나 정확한 용어·수치·희귀 단어(조항번호·상품명 등)에 약하고,
+# BM25는 '정확한 단어 일치'에 강하다 → 둘을 합쳐 서로의 빈틈을 메운다.
+#
+# 동시에 검색기를 'mode 팩토리'로 재구성한다: baseline | hybrid  (STEP 4에서 rerank 추가)
+# → STEP 7에서 같은 골든셋으로 여러 구성을 나란히 채점해 비교하기 위한 뼈대.
+# ═══════════════════════════════════════════════════════════════════
+# BM25는 벡터가 아니라 '원문에 그 단어가 몇 번 나오나'를 세는 방식이라 텍스트 청크가 그대로 필요하다.
+# 그런데 Chroma에는 벡터만 들어 있으므로, PDF를 다시 읽어 청크를 만들어 둔다.
+#
+# 이 줄이 함수 '바깥'에 있는 게 중요하다 → 파일을 불러올 때 딱 한 번만 실행된다.
+# answer() 안에 넣으면 질문할 때마다 PDF 전체를 다시 읽게 되어 몹시 느려진다.
+chunks = build_chunks()
+
+def _build_retriever(mode: str):
+    """mode 이름(문자열)을 받아 그에 해당하는 검색기 객체를 만들어 돌려준다.
+
+    검색 전략을 문자열 하나로 갈아끼울 수 있게 만드는 것이 이 리팩터링의 핵심이다.
+    """
+    dense = vs.as_retriever(search_kwargs={"k": 4})        # 의미(임베딩) 검색 — STEP 2에서 쓰던 그 검색기
+
+    if mode == "baseline":
+        return dense                                       # STEP 2 그대로: 의미 검색만 쓴다
+
+    bm25 = BM25Retriever.from_documents(chunks)            # 청크들로 키워드 색인을 만든다
+    bm25.k = 4                                             # BM25가 돌려줄 청크 수 (의미 검색과 똑같이 4개)
+
+    if mode == "hybrid":
+        # EnsembleRetriever = 두 검색기에게 각자 top-4를 뽑게 한 뒤,
+        #                     weights 비율로 점수를 섞어 하나의 최종 순위를 만든다.
+        # [0.4, 0.6] → 앞의 bm25에 40%, 뒤의 dense에 60% 비중.
+        #   의미 검색이 평소 더 안정적이라 비중을 더 주고,
+        #   BM25는 의미 검색이 놓치는 순간(조항번호·고유용어)을 메우는 보험 역할을 맡는다.
+        return EnsembleRetriever(retrievers=[bm25, dense], weights=[0.4, 0.6])
+
+    # 오타 등으로 없는 이름이 들어오면 조용히 넘어가지 말고 즉시 에러를 내 알린다
+    raise ValueError(f"unknown mode: {mode}")
+
+_retrievers = {}   # 이미 만들어 둔 검색기를 담는 보관함 — {mode 이름: 검색기 객체}
+
+def get_retriever(mode: str = "hybrid"):
+    """검색기를 돌려준다. 처음 요청받은 mode만 새로 만들고, 그다음부터는 보관함에서 꺼내 쓴다."""
+    # BM25Retriever.from_documents()는 호출할 때마다 색인을 처음부터 새로 만들어 느리다.
+    # 질문이 올 때마다 반복하지 않도록, 한 번 만든 것을 보관해 두고 재사용한다.
+    if mode not in _retrievers:                            # 보관함에 없으면 = 이 mode는 처음 쓰는 것
+        _retrievers[mode] = _build_retriever(mode)         # 그때만 만들어 보관한다
+    return _retrievers[mode]
+
+# 참고: 이름 앞의 _ 는 파이썬에서 '바깥에서 직접 쓰지 마세요'라는 관례적 표시다.
+#      바깥(main.py·evaluate.py)에 열어 둔 문은 get_retriever() 하나뿐이다.
+
+def answer(question: str, mode: str = "hybrid"):           # mode 인자 추가 — 기본은 hybrid
     """질문 하나를 받아 검색 → 생성 → 근거까지 끝낸 결과 dict를 돌려준다."""
-    docs = retriever.invoke(question)                      # (1) 검색: 질문과 유사한 청크 4개
+    docs = get_retriever(mode).invoke(question)            # (1) 검색: mode에 해당하는 검색기로
     msg = PROMPT.invoke({"question": question, "context": format_context(docs)})  # (2) 프롬프트에 질문·문맥 주입
     resp = llm.invoke(msg)                                 # (3) 생성: LLM이 문맥 기반으로 답변
     return {

@@ -97,12 +97,25 @@ chunks = build_chunks()</code></pre>
         이러면 파일을 불러올 때 <strong>딱 한 번만</strong> PDF를 읽습니다.
         <code>answer()</code> 안에 넣었다면 질문할 때마다 PDF 전체를 다시 읽어 몹시 느려집니다.
       </p>
-      <div class="callout callout-warn">
-        <strong>⚠️ <code>ImportError</code>가 나면</strong>
+      <div class="callout callout-info">
+        <strong>🤔 <code>langchain_classic</code>… 이거 레거시 아닌가요?</strong>
         <p style="margin-top:6px">
-          <code>EnsembleRetriever</code>는 LangChain 1.x에서 <code>langchain_classic</code> 아래로 옮겨졌습니다.
-          위 경로가 안 되면 <code>from langchain.retrievers import EnsembleRetriever</code>를 시도해 보세요.
-          이렇게 <strong>에러 메시지를 읽고 경로를 고치는 것</strong>도 연습 대상입니다.
+          이름 때문에 오해하기 쉬운데, <strong>"구식 코드"가 아니라 "이사 간 옛 짐"</strong>입니다.
+          LangChain 1.0에서 <code>langchain</code> 패키지를 에이전트 중심으로 비우고 다시 지으면서,
+          0.x 시절에 들어 있던 나머지(chains·memory·retrievers·evaluation 등)를 통째로
+          <code>langchain-classic</code>이라는 새 패키지로 옮겼습니다.
+        </p>
+        <p style="margin-top:6px">
+          <code>EnsembleRetriever</code>는 <strong>v1 네이티브 대안이 아예 없습니다</strong> —
+          <code>langchain_core</code>에도 <code>langchain_community</code>에도 없고, 이 클래스가 정의된 파일은
+          <code>langchain_classic/retrievers/ensemble.py</code> 하나뿐입니다. deprecated 표시도, import 경고도 없고요.
+          내용물도 낡지 않았습니다: RRF(rank fusion)로 순위를 합치는 평범한 <code>BaseRetriever</code>라 <code>.invoke()</code>로 그대로 씁니다.
+          STEP 4의 Reranker도, <code>ingest.py</code>의 <code>CacheBackedEmbeddings</code>도 같은 처지예요.
+        </p>
+        <p style="margin-top:6px">
+          <strong>주의:</strong> 검색하다 보면 <code>from langchain.retrievers import EnsembleRetriever</code>라는 예제를 자주 만나는데,
+          그건 <strong>0.x 경로</strong>라 LangChain 1.x에서는 <code>ModuleNotFoundError</code>가 납니다(1.x의 <code>langchain</code>에는 <code>retrievers</code> 모듈이 없습니다).
+          옛 블로그 예제를 그대로 붙여 넣지 말고 <strong>설치된 버전 기준으로 경로를 확인하는 습관</strong>을 들이세요.
         </p>
       </div>
 
@@ -146,6 +159,15 @@ chunks = build_chunks()</code></pre>
           <tr><td>"카드 잃어버리면 <b>내가 물어내야 해?</b>"</td><td><b>의미 검색</b></td><td>문서에 없는 <b>말투로 물어봐도</b> 뜻이 비슷한 조항을 찾아냄</td></tr>
         </tbody>
       </table>
+      <div class="callout callout-info">
+        <strong>🔢 결과가 4개가 아니라 6~8개로 나옵니다 — 정상입니다</strong>
+        <p style="margin-top:6px">
+          앙상블은 두 검색기의 top-4를 <strong>합집합으로 합친 뒤 순위만 다시 매기는</strong> 방식이라,
+          겹치지 않은 청크는 그대로 남습니다. 두 검색기가 완전히 다른 걸 찾았다면 4+4=8개, 보통은 겹치는 게 있어 6~7개가 나와요.
+          그래서 <code>answer()</code>가 LLM에 넘기는 문맥도 baseline보다 길어지고 <code>citations</code>도 그만큼 늘어납니다.
+          이렇게 늘어난 후보를 <strong>다시 4개로 추려 내는 것</strong>이 바로 다음 STEP 4 Reranker(<code>top_n=4</code>)가 맡는 일입니다.
+        </p>
+      </div>
 
       <h3>③ <code>get_retriever()</code> — 한 번 만든 검색기는 다시 쓰기</h3>
       <p>
