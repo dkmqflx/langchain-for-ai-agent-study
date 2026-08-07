@@ -57,15 +57,16 @@
 
       <div class="label">🛠 할 일</div>
       <p>
-        <strong>코드 변경은 사실상 세 줄입니다.</strong> 세 조각으로 나눠 보고,
+        <strong>코드 변경은 몇 줄뿐입니다.</strong> 네 조각으로 나눠 보고,
         <a href="#full-code">맨 아래 전체 코드</a>로 <code>answer()</code>를 교체하세요.
       </p>
 
       <div class="callout callout-info">
-        <strong>🧭 세 조각 한눈에</strong>
+        <strong>🧭 네 조각 한눈에</strong>
         <p style="margin-top:6px">
           <b>①</b> Langfuse 키 발급해 <code>.env</code> 채우기 &nbsp;→&nbsp; <b>②</b> 콜백 핸들러 하나 만들기
           &nbsp;→&nbsp; <b>③</b> 기록하고 싶은 호출에 <code>config</code> 붙이기
+          &nbsp;→&nbsp; <b>④</b> 검색·생성을 '요청 하나'로 묶기
         </p>
       </div>
 
@@ -75,9 +76,24 @@
         STEP 0에서 <strong>빈칸으로 남겨 둔 자리</strong>에 채웁니다.
       </p>
       <div class="filename">.env</div>
-<pre><code>LANGFUSE_PUBLIC_KEY=pk-lf-...              # 공개 키 (pk-lf- 로 시작)
-LANGFUSE_SECRET_KEY=sk-lf-...              # 비밀 키 (sk-lf- 로 시작) — 절대 깃에 올리지 말 것
-LANGFUSE_HOST=https://cloud.langfuse.com   # 로그를 보낼 서버 주소 (직접 설치해 쓴다면 그 주소로 바꾼다)</code></pre>
+<pre><code>LANGFUSE_PUBLIC_KEY=pk-lf-...                  # 공개 키 (pk-lf- 로 시작)
+LANGFUSE_SECRET_KEY=sk-lf-...                  # 비밀 키 (sk-lf- 로 시작) — 절대 깃에 올리지 말 것
+LANGFUSE_BASE_URL=https://cloud.langfuse.com   # 로그를 보낼 서버 주소</code></pre>
+      <div class="callout callout-warn">
+        <strong>⚠️ 주소는 '가입한 리전'의 주소를 그대로 쓴다</strong>
+        <p style="margin-top:6px">
+          Langfuse Cloud는 리전이 나뉘어 있습니다 — EU는 <code>https://cloud.langfuse.com</code>,
+          US는 <code>https://us.cloud.langfuse.com</code>, 일본은 <code>https://jp.cloud.langfuse.com</code>.
+          <strong>키를 발급받은 리전과 주소가 다르면 인증이 실패합니다</strong>(직접 설치해 쓴다면 그 서버 주소).
+          변수 이름도 버전을 탑니다: <b>v4는 <code>LANGFUSE_BASE_URL</code></b>이고,
+          예전 이름인 <code>LANGFUSE_HOST</code>는 아직 동작하지만 deprecated입니다.
+        </p>
+        <p style="margin-top:6px">
+          키가 제대로 들어갔는지는 대시보드를 보기 전에 한 줄로 확인할 수 있습니다 —
+          <code>True</code>가 나오면 통과입니다.
+        </p>
+<pre><code>uv run python -c "from dotenv import load_dotenv; load_dotenv(); from langfuse import get_client; print(get_client().auth_check())"</code></pre>
+      </div>
 
       <h3>② 콜백 핸들러 만들기</h3>
       <p>
@@ -135,9 +151,62 @@ langfuse_handler = CallbackHandler()</code></pre>
         </p>
       </div>
       <p>
-        이렇게 두 군데만 붙여도 대시보드에는 <strong><code>retriever</code> → <code>LLM</code> 트리</strong>가 그려집니다.
-        RAG가 틀린 답을 했을 때 <strong>"검색이 엉뚱한 걸 가져왔나, 아니면 문맥은 맞는데 생성이 틀렸나"</strong>를
-        추측이 아니라 <strong>기록으로</strong> 가를 수 있게 되는 겁니다. 덤으로 질의당 토큰·비용·지연도 함께 쌓입니다.
+        이렇게 두 군데에 붙이면 검색과 생성이 각각 기록되기 시작합니다.
+        그런데 여기까지만 하고 대시보드를 열면 <strong>기대와 다른 그림</strong>이 나옵니다.
+      </p>
+
+      <h3>④ 검색·생성을 '요청 하나'로 묶기</h3>
+      <p>
+        질문을 한 번 던졌는데 <strong>Traces에 줄이 두 개</strong> 생깁니다.
+      </p>
+<pre><code>ChatOpenAI                       21.5s  $0.0037
+ContextualCompressionRetriever    3.6s  $0</code></pre>
+      <p>
+        이유는 단순합니다. <code>get_retriever().invoke()</code>와 <code>llm.invoke()</code>는
+        <strong>서로 아무 관계 없는 두 번의 함수 호출</strong>이에요.
+        콜백은 "이 호출이 일어났다"만 알려줄 뿐 <strong>호출들 사이의 관계는 알려주지 않습니다.</strong>
+        Langfuse 입장에서는 이 검색과 저 생성이 같은 질문에서 나왔다고 볼 근거가 없는 거죠.
+      </p>
+      <p>
+        그래서 <strong>"여기부터 여기까지가 한 요청"</strong>이라고 표시해 주는 상자를 하나 씌웁니다.
+        이 <code>with</code> 블록 안에서 일어난 기록은 전부 이 상자의 <strong>자식</strong>으로 들어갑니다.
+      </p>
+      <div class="filename">rag.py</div>
+<pre><code>from langfuse import get_client   # 콜백과 같은 .env 키를 읽는 클라이언트
+
+langfuse = get_client()
+
+def answer(question: str, mode: str = "rerank"):
+    # 검색과 생성을 '요청 하나'로 묶는 바깥 상자
+    with langfuse.start_as_current_observation(name="rag-answer", as_type="span"):
+        cfg = {"callbacks": [langfuse_handler]}
+        docs = get_retriever(mode).invoke(question, config=cfg)
+        msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+        resp = llm.invoke(msg, config=cfg)
+    return { ... }   # return은 with 밖이어도 된다 (기록은 이미 끝났다)</code></pre>
+      <p>이제 한 질문이 트레이스 <strong>하나</strong>로, 문서가 약속한 그 트리 모양으로 그려집니다.</p>
+<pre><code>rag-answer                          23.8s  $0.0034
+  ├ RETRIEVER  ContextualCompressionRetriever
+  └ GENERATION ChatOpenAI    input 2,233 / output 653 토큰</code></pre>
+      <div class="callout callout-analogy">
+        <strong>🍽 왜 굳이 묶나 — 영수증 두 장 vs 한 장</strong>
+        <p style="margin-top:6px">
+          식당에서 음료와 음식을 따로 계산하면 영수증이 두 장 나옵니다. 각각 얼마인지는 알 수 있지만
+          <strong>"이 테이블이 총 얼마 썼나"</strong>는 두 장을 들고 직접 더해야 알죠.
+          <code>with</code>는 "같은 테이블"이라고 묶어 주는 표시입니다.
+        </p>
+        <p style="margin-top:6px">
+          위 두 그림에서 <strong>비용 칸</strong>을 비교해 보세요. 흩어진 쪽은 생성에만 $0.0037이 붙어 있고,
+          묶은 쪽은 <strong>trace 자체에 $0.0034·23.8초</strong>가 찍힙니다.
+          <strong>질의 1건당 총비용·총지연</strong>은 묶어야만 얻어지는 숫자이고,
+          <a href="./8.html">STEP 8</a>에서 구성별로 "품질은 얼마나 올랐고 비용은 얼마나 더 드나"를
+          비교할 때 바로 이 숫자가 필요합니다.
+        </p>
+      </div>
+      <p>
+        여기까지 하면 RAG가 틀린 답을 했을 때
+        <strong>"검색이 엉뚱한 걸 가져왔나, 아니면 문맥은 맞는데 생성이 틀렸나"</strong>를
+        추측이 아니라 <strong>기록으로</strong> 가를 수 있게 됩니다.
       </p>
 
       <div class="label" id="full-code">📄 전체 코드 (<code>rag.py</code>에 추가·교체할 부분)</div>
@@ -145,18 +214,24 @@ langfuse_handler = CallbackHandler()</code></pre>
 <pre><code># ═══════════════════════════════════════════════════════════════════
 # STEP 6 · 관측성(Langfuse): 모든 질의의 검색·생성·토큰·비용·지연을 대시보드로 추적한다.
 # 방법은 간단 — LangChain 호출에 '콜백 핸들러'를 config로 넘기면 실행이 trace(추적 트리)로 남는다.
-# 사전 준비: .env의 LANGFUSE_PUBLIC_KEY·SECRET_KEY를 채워둘 것(STEP 0의 빈칸).
+# 사전 준비: .env의 LANGFUSE_PUBLIC_KEY·SECRET_KEY·BASE_URL을 채워둘 것(STEP 0의 빈칸).
 # ═══════════════════════════════════════════════════════════════════
 from langfuse.langchain import CallbackHandler   # langfuse v3~v4: 콜백은 langfuse.langchain 에 있음
 # (v2를 쓰면: from langfuse.callback import CallbackHandler)
+from langfuse import get_client                  # 검색·생성을 요청 하나로 묶을 때 쓰는 클라이언트
 
+# 아래 두 줄은 반드시 load_dotenv() '뒤'에 둔다 — 키를 인자로 안 넘기고 .env에서 알아서 읽기 때문
 langfuse_handler = CallbackHandler()             # Langfuse로 로그를 보내는 콜백(키는 .env에서 자동으로 읽음)
+langfuse = get_client()                          # 콜백과 같은 연결을 공유하는 클라이언트
 
 def answer(question: str, mode: str = "rerank"):
-    cfg = {"callbacks": [langfuse_handler]}       # 이 config를 붙인 호출만 Langfuse에 기록된다
-    docs = get_retriever(mode).invoke(question, config=cfg)  # 검색도 config 전달 → trace에 'retriever' 노드로 남음
-    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
-    resp = llm.invoke(msg, config=cfg)            # 생성도 config 전달 → 'LLM' 노드 + 토큰·지연 기록
+    # 이 with 안에서 일어난 기록은 모두 이 상자의 자식이 된다 → 대시보드에 trace 1개로 그려진다.
+    # 없으면 두 invoke가 남남이라 trace가 2개로 흩어지고, 질의당 총비용·총지연을 볼 수 없다.
+    with langfuse.start_as_current_observation(name="rag-answer", as_type="span"):
+        cfg = {"callbacks": [langfuse_handler]}   # 이 config를 붙인 호출만 Langfuse에 기록된다
+        docs = get_retriever(mode).invoke(question, config=cfg)  # 검색도 config 전달 → 'retriever' 노드로 남음
+        msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+        resp = llm.invoke(msg, config=cfg)        # 생성도 config 전달 → 'LLM' 노드 + 토큰·지연 기록
     return {
         "answer": resp.content,
         "citations": [{"source": d.metadata.get("source"), "page": d.metadata.get("page")} for d in docs],
@@ -169,8 +244,10 @@ def answer(question: str, mode: str = "rerank"):
 
       <div class="callout callout-result">
         <strong>✅ 검증 게이트</strong>
-        <code>/query</code>를 몇 번 호출한 뒤 Langfuse 대시보드 <strong>Traces</strong>에서 각 요청이
-        <strong>retriever → LLM</strong> 트리로 보이고 <strong>토큰·지연</strong>이 찍히면 통과.
+        <code>/query</code>를 몇 번 호출한 뒤 Langfuse 대시보드 <strong>Traces</strong>에서
+        <strong>요청 1건 = 트레이스 1건(<code>rag-answer</code>)</strong>으로 보이고,
+        그 아래 <strong>retriever → LLM</strong> 트리와 <strong>토큰·비용·지연</strong>이 찍히면 통과.
+        (줄이 두 개로 흩어져 있다면 ④의 <code>with</code>가 빠진 것)
       </div>
       <div class="label">🎓 배우는 것</div>
       <p>LLM 앱의 관측성 — 실무에서 "왜 이 답이 나왔는지"를 사후 추적하는 능력. 비용·지연 모니터링의 출발점.</p>

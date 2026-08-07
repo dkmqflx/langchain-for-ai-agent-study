@@ -22,14 +22,29 @@ from langchain_classic.retrievers import ContextualCompressionRetriever         
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker   # 로직 — 점수로 재정렬하고 상위 N개만 남긴다
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder               # 모델 — 실제로 채점하는 로컬 Cross-Encoder
 from ingest import build_chunks                            # STEP 1의 '청크 만들기' 함수를 그대로 재사용
+# STEP 6 관측성 — 랭체인 실행을 Langfuse로 흘려보내는 콜백. v3~v4는 langfuse.langchain 에 있다
+# (v2를 쓰면: from langfuse.callback import CallbackHandler)
+from langfuse.langchain import CallbackHandler
+from langfuse import get_client                            # 검색·생성을 요청 하나로 묶을 때 쓰는 Langfuse 클라이언트
 
-load_dotenv()                                              # .env의 OPENAI_API_KEY 로드
+load_dotenv()                                              # .env의 OPENAI_API_KEY·LANGFUSE_* 로드
 # 검색은 '질문도 같은 방식으로 벡터화해서' 청크 벡터와 비교하는 것 → STEP 1에서 저장할 때 쓴
 # 임베딩 모델과 반드시 같아야 한다. 다르면 좌표계가 달라져 엉뚱한 청크가 걸린다.
 emb = OpenAIEmbeddings(model="text-embedding-3-small")
 # 이미 인덱싱된 벡터DB를 연다(새로 저장하지 않고 읽기 전용). collection·경로는 STEP 1과 동일하게
 vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_function=emb)
 llm = init_chat_model("gpt-5-mini")                        # 답변을 생성할 LLM
+
+# ═══════════════════════════════════════════════════════════════════
+# STEP 6 · 관측성(Langfuse): 모든 질의의 검색·생성·토큰·비용·지연을 대시보드로 추적한다.
+# 콜백(callback)은 '무슨 일이 생길 때마다 나한테도 알려줘'라고 등록해 두는 참관인이다.
+# 랭체인이 검색을 시작할 때·LLM이 답을 마칠 때마다 호출되고, 핸들러가 그 내용을 Langfuse로 보낸다.
+#
+# 키를 인자로 넘기지 않는 점에 주목 — .env의 정해진 이름(LANGFUSE_*)을 알아서 찾아 읽는다.
+# 그래서 이 줄은 반드시 load_dotenv() '뒤'에 있어야 한다(앞에 두면 키가 아직 없어 못 읽는다).
+# ═══════════════════════════════════════════════════════════════════
+langfuse_handler = CallbackHandler()
+langfuse = get_client()                                    # 같은 .env 키를 읽는 클라이언트(콜백과 같은 연결을 공유한다)
 
 # 프롬프트: system=규칙(문서 밖 내용은 지어내지 말 것 = 환각 억제), human=질문 + 검색된 문맥
 PROMPT = ChatPromptTemplate.from_messages([
@@ -135,9 +150,17 @@ def get_retriever(mode: str = "hybrid"):
 
 def answer(question: str, mode: str = "rerank"):           # 기본 mode 승격: hybrid → rerank
     """질문 하나를 받아 검색 → 생성 → 근거까지 끝낸 결과 dict를 돌려준다."""
-    docs = get_retriever(mode).invoke(question)            # (1) 검색: mode에 해당하는 검색기로
-    msg = PROMPT.invoke({"question": question, "context": format_context(docs)})  # (2) 프롬프트에 질문·문맥 주입
-    resp = llm.invoke(msg)                                 # (3) 생성: LLM이 문맥 기반으로 답변
+    # 검색과 생성을 '요청 하나'로 묶는 바깥 상자. 이 with 블록 안에서 일어난 기록은 모두
+    # 이 상자의 자식으로 들어가, 대시보드에 trace 1개(retriever → LLM 트리)로 그려진다.
+    # 없으면 두 invoke가 서로 남남이라 트레이스가 2개로 흩어지고, 질의당 총비용·총지연을 볼 수 없다.
+    with langfuse.start_as_current_observation(name="rag-answer", as_type="span"):
+        # 핸들러를 만들어 둔다고 자동으로 기록되지는 않는다 — 이 config를 넘긴 호출만 Langfuse에 남는다.
+        cfg = {"callbacks": [langfuse_handler]}
+        docs = get_retriever(mode).invoke(question, config=cfg)  # (1) 검색 → trace에 'retriever' 노드로 남음
+        # (2) 프롬프트에 질문·문맥 주입. 여기엔 일부러 config를 안 붙인다 —
+        #     빈칸에 값을 끼우는 문자열 조립일 뿐이라 시간도 비용도 안 들고, 기록할 게 없다.
+        msg = PROMPT.invoke({"question": question, "context": format_context(docs)})
+        resp = llm.invoke(msg, config=cfg)                 # (3) 생성 → 'LLM' 노드 + 토큰·비용·지연까지 기록
     return {
         "answer": resp.content,                            # 최종 답변 텍스트
         # 근거 목록: 답이 어느 파일 몇 쪽에서 왔는지 (신뢰성의 핵심)
