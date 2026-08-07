@@ -10,9 +10,9 @@
 - [x] **STEP 0** · [프로젝트 셋업 & 준비물](docs/0.html) (환경/의존성/키)
 - [x] **STEP 1** · [문서 인제스천](docs/1.html) (`ingest.py`) — 164 청크 / `chroma_db`(collection=`p1_docs`)
 - [x] **STEP 2** · [검색 + 생성 + 근거](docs/2.html) (`rag.py`) — `answer()` 완성 / top-k=4 · `gpt-5-mini`
-- [ ] STEP 3 · [Hybrid 검색](docs/3.html) — BM25 + Dense, mode 팩토리 (`rag.py`)
-- [ ] STEP 4 · [Reranker](docs/4.html) — 2-stage retrieval (`rag.py`)
-- [ ] STEP 5 · [FastAPI 서빙](docs/5.html) (`main.py`)
+- [x] **STEP 3** · [Hybrid 검색](docs/3.html) (`rag.py`) — BM25 + Dense 앙상블(`weights=[0.4, 0.6]`) / `baseline|hybrid` mode 팩토리
+- [x] **STEP 4** · [Reranker](docs/4.html) (`rag.py`) — 2-stage retrieval: 하이브리드 top-10 → Cross-Encoder(`bge-reranker-base`) top-4 / 기본 mode `rerank`
+- [x] **STEP 5** · [FastAPI 서빙](docs/5.html) (`main.py`) — `POST /query`(answer + citations) · `GET /health` · `/docs` 자동 문서
 - [ ] STEP 6 · [Langfuse 관측성](docs/6.html) (`rag.py`)
 - [ ] STEP 7 · [골든셋 + RAGAS 세 구성 비교](docs/7.html) (`eval_data.json`, `evaluate.py`)
 - [ ] STEP 8 · [파라미터 튜닝](docs/8.html) (선택)

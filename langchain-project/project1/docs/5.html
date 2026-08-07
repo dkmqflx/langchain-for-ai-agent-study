@@ -73,7 +73,8 @@
 
       <h3>① 앱 만들고 <code>answer</code> 가져오기</h3>
       <div class="filename">main.py</div>
-<pre><code>from fastapi import FastAPI          # 파이썬 함수를 HTTP 창구로 바꿔 주는 웹 프레임워크
+<pre><code>from typing import Literal          # 값을 '이 목록 중 하나'로 좁히는 타입 표기 (②에서 씀)
+from fastapi import FastAPI          # 파이썬 함수를 HTTP 창구로 바꿔 주는 웹 프레임워크
 from pydantic import BaseModel       # 주고받을 데이터의 '모양(스키마)'을 선언하는 클래스
 from rag import answer               # STEP 2~4에서 만든 RAG 함수를 그대로 가져다 쓴다
 
@@ -96,7 +97,9 @@ app = FastAPI(title="P1 RAG Search Service")</code></pre>
 <pre><code># 요청 스키마 — 사용자가 보내야 하는 JSON의 모양
 class QueryIn(BaseModel):
     question: str          # 반드시 있어야 한다. 없으면 FastAPI가 자동으로 422 에러로 거절한다
-    mode: str = "rerank"   # 기본값이 있으니 안 보내도 된다. 보내면 검색 구성을 골라 실험할 수 있다
+    # 기본값이 있으니 안 보내도 된다. 보내면 검색 구성을 골라 실험할 수 있다.
+    # str이 아니라 '허용 목록'으로 적었다 → 셋 중 하나가 아니면 여기서 422로 거절된다 (아래 ⚠️ 참고)
+    mode: Literal["baseline", "hybrid", "rerank"] = "rerank"
 
 # 근거 1건의 스키마
 class Citation(BaseModel):
@@ -114,9 +117,35 @@ class QueryOut(BaseModel):
         <code>if not question: return "에러"</code> 같은 검사 코드를 직접 안 써도 되는 거죠.
       </p>
       <ul>
-        <li><code>mode: str = "rerank"</code> — 기본값이 있으니 <b>안 보내도 됩니다.</b> 대신 보내면 검색 구성을 골라 실험할 수 있어요.</li>
+        <li><code>mode: Literal[...] = "rerank"</code> — 기본값이 있으니 <b>안 보내도 됩니다.</b> 대신 보내면 검색 구성을 골라 실험할 수 있어요. 셋 중에 없는 값은 <b>422</b>로 거절됩니다.</li>
         <li><code>source: str | None = None</code> — <b>"없을 수도 있음"</b>을 허용합니다. PDF에 따라 <code>page</code>가 안 잡히는 경우가 있는데, 이걸 허용 안 하면 그때 <b>응답 전체가 에러</b>로 터집니다.</li>
       </ul>
+
+      <div class="callout callout-warn">
+        <strong>⚠️ <code>mode</code>를 왜 <code>str</code>이 아니라 <code>Literal</code>로 적었을까요?</strong>
+        <p style="margin-top:6px">
+          <code>mode: str</code>로 두면 <code>{"question":"...","mode":"hybird"}</code>처럼 오타를 보내도
+          검사에 걸리지 않고 그냥 통과합니다. 스키마가 검사하는 건 <strong>"모양"뿐</strong>이거든요 —
+          <code>str</code>은 "문자열이면 OK"라는 뜻이고 <code>hybird</code>도 훌륭한 문자열입니다.
+          그래서 값이 그대로 <code>answer()</code>까지 흘러가 <code>rag.py</code>의 <code>_build_retriever()</code>에서
+          <code>ValueError: unknown mode</code>로 터지고, FastAPI는 이걸 <code>500 Internal Server Error</code>로
+          내보냅니다. 사용자는 "서버가 고장났다"는 메시지만 받고, 정작 <b>뭘 잘못 보냈는지는 알 수 없죠</b>
+          (스택 트레이스는 서버 로그에만 남습니다).
+        </p>
+        <p style="margin-top:6px">
+          <code>Literal["baseline", "hybrid", "rerank"]</code>는 "문자열"이 아니라
+          <strong>"이 셋 중 하나"</strong>라고 좁혀 적는 것입니다. 그러면 오타는 내 코드가 실행되기 <em>전에</em>
+          <code>422</code>로 거절되고, 무엇이 허용되는지까지 응답에 적혀 옵니다.
+        </p>
+<pre><code>{"detail":[{"type":"literal_error","loc":["body","mode"],
+            "msg":"Input should be 'baseline', 'hybrid' or 'rerank'","input":"hybird"}]}</code></pre>
+        <p style="margin-top:6px">
+          <code>/docs</code>에서도 값이 <strong>드롭다운</strong>으로 표시돼 뭘 고를 수 있는지 한눈에 보입니다.
+          대신 mode를 새로 추가할 땐 <code>rag.py</code>와 이 목록 <strong>두 곳</strong>을 같이 고쳐야 하죠.
+          그 정도 값은 충분합니다 — <b>검사할 수 있는 것을 스키마로 옮길수록 내가 쓸 방어 코드가 줄어든다</b>는 게
+          스키마 기반 서빙의 요령입니다.
+        </p>
+      </div>
 
       <h3>③ <code>/health</code> — 서버가 살아있는지 묻는 창구</h3>
       <div class="filename">main.py (이어서)</div>
@@ -164,6 +193,7 @@ def query(body: QueryIn):                              # body: QueryIn → 들�
 # pydantic 모델로 요청/응답 '스키마'를 선언 → 잘못된 입력은 자동 거부, /docs에 문서가 자동 생성.
 # 이 순간 '노트북 코드'가 '서비스'가 된다.
 # ═══════════════════════════════════════════════════════════════════
+from typing import Literal              # 값을 '이 목록 중 하나'로 좁히는 타입 표기
 from fastapi import FastAPI
 from pydantic import BaseModel          # 요청/응답의 형태(스키마)를 선언하는 클래스
 from rag import answer                  # STEP 2~4에서 만든 핵심 함수 그대로 재사용
@@ -172,7 +202,9 @@ app = FastAPI(title="P1 RAG Search Service")   # 앱 객체. title은 /docs 문�
 
 class QueryIn(BaseModel):               # 요청 본문 스키마
     question: str
-    mode: str = "rerank"                # baseline|hybrid|rerank — 검색 구성도 API로 고를 수 있게(실험용)
+    # 그냥 str로 두면 "hybird" 같은 오타도 통과해 rag.py까지 흘러가 500이 된다.
+    # 허용 목록으로 좁혀 두면 오타는 내 코드가 실행되기 전에 422로 거절되고, /docs에는 드롭다운으로 표시된다.
+    mode: Literal["baseline", "hybrid", "rerank"] = "rerank"   # 검색 구성도 API로 고를 수 있게(실험용)
 
 class Citation(BaseModel):              # 근거 1건의 스키마
     source: str | None = None           # 파일 경로 (없을 수 있어 None 허용)
