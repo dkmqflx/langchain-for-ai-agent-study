@@ -189,9 +189,23 @@
     </div>
 
     <div class="nav-section">
+      <div class="nav-title">4강 · Memory</div>
+      <a href="04.%20Memory/1.html">4-1. Short-term Memory</a>
+      <a href="04.%20Memory/2.html">4-2. Time Travel</a>
+      <a href="04.%20Memory/3.html">4-3. Store (Long-term)</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">5강 · Multi Agent</div>
+      <a href="05.Multi%20Agent/1.html">5-1. Dynamic Interrupt</a>
+      <a href="05.Multi%20Agent/1-2.html">5-2. Validating Human Input</a>
+      <a href="05.Multi%20Agent/2.html">5-3. Command with Goto</a>
+      <a href="05.Multi%20Agent/3.html">5-4. Subgraph</a>
+    </div>
+
+    <div class="nav-section">
       <div class="nav-title">준비 중</div>
-      <a class="muted">4강 · Memory</a>
-      <a class="muted">5강 · Multi Agent</a>
+      <a class="muted">5-5. Supervisor</a>
     </div>
   </nav>
 
@@ -200,7 +214,7 @@
 
     <h1>LangGraph 스터디 — 전체 목차</h1>
     <p class="doc-meta">
-      강의 자료 7편
+      강의 자료 14편
       &nbsp;·&nbsp; 실습 노트북: 각 강의 폴더의 <code>*.ipynb</code>
       &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢 입문</span> ~ <span class="badge badge-yellow">🟡 중급</span>
     </p>
@@ -305,22 +319,97 @@
       </div>
     </div>
 
+    <!-- ══════════════ 4강 ══════════════ -->
+    <h2>4강 · Memory — 그래프에 기억을 붙이기</h2>
+
+    <p>
+      3강까지의 그래프는 <strong>한 번 돌고 나면 방금 한 일을 잊습니다.</strong>
+      여기서부터는 <strong>State를 저장해 두는 법</strong>을 배웁니다.
+      대화 한 판을 기억하는 것에서 시작해서, <strong>과거로 되돌아가고</strong>,
+      <strong>대화창을 닫아도 남는 기억</strong>까지 갑니다.
+    </p>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">4-1</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="04.%20Memory/1.html">Short-term Memory — Checkpointer와 State History</a><span class="rm-tag">1.ipynb</span>
+          <p>한 단계 끝날 때마다 <strong>State를 사진 찍어 두는 장치</strong>가 checkpointer입니다.
+          같은 <code>thread_id</code>로 부르면 <strong>대화가 이어집니다.</strong></p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">4-2</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="04.%20Memory/2.html">Time Travel &amp; Interrupt — 과거로 돌아가 사건을 바꾸기</a><span class="rm-tag">2.ipynb</span>
+          <p>쌓아 둔 사진 중 <strong>하나를 골라 그 시점부터 다시</strong> 돌립니다.
+          게임의 <strong>세이브 파일 불러오기</strong>와 같은 이야기.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">4-3</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="04.%20Memory/3.html">Store (Long-term Memory) — 스레드를 넘어 사람을 기억하기</a><span class="rm-tag">3.ipynb</span>
+          <p>checkpointer가 <strong>대화 한 판짜리 기억</strong>이라면, Store는
+          <strong>대화창을 닫아도 남는 기억</strong>입니다. 기준이 스레드가 아니라 <strong>사람</strong>.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 5강 ══════════════ -->
+    <h2>5강 · Multi Agent — 사람을 끼워 넣고, 그래프를 쪼개기</h2>
+
+    <p>
+      혼자 다 하는 Agent에서 <strong>여럿이 나눠 하는 구조</strong>로 넘어갑니다.
+      먼저 <strong>중간에 사람에게 물어보는 법</strong>을 익히고,
+      그다음 <strong>노드가 다음 목적지를 직접 정하는 법</strong>과
+      <strong>그래프를 통째로 노드에 접어 넣는 법</strong>을 배웁니다.
+    </p>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-num">5-1</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="05.Multi%20Agent/1.html">Dynamic Interrupt — 일하다 말고 사람에게 물어보는 에이전트</a><span class="rm-tag">1.ipynb</span>
+          <p><code>interrupt()</code>로 <strong>그래프를 멈춰 세우고</strong> 사람의 답을 기다렸다가,
+          <code>Command(resume=...)</code>로 <strong>멈춘 그 자리에서 다시 출발</strong>합니다.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">5-2</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="05.Multi%20Agent/1-2.html">Validating Human Input — 사람의 답에 검문대 세우기</a><span class="rm-tag">1.ipynb</span>
+          <p>사람이 <strong>엉뚱한 답을 줄 수도 있습니다.</strong>
+          통과 못 하면 <strong>같은 자리에서 다시 묻는</strong> 되묻기 고리를 답니다.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">5-3</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="05.Multi%20Agent/2.html">Command with Goto — 엣지를 그리지 않고 노드로 순간이동하기</a><span class="rm-tag">2.ipynb</span>
+          <p>노드가 <strong>"공책에 뭘 쓸지"와 "다음에 누구한테 갈지"를 한 번에</strong> 돌려줍니다.
+          <strong>화살표를 미리 그려 두지 않아도</strong> 되는 방식.</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-num">5-4</div>
+        <div class="roadmap-body">
+          <a class="rm-title" href="05.Multi%20Agent/3.html">Subgraph — 그래프를 통째로 노드에 접어 넣기</a><span class="rm-tag">3.ipynb</span>
+          <p>노드 한 칸을 <strong>확대하면 그 안에 또 그래프</strong>가 들어 있습니다.
+          공책을 <strong>같이 쓰는 방식</strong>과 <strong>따로 쓰고 브릿지로 옮기는 방식</strong> 둘 다.</p>
+        </div>
+      </div>
+    </div>
+
     <!-- ══════════════ 준비 중 ══════════════ -->
     <h2>준비 중</h2>
 
     <div class="roadmap">
       <div class="roadmap-item soon">
-        <div class="roadmap-num">4</div>
+        <div class="roadmap-num">5-5</div>
         <div class="roadmap-body">
-          <span class="rm-title-plain">Memory</span><span class="rm-tag">04. Memory</span>
+          <span class="rm-title-plain">Supervisor — 감독관이 에이전트를 지휘하기</span><span class="rm-tag">4.ipynb</span>
           <p>실습 노트북만 있고 강의 자료는 아직 없습니다. <span class="badge badge-gray">작성 예정</span></p>
-        </div>
-      </div>
-      <div class="roadmap-item soon">
-        <div class="roadmap-num">5</div>
-        <div class="roadmap-body">
-          <span class="rm-title-plain">Multi Agent</span><span class="rm-tag">05.Multi Agent</span>
-          <p>아직 자료가 없습니다. <span class="badge badge-gray">작성 예정</span></p>
         </div>
       </div>
     </div>
