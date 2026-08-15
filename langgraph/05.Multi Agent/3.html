@@ -4,246 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>5-4. Subgraph — 그래프를 통째로 노드에 접어 넣기</title>
-  <style>
-    :root {
-      --bg: #f8f9fa;
-      --surface: #ffffff;
-      --border: #e1e4e8;
-      --text: #24292e;
-      --text-secondary: #586069;
-      --accent: #0366d6;
-      --green: #28a745;
-      --yellow: #f9a825;
-      --purple: #6f42c1;
-      --info-bg: #e8f4fd;
-      --info-border: #0366d6;
-      --warn-bg: #fff8e1;
-      --warn-border: #f9a825;
-      --danger-bg: #fce8e8;
-      --danger-border: #d32f2f;
-      --analogy-bg: #f5f1fb;
-      --analogy-border: #6f42c1;
-      --result-bg: #f1f8f2;
-      --result-border: #28a745;
-      --code-bg: #f6f8fa;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      font-size: 15px;
-      line-height: 1.7;
-      color: var(--text);
-      background: var(--bg);
-    }
-
-    /* ── Layout ── */
-    .page-wrapper { display: flex; min-height: 100vh; }
-
-    nav {
-      position: fixed;
-      top: 0; left: 0;
-      width: 260px; height: 100vh;
-      overflow-y: auto;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 24px 16px;
-      font-size: 13px;
-    }
-    nav .nav-title {
-      font-weight: 700; font-size: 12px;
-      text-transform: uppercase; letter-spacing: 0.08em;
-      color: var(--text-secondary); margin-bottom: 12px;
-    }
-    nav a {
-      display: block; padding: 5px 8px; border-radius: 4px;
-      color: var(--text-secondary); text-decoration: none;
-      line-height: 1.4; transition: background 0.1s;
-    }
-    nav a:hover { background: var(--bg); color: var(--accent); }
-    nav .nav-section { margin-top: 16px; }
-    nav .sub { padding-left: 20px; font-size: 12.5px; }
-
-    main {
-      margin-left: 260px; max-width: 920px;
-      padding: 48px 48px 80px; width: 100%;
-    }
-
-    /* ── Typography ── */
-    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
-    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
-    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
-    p  { margin-bottom: 12px; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    strong { font-weight: 600; }
-
-    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
-    .lead {
-      font-size: 16px; color: var(--text);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
-    }
-
-    /* ── Callout boxes ── */
-    .callout {
-      border-left: 4px solid; border-radius: 0 6px 6px 0;
-      padding: 14px 18px; margin: 16px 0; font-size: 14px;
-    }
-    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
-    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
-    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
-    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
-    .callout p:last-child { margin-bottom: 0; }
-    .callout > strong:first-child { display: block; margin-bottom: 4px; }
-    .callout-analogy > strong:first-child { color: var(--purple); }
-
-    /* ── Tables ── */
-    .table-wrap { overflow-x: auto; margin: 16px 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th {
-      background: var(--code-bg); font-weight: 600; text-align: left;
-      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
-    }
-    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
-    tr:nth-child(even) td { background: #fafbfc; }
-
-    /* ── Badges ── */
-    .badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 2px 8px; border-radius: 12px; font-size: 12px;
-      font-weight: 600; white-space: nowrap;
-    }
-    .badge-green  { background: #e8f5e9; color: #1b5e20; }
-    .badge-yellow { background: #fff8e1; color: #8d6e00; }
-    .badge-red    { background: #fce8e8; color: #a01818; }
-    .badge-blue   { background: #e8f4fd; color: #0b4a86; }
-
-    /* ── Code block ── */
-    pre.code-block {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 13px; background: var(--code-bg);
-      border: 1px solid var(--border); border-radius: 6px;
-      padding: 16px 20px; overflow-x: auto; white-space: pre;
-      line-height: 1.6; margin: 8px 0 4px;
-    }
-    code {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 12.5px; background: var(--code-bg);
-      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
-    }
-    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
-
-    /* ── Python 문법 강조 (syntax highlighting) ── */
-    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
-    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
-    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
-    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
-    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
-    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
-    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
-    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
-
-    /* ── I/O labels + result block ── */
-    .io-label {
-      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
-      text-transform: uppercase; color: var(--text-secondary);
-      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
-    }
-    pre.result-block {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 13px; background: var(--result-bg);
-      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
-      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
-      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
-    }
-    pre.result-block.bad {
-      background: #fdf2f2; border-color: #f3cccc; border-left-color: var(--danger-border);
-    }
-
-    /* ── Info card ── */
-    .info-card {
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 18px 22px; margin: 22px 0; background: var(--surface);
-    }
-    .info-card-title {
-      font-size: 14px; font-weight: 700; color: var(--accent);
-      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
-    }
-
-    /* ── Step flow ── */
-    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
-    .flow-step {
-      flex: 1 1 0; min-width: 140px;
-      border: 1px solid var(--border); border-radius: 8px;
-      background: var(--surface); padding: 12px 14px; font-size: 13px;
-    }
-    .flow-step .n {
-      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
-      background: var(--accent); color: #fff; text-align: center;
-      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
-    }
-    .flow-step strong { display: block; margin-bottom: 2px; }
-    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
-
-    /* ── Figure ── */
-    figure {
-      margin: 20px 0; border: 1px solid var(--border);
-      border-radius: 8px; overflow: hidden; background: var(--surface);
-    }
-    figure img { display: block; width: 100%; height: auto; }
-    figcaption {
-      font-size: 12.5px; color: var(--text-secondary);
-      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
-    }
-
-    /* ── Trace box (실행 추적) ── */
-    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
-    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-    .trace-row:last-child { border-bottom: none; }
-    .trace-row .who {
-      flex: 0 0 170px; padding: 12px 14px; font-weight: 700;
-      background: var(--code-bg); border-right: 1px solid var(--border);
-      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
-    }
-    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
-    .trace-row .what p { margin: 0; }
-
-    ul, ol { padding-left: 22px; margin: 10px 0; }
-    li { margin: 4px 0; font-size: 14px; }
-
-    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
-
-    .pager {
-      display: flex; justify-content: space-between; gap: 12px;
-      margin-top: 40px; font-size: 14px;
-    }
-    .pager a, .pager span.disabled {
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 12px 16px; background: var(--surface); flex: 1;
-    }
-    .pager a:hover { border-color: var(--accent); text-decoration: none; }
-    .pager .next { text-align: right; }
-    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
-    .pager span.disabled { color: var(--text-secondary); text-align: right; }
-    .pager { flex-wrap: wrap; }
-    .pager a.to-index {
-      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
-      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
-    }
-    .pager a.to-index:hover { color: var(--accent); }
-    .pager span.disabled.prev { text-align: left; }
-    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
-
-    @media (max-width: 720px) {
-      nav { display: none; }
-      main { margin-left: 0; padding: 24px 20px 60px; }
-      .trace-row { flex-direction: column; }
-      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
-    }
-  </style>
+  <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
 
@@ -325,31 +86,28 @@
     </p>
 
     <p class="lead">
-      5-3에서 <strong>노드가 다음 노드를 직접 지목하는 법</strong>을 배웠습니다 — <code>Command(goto="booking")</code>.
-      이번 장에서는 <strong>그 지목당하는 대상이 노드 하나가 아니라 그래프 통째</strong>가 됩니다.
-      <code>add_node("kitchen", kitchen_subgraph)</code> — <strong>컴파일된 그래프를 노드 자리에 그냥 꽂아 넣는</strong> 겁니다.
-      겉보기엔 네모 한 칸인데 <strong>현미경으로 확대하면 그 안에 또 그래프가 들어 있는</strong> 구조,
-      이게 <strong>Subgraph</strong>입니다.
-      <strong>멀티 에이전트란 결국 "에이전트 하나 = 서브그래프 하나"로 쌓아 올린 건물</strong>이고,
+      <a href="2.html">5-3</a>에서는 노드가 <code>Command(goto=)</code>로 다음 노드를 직접 지목했습니다.
+      이번 장에서는 <strong>지목당하는 대상이 노드 하나가 아니라 그래프 통째</strong>가 됩니다 —
+      <code>add_node("kitchen", kitchen_subgraph)</code>.
+      겉보기엔 네모 한 칸인데 <strong>확대하면 그 안에 또 그래프가 들어 있는</strong> 구조, 이게 <strong>Subgraph</strong>입니다.
+      멀티 에이전트란 결국 <strong>"에이전트 하나 = 서브그래프 하나"로 쌓아 올린 건물</strong>이고,
       이번 장이 그 벽돌을 만드는 법입니다.
     </p>
 
     <!-- ── Overview ── -->
     <div class="callout callout-info" id="overview">
       <strong>이 장에서 배우는 것</strong>
-      <p><strong>서브그래프를 붙이는 방법은 딱 두 가지입니다.</strong> 그리고 그 둘을 가르는 기준도 딱 하나예요 —
-      <strong>부모와 자식이 State(공책)를 같이 쓰느냐, 따로 쓰느냐.</strong></p>
+      <p>서브그래프를 붙이는 방법은 딱 두 가지이고, 가르는 기준은 하나 —
+      <strong>부모와 자식이 State(공책)를 같이 쓰느냐, 따로 쓰느냐</strong>입니다.</p>
       <ol>
-        <li><strong>State를 공유할 때</strong> → <code>add_node("kitchen", kitchen_subgraph)</code>.
-        <strong>컴파일된 그래프를 노드 자리에 그대로 넣습니다.</strong> 값은 알아서 흘러 들어가고 알아서 흘러 나옵니다.</li>
-        <li><strong>State를 분리할 때</strong> → <strong>평범한 함수 노드를 하나 만들고</strong>,
-        그 안에서 <code>child_graph.invoke({...})</code>로 <strong>API 부르듯 호출</strong>합니다.
-        <strong>값은 우리가 직접 옮겨 담아야 합니다.</strong></li>
+        <li><strong>State 공유</strong> → <code>add_node("kitchen", kitchen_subgraph)</code>.
+        컴파일된 그래프를 노드 자리에 그대로 넣으면 값이 알아서 오갑니다.</li>
+        <li><strong>State 분리</strong> → 평범한 함수 노드 안에서 <code>child_graph.invoke({...})</code>로
+        API 부르듯 호출하고, <strong>값은 직접 옮겨 담습니다.</strong></li>
       </ol>
-      <p>나머지는 전부 이 둘의 부속 설명입니다 — <strong>왜 자식 그래프를 먼저 만들어야 하는지</strong>,
-      <strong>왜 자식은 <code>checkpointer</code>를 받지 않는지</strong>, <strong>왜 State를 굳이 쪼개는지</strong>.</p>
-      <p><strong>선행 지식</strong>: 5-1의 <code>interrupt()</code> · <code>Command(resume=)</code> · <code>checkpointer</code> · <code>thread_id</code>,
-      5-3의 <code>Command(goto=)</code> · <code>with_structured_output()</code>. <strong>전부 그대로 다시 씁니다.</strong></p>
+      <p><strong>선행 지식</strong>: <a href="1.html">5-1</a>의 <code>interrupt()</code> · <code>Command(resume=)</code>,
+      <a href="2.html">5-3</a>의 <code>Command(goto=)</code> · <code>with_structured_output()</code>,
+      <a href="../04.%20Memory/1.html">4-1</a>의 <code>checkpointer</code> · <code>thread_id</code>. 전부 그대로 다시 씁니다.</p>
     </div>
 
     <hr />
@@ -359,51 +117,42 @@
 
     <figure>
       <img src="../images/05.Multi%20Agent/22.png" alt="Subgraph 슬라이드 — 왼쪽에 __start__ → agent → human_node / __end__로 이어지는 단일 그래프(빨간 X 표시), 가운데에 User request → Main Agent → Subagent A/B/C → Response로 뻗어 나가는 멀티 에이전트 그래프, 오른쪽에 파란 상자로 그려진 Sub Graph 1과 Sub Graph 2가 각각 {&quot;foo&quot;:&quot;bar&quot;}, {&quot;hello&quot;:&quot;world&quot;} / {&quot;fizz&quot;:&quot;buzz&quot;} 같은 자기만의 state를 들고 있는 그림. 아래 문구: 하나의 Agent가 너무 많은 일을 하고 있다… 모듈화, 구조화를 통해 거대해지는 시스템을 체계적으로 관리하는 방법을 배우자 (시스템 아키텍처)" />
-      <figcaption>왼쪽 <strong>단일 그래프에 X가 쳐져 있습니다.</strong> 여기서 벗어나 가운데·오른쪽으로 가자는 게 이번 장입니다.
-      특히 <strong>오른쪽 그림</strong>을 눈여겨보세요 — <strong>파란 상자 하나하나가 서브그래프</strong>이고,
-      <strong>각자 자기만의 state를 들고 있습니다.</strong> 5장에서 이 그림으로 다시 돌아옵니다.</figcaption>
+      <figcaption>왼쪽 단일 그래프에 X가 쳐져 있습니다. 오른쪽 그림의 <strong>파란 상자 하나하나가 서브그래프</strong>이고,
+      각자 자기만의 state를 들고 있습니다.</figcaption>
     </figure>
 
     <p>
-      지금까지 우리가 만든 그래프는 <strong>노드를 옆으로 계속 늘리는 방식</strong>이었습니다.
-      노드가 5개일 땐 괜찮습니다. 그런데 <strong>50개가 되면</strong> 어떻게 될까요?
-      <strong>한 파일에 함수 50개가 늘어서 있고, State에는 필드 40개가 붙어 있고,
-      엣지가 어디서 어디로 가는지 아무도 모르는 상태</strong>가 됩니다.
+      지금까지는 노드를 옆으로 계속 늘리는 방식이었습니다. 노드가 5개일 땐 괜찮지만 <strong>50개가 되면</strong>
+      한 파일에 함수 50개, State에 필드 40개, 엣지가 어디서 어디로 가는지 아무도 모르는 상태가 됩니다.
     </p>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 1인 식당 vs 주방이 따로 있는 식당</strong>
-      <p><strong>지금까지는 1인 식당</strong>이었습니다. 사장 혼자 주문받고, 재료 확인하고, 요리하고, 서빙하고, 계산까지 합니다.
-      메뉴가 3개일 땐 굴러갑니다.</p>
-      <p><strong>메뉴가 30개가 되는 순간</strong> 이 방식은 무너집니다.
-      그래서 진짜 식당은 <strong>홀과 주방을 나눕니다.</strong>
-      홀 직원은 <strong>"주방에 주문 넣었다"</strong>까지만 알면 되고,
-      <strong>주방 안에서 재료팀과 조리팀이 어떻게 움직이는지는 알 필요가 없습니다.</strong></p>
+      <p>지금까지는 <strong>1인 식당</strong>이었습니다. 사장 혼자 주문받고, 요리하고, 서빙하고, 계산까지 합니다.
+      메뉴가 30개가 되는 순간 이 방식은 무너지죠. 그래서 진짜 식당은 <strong>홀과 주방을 나눕니다.</strong>
+      홀 직원은 "주방에 주문 넣었다"까지만 알면 되고, 주방 안에서 재료팀과 조리팀이 어떻게 움직이는지는 알 필요가 없습니다.</p>
       <p><strong>Subgraph는 이 "주방"을 만드는 문법입니다.</strong>
-      홀 그래프 입장에서 주방은 <strong>네모 한 칸</strong>이지만, 그 칸을 열어 보면 <strong>안에 또 그래프가 돌고 있습니다.</strong></p>
+      홀 그래프 입장에서 주방은 <strong>네모 한 칸</strong>이지만, 열어 보면 안에 또 그래프가 돌고 있습니다.</p>
     </div>
 
     <h3 id="define">정의 — 다른 그래프를 Node로 사용하는 그래프</h3>
 
     <figure>
       <img src="../images/05.Multi%20Agent/23.png" alt="Subgraph 슬라이드 — Subgraph : 다른 그래프를 Node로 사용하는 그래프. 용도: 멀티 에이전트 시스템(각 에이전트를 독립적인 서브그래프로 구현), 재사용성(특정 기능(노드 그룹)을 여러 그래프에서 반복 사용), 분산 개발(팀별로 그래프의 다른 부분을 독립적으로 개발 후 통합). 주요 문법: checkpointer — 부모 그래프를 컴파일 시 checkpointer 적용 시 자식 서브그래프도 자동 전파, get_state(config, subgraphs=True) — 내부 state 상태 조회 가능" />
-      <figcaption>한 줄 정의가 슬라이드 맨 위에 있습니다 — <strong>"다른 그래프를 Node로 사용하는 그래프".</strong>
-      <strong>Node</strong>에 동그라미가 쳐져 있는 게 핵심입니다.</figcaption>
+      <figcaption>한 줄 정의 — <strong>"다른 그래프를 Node로 사용하는 그래프".</strong></figcaption>
     </figure>
 
     <p>
-      정의는 한 줄이면 끝납니다. <strong>노드 자리에 그래프를 넣은 것</strong>, 그게 서브그래프입니다.
-      요청이 들어와서 노드 A가 노드 B에게 일을 넘겼는데, <strong>그 B를 현미경으로 확대해 봤더니 또 하나의 그래프</strong>였던 상황이죠.
-      그리고 <strong>그 안에 든 그래프가 또 자기 노드로 다른 그래프를 품을 수도 있습니다.</strong>
-      이게 5-3 첫머리에서 봤던 <strong>Hierarchical(계층형) 구조</strong>의 정체입니다.
+      정의는 한 줄이면 끝납니다. <strong>노드 자리에 그래프를 넣은 것</strong>이 서브그래프입니다.
+      노드 B를 확대해 봤더니 또 하나의 그래프였던 상황이고, 그 안의 그래프가 또 다른 그래프를 품을 수도 있습니다 —
+      5-3 첫머리에서 본 <strong>Hierarchical(계층형) 구조</strong>의 정체입니다.
     </p>
 
     <h3 id="merit">쓰는 이유 3가지 — 여행 예약 시스템으로 보기</h3>
 
     <p>
-      슬라이드에 적힌 세 가지 용도를 <strong>하나의 예시로 한꺼번에</strong> 이해해 보죠.
       <strong>"여행을 통째로 예약해 주는 에이전트"</strong>를 만든다고 해 봅시다.
-      여행이니까 <strong>호텔 예약</strong>, <strong>항공권 예약</strong>, <strong>식당 예약</strong>이 다 필요합니다.
+      호텔·항공권·식당 예약이 다 필요합니다.
     </p>
 
     <div class="flow">
@@ -413,10 +162,9 @@
     </div>
 
     <p>
-      세 번째가 특히 현실적입니다. <strong>팀 A·B·C가 서로의 코드를 볼 필요 없이 각자 만들고</strong>,
-      마지막에 <code>add_node</code> 세 줄로 붙이면 끝입니다.
-      그리고 <strong>C팀이 만든 식당 예약 에이전트</strong>는, 나중에 회사가 <strong>배달 서비스를 에이전트로 만들겠다</strong>고 할 때
-      <strong>다시 짤 필요 없이 그대로 꺼내 쓸 수 있습니다.</strong> 모듈로 만들어 뒀기 때문이죠.
+      세 번째가 특히 현실적입니다. 팀 A·B·C가 서로의 코드를 볼 필요 없이 각자 만들고
+      마지막에 <code>add_node</code> 세 줄로 붙이면 끝입니다. 모듈로 만들어 뒀으니
+      C팀의 식당 예약 에이전트는 나중에 다른 서비스에서도 그대로 꺼내 쓸 수 있습니다.
     </p>
 
     <h3 id="syntax">주요 문법 2가지 — 미리 알아 둘 것</h3>
@@ -433,12 +181,12 @@
               <td><code>checkpointer</code> <strong>자동 전파</strong></td>
               <td><strong>부모 그래프를 컴파일할 때만</strong> <code>checkpointer</code>를 넘기면
               <strong>자식 서브그래프에도 알아서 적용됩니다.</strong>
-              자식을 컴파일할 때는 <strong>아무것도 넘기지 않습니다.</strong></td>
+              자식을 컴파일할 때는 아무것도 넘기지 않습니다.</td>
             </tr>
             <tr>
               <td><code>get_state(config, subgraphs=True)</code></td>
-              <td>평소 <code>get_state(config)</code>는 <strong>부모의 State만</strong> 보여 줍니다.
-              <code>subgraphs=True</code>를 주면 <strong>자식 그래프 안쪽 상태까지 들여다볼 수 있습니다.</strong></td>
+              <td>평소 <code>get_state(config)</code>는 부모의 State만 보여 줍니다.
+              <code>subgraphs=True</code>를 주면 <strong>자식 그래프 안쪽 상태까지</strong> 들여다볼 수 있습니다.</td>
             </tr>
           </tbody>
         </table>
@@ -447,8 +195,8 @@
 
     <div class="callout callout-warn">
       <strong>⚠️ 첫 번째 줄이 이번 장에서 제일 자주 틀리는 부분입니다</strong>
-      <p>습관적으로 <strong>자식 그래프에도 <code>compile(checkpointer=...)</code>를 넣게 되는데</strong>, 넣지 마세요.
-      <strong>부모가 가진 걸 자식이 물려받습니다.</strong> 이유는 <a href="#no-checkpointer">STEP 3</a>에서 자세히 봅니다.</p>
+      <p>습관적으로 자식 그래프에도 <code>compile(checkpointer=...)</code>를 넣게 되는데, 넣지 마세요.
+      <strong>부모가 가진 걸 자식이 물려받습니다.</strong> 이유는 <a href="#no-checkpointer">STEP 3</a>에서 봅니다.</p>
     </div>
 
     <hr />
@@ -457,16 +205,14 @@
     <h2 id="scenario">2. 만들 것 — 오마카세 예약에 "주방"을 붙인다</h2>
 
     <p>
-      5-3에서 만든 <strong>오마카세 예약 에이전트를 그대로 이어받습니다.</strong>
-      메뉴를 추천하고, 사람에게 물어보고, 대답에 따라 <code>goto</code>로 갈라지는 그 구조 그대로예요.
-      <strong>딱 하나만 바뀝니다</strong> — 고객이 <strong>"네, 그걸로 주세요"</strong>라고 했을 때
-      가는 곳이 <strong>노드가 아니라 주방 그래프 통째</strong>입니다.
+      <a href="2.html">5-3에서 만든 오마카세 예약 에이전트</a>를 그대로 이어받되, <strong>딱 하나만 바뀝니다</strong> —
+      고객이 "네, 그걸로 주세요"라고 했을 때 가는 곳이 <strong>노드가 아니라 주방 그래프 통째</strong>입니다.
     </p>
 
     <figure>
       <img src="../images/05.Multi%20Agent/24.png" alt="Subgraph 슬라이드 — 전체 그래프 설계도. 노란 상자(메인 홀 시스템 Parent Graph) 안에서 시작 → 메뉴 추천 노드(A/B 코스 제안) → 고객 의사 확인 및 라우터(Interrupt &amp; Command) 마름모. 마름모에서 변경 요청(goto='recommender')이면 메뉴 추천 노드로 되돌아가고, 승인함(goto='kitchen')이면 주방 시스템 진입(kitchen, 서브그래프 호출)으로, 취소함(goto='cancel')이면 취소 처리 노드로 간다. 안쪽 보라색 상자(주방 서브그래프 Child Graph)에는 주방 시작 → 재료 재고 확인(check_ingredients) → 쉐프 배정 및 시간 계산(assign_chef) → 주방 종료가 들어 있고, 그 뒤 전체 종료로 이어진다." />
-      <figcaption><strong>노란 큰 상자가 부모 그래프</strong>, 그 안의 <strong>보라색 작은 상자가 주방 서브그래프</strong>입니다.
-      <strong>부모 입장에서 보라색 상자 전체는 <code>kitchen</code>이라는 노드 한 칸</strong>일 뿐입니다.</figcaption>
+      <figcaption><strong>노란 큰 상자가 부모 그래프, 보라색 작은 상자가 주방 서브그래프</strong>입니다.
+      부모 입장에서 보라색 상자 전체는 <code>kitchen</code>이라는 노드 한 칸일 뿐입니다.</figcaption>
     </figure>
 
     <h3 id="blueprint">설계도 읽기 — 세 갈래와 그 안의 두 칸</h3>
@@ -491,21 +237,17 @@
     </div>
 
     <p>
-      주방 안쪽은 <strong>단순한 일직선</strong>입니다.
-      <strong>재료가 있는지 확인하고(<code>check_stock</code>), 쉐프를 배정하고 예상 시간을 계산하면(<code>assign_chef</code>) 끝</strong>이에요.
-      <strong>주방 그래프가 하는 일이 단순한 건 일부러 그런 겁니다.</strong>
-      이 장의 주제는 <strong>주방 안에서 무슨 일이 벌어지느냐</strong>가 아니라
-      <strong>주방을 어떻게 노드로 접어 넣느냐</strong>니까요.
+      주방 안쪽이 단순한 일직선인 건 일부러 그런 겁니다. 이 장의 주제는 주방 안에서 무슨 일이
+      벌어지느냐가 아니라 <strong>주방을 어떻게 노드로 접어 넣느냐</strong>니까요.
     </p>
 
     <h3 id="order">⚠️ 만드는 순서 — 반드시 자식 그래프부터</h3>
 
     <div class="callout callout-danger">
       <strong>순서를 지키지 않으면 코드가 아예 돌아가지 않습니다</strong>
-      <p><strong>자식(주방) 그래프를 먼저 만들고 컴파일한 다음, 부모 그래프를 만듭니다.</strong>
-      이유는 단순합니다 — 부모를 조립할 때 <code>add_node("kitchen", kitchen_subgraph)</code>라고 쓰는데,
-      <strong>이때 <code>kitchen_subgraph</code>라는 변수가 이미 존재해야</strong> 하기 때문이에요.
-      순서를 바꾸면 <code>NameError</code>가 납니다.</p>
+      <p><strong>자식(주방) 그래프를 먼저 만들어 컴파일한 다음, 부모 그래프를 만듭니다.</strong>
+      부모를 조립할 때 <code>add_node("kitchen", kitchen_subgraph)</code>라고 쓰는데,
+      이때 <code>kitchen_subgraph</code> 변수가 이미 존재해야 하기 때문입니다. 순서를 바꾸면 <code>NameError</code>가 납니다.</p>
     </div>
 
     <div class="flow">
@@ -522,8 +264,7 @@
 
     <figure>
       <img src="../images/05.Multi%20Agent/25.png" alt="Subgraph 슬라이드 — State 정의. chef_name, cooking_time은 주방 그래프(Subgraph)가 작성하는 공간. 코드: from langchain.messages import AnyMessage / from typing_extensions import TypedDict, Annotated / from langgraph.graph.message import add_messages / class ReservationState(TypedDict): messages: Annotated[list[AnyMessage], add_messages], menu: str, price: int, status: str, chef_name: str, cooking_time: str" />
-      <figcaption>필드가 6개인데, <strong>슬라이드가 짚은 건 아래 두 개</strong>입니다 —
-      <strong><code>chef_name</code>과 <code>cooking_time</code>은 주방 서브그래프가 채우는 칸</strong>입니다.</figcaption>
+      <figcaption><strong><code>chef_name</code>과 <code>cooking_time</code>은 주방 서브그래프가 채우는 칸</strong>입니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code>from langchain.messages import AnyMessage
@@ -539,24 +280,18 @@ class ReservationState(TypedDict):
     cooking_time: str   # 예상 소요 시간               ← 자식(주방)이 작성</code></pre>
 
     <p>
-      <strong>이 절의 핵심은 필드가 6개라는 게 아니라, 이 공책 하나를 부모와 자식이 같이 쓴다는 점</strong>입니다.
+      핵심은 <strong>이 공책 하나를 부모와 자식이 같이 쓴다</strong>는 점입니다.
       <code>menu</code>는 부모가 적고 자식이 읽습니다. <code>chef_name</code>은 자식이 적고 부모가 읽습니다.
-      <strong>서로 값을 넘겨 주는 코드는 한 줄도 없는데</strong> 값이 오갑니다.
+      서로 값을 넘겨 주는 코드는 한 줄도 없는데 값이 오갑니다.
     </p>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 주방에 걸린 주문표 한 장</strong>
       <p>홀 직원이 <strong>주문표에 "A코스"라고 적어서 주방 벽에 겁니다.</strong>
-      주방은 <strong>그 주문표를 보고</strong> 요리를 시작하고, <strong>같은 종이 아래쪽에 "담당: 지로, 40분"이라고 적어 둡니다.</strong></p>
-      <p>홀 직원이 나중에 그 종이를 보면 <strong>주방이 적은 내용까지 그대로 읽을 수 있습니다.</strong>
-      <strong>종이가 한 장이니까요.</strong> 이게 State 공유형 서브그래프입니다.</p>
+      주방은 그 주문표를 보고 요리를 시작하고, <strong>같은 종이 아래쪽에 "담당: 지로, 40분"이라고 적어 둡니다.</strong>
+      홀 직원이 나중에 그 종이를 보면 주방이 적은 내용까지 그대로 읽을 수 있습니다 — <strong>종이가 한 장이니까요.</strong>
+      이게 State 공유형 서브그래프입니다.</p>
       <p>(<a href="#split-why">5장</a>에서는 이 종이를 <strong>두 장으로 찢습니다.</strong> 그때부터는 값을 손으로 옮겨 적어야 해요.)</p>
-    </div>
-
-    <div class="callout callout-info">
-      <strong>price 필드는 없어도 됩니다</strong>
-      <p><code>price</code>는 <strong>"A코스 15만 원"처럼 가격을 따로 들고 있으려고</strong> 넣은 필드일 뿐,
-      서브그래프 문법과는 아무 상관이 없습니다. <strong>설계하기 나름</strong>이에요.</p>
     </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
@@ -564,8 +299,7 @@ class ReservationState(TypedDict):
 
     <figure>
       <img src="../images/05.Multi%20Agent/26.png" alt="Subgraph 슬라이드 — Subgraph 생성 – Node 생성. check_ingredients: 재료가 있는지 확인하는 노드. assign_chef: 쉐프를 배정하고, 예상 소요 시간을 입력하는 노드. 코드 두 개: def check_ingredients(state: ReservationState)는 print 후 return {&quot;status&quot;: &quot;ok&quot;}, def assign_chef(state: ReservationState)는 menu에 '오마카세'가 있으면 chef=Master Jiro, time=40분, 아니면 chef=Chef Kim, time=20분으로 두고 return {&quot;chef_name&quot;: chef, &quot;cooking_time&quot;: time, &quot;status&quot;: &quot;cooking&quot;}" />
-      <figcaption>노드 두 개 다 <strong>평범한 함수</strong>입니다.
-      <strong>"서브그래프에 들어갈 노드"라고 해서 특별한 문법이 붙지 않습니다.</strong></figcaption>
+      <figcaption>노드 두 개 다 <strong>평범한 함수</strong>입니다. 서브그래프용 특별 문법은 없습니다.</figcaption>
     </figure>
 
     <h4>① check_ingredients — 재료 재고 확인</h4>
@@ -577,10 +311,9 @@ def check_ingredients(state: ReservationState):
     return {"status": "ok"}</code></pre>
 
     <p>
-      <strong>진짜 재고 시스템을 붙이는 건 이 장의 관심사가 아니라서</strong>, 무조건 <code>ok</code>를 반환하도록 뒀습니다.
-      대신 <strong><code>state['menu']</code>를 읽고 있다</strong>는 점을 보세요.
-      <strong>이 값을 적은 건 부모 그래프의 <code>recommender</code> 노드</strong>입니다.
-      <strong>State를 공유하니까 자식이 그냥 꺼내 읽을 수 있는 거예요.</strong>
+      재고 로직은 이 장의 관심사가 아니라 무조건 <code>ok</code>를 반환합니다. 대신
+      <strong><code>state['menu']</code>를 읽고 있다</strong>는 점을 보세요 — 이 값을 적은 건 부모의
+      <code>recommender</code> 노드입니다. State를 공유하니까 자식이 그냥 꺼내 읽을 수 있습니다.
     </p>
 
     <h4>② assign_chef — 쉐프 배정과 소요 시간</h4>
@@ -598,11 +331,9 @@ def check_ingredients(state: ReservationState):
     return {"chef_name": chef, "cooking_time": time, "status": "cooking"}</code></pre>
 
     <p>
-      <strong>비싼 오마카세면 마스터 지로에게 40분, 아니면 쉐프 킴에게 20분.</strong>
-      그리고 <strong>세 개의 필드를 한꺼번에 반환</strong>합니다.
-      이 중 <code>chef_name</code>과 <code>cooking_time</code>은 <strong>지금까지 아무도 손대지 않았던 빈 칸</strong>이었고,
-      <strong>주방이 처음으로 채워 넣는 값</strong>입니다.
-      <strong>이 두 값이 나중에 부모 쪽 결과에 그대로 나타나는지</strong>가 <a href="#run1-detail">4장에서 확인할 포인트</a>입니다.
+      <code>chef_name</code>과 <code>cooking_time</code>은 지금까지 아무도 손대지 않았던 빈 칸이고,
+      <strong>주방이 처음으로 채워 넣는 값</strong>입니다. 이 두 값이 부모 쪽 결과에 그대로 나타나는지가
+      <a href="#run1-detail">4장에서 확인할 포인트</a>입니다.
     </p>
 
     <!-- ══════════════════════════════════════════════════════ -->
@@ -610,8 +341,7 @@ def check_ingredients(state: ReservationState):
 
     <figure>
       <img src="../images/05.Multi%20Agent/27.png" alt="Subgraph 슬라이드 — Subgraph 생성. 코드: kitchen_builder = StateGraph(ReservationState), add_node(&quot;check_stock&quot;, check_ingredients), add_node(&quot;assign_chef&quot;, assign_chef), add_edge(START, &quot;check_stock&quot;), add_edge(&quot;check_stock&quot;, &quot;assign_chef&quot;), add_edge(&quot;assign_chef&quot;, END). 그 아래 주석 '# 주방 그래프 컴파일 (이 자체가 하나의 노드처럼 쓰임)'과 kitchen_subgraph = kitchen_builder.compile(). 오른쪽에 __start__ → check_stock → assign_chef → __end__ 세로 그래프 그림, __start__에 빨간 동그라미" />
-      <figcaption>조립 코드는 <strong>우리가 지금까지 만들던 그래프와 완전히 똑같습니다.</strong>
-      <strong>서브그래프라서 달라지는 건 아무것도 없어요.</strong> 오른쪽 그림도 평범한 일직선 그래프죠.</figcaption>
+      <figcaption>조립 코드는 지금까지 만들던 그래프와 <strong>완전히 똑같습니다.</strong></figcaption>
     </figure>
 
     <pre class="code-block"><code>kitchen_builder = StateGraph(ReservationState)
@@ -630,40 +360,37 @@ kitchen_subgraph = kitchen_builder.compile()</code></pre>
     <pre class="result-block">__start__ → check_stock → assign_chef → __end__   (일직선 그래프)</pre>
 
     <p>
-      <strong>여기까지는 아무 새로운 것도 없습니다.</strong> 그래서 오히려 중요합니다 —
-      <strong>서브그래프는 "특별한 종류의 그래프"가 아니라, 그냥 평범하게 만든 그래프를 노드 자리에 꽂는 것</strong>이거든요.
-      <strong>이미 만들어 둔 아무 그래프나 서브그래프가 될 수 있습니다.</strong>
-      <a href="#merit">재사용성</a>이라는 장점이 여기서 나옵니다.
+      여기까지 새로운 게 없다는 사실이 오히려 중요합니다 —
+      <strong>서브그래프는 "특별한 종류의 그래프"가 아니라, 평범하게 만든 그래프를 노드 자리에 꽂는 것</strong>입니다.
+      이미 만들어 둔 아무 그래프나 서브그래프가 될 수 있고, <a href="#merit">재사용성</a>이 여기서 나옵니다.
     </p>
 
     <h3 id="no-checkpointer">왜 여기서는 checkpointer를 넣지 않나</h3>
 
     <p>
-      <code>compile()</code>에 <strong>괄호가 비어 있는 걸</strong> 보세요.
-      우리 그래프는 <code>interrupt()</code>로 멈췄다가 다시 이어 가야 하니까
-      <strong>당연히 <code>checkpointer</code>가 필요한데도</strong>, 자식 그래프에는 넣지 않습니다.
+      <code>compile()</code>의 괄호가 비어 있습니다. 이 그래프는 <code>interrupt()</code>로 멈췄다
+      이어 가야 하니 당연히 <code>checkpointer</code>가 필요한데도, 자식에는 넣지 않습니다.
     </p>
 
     <div class="callout callout-info">
       <strong>부모가 가진 걸 자식이 물려받기 때문입니다</strong>
       <p><strong>부모 그래프를 <code>compile(checkpointer=checkpointer)</code>로 컴파일하는 순간,
-      그 안에 등록된 서브그래프에도 같은 checkpointer가 자동으로 전파됩니다.</strong></p>
-      <p>그러니 <strong>자식은 빈손으로 두고, 부모에게만 한 번 쥐여 주면</strong> 됩니다.</p>
+      그 안에 등록된 서브그래프에도 같은 checkpointer가 자동으로 전파됩니다.</strong>
+      자식은 빈손으로 두고, 부모에게만 한 번 쥐여 주면 됩니다.</p>
     </div>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 회사 하나에 회계 장부 하나</strong>
-      <p><strong>주방이 따로 장부를 쓰지 않습니다.</strong> 식당 전체의 장부 한 권에 <strong>주방 지출도 같이 기록</strong>되죠.</p>
-      <p>주방이 자기 장부를 따로 만들면 어떻게 될까요? <strong>같은 지출이 두 군데에 적히거나, 어느 쪽이 진짜인지 알 수 없게 됩니다.</strong>
-      그래서 <strong>장부는 사장(부모 그래프)이 한 권만 관리</strong>합니다.</p>
+      <p>주방이 따로 장부를 쓰지 않습니다. 식당 전체의 장부 한 권에 주방 지출도 같이 기록되죠.
+      주방이 자기 장부를 따로 만들면 <strong>같은 지출이 두 군데에 적히거나, 어느 쪽이 진짜인지 알 수 없게 됩니다.</strong>
+      그래서 장부는 사장(부모 그래프)이 한 권만 관리합니다.</p>
     </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
     <h2 id="step4">STEP 4. recommender 노드 — 부모 그래프의 시작</h2>
 
     <p>
-      여기서부터는 <strong>부모 그래프</strong>입니다.
-      먼저 <strong>모델</strong>을 하나 준비해 둡니다. 뒤에 나올 <code>confirm</code> 노드에서 씁니다.
+      여기서부터는 <strong>부모 그래프</strong>입니다. 먼저 뒤의 <code>confirm</code> 노드에서 쓸 모델을 준비합니다.
     </p>
 
     <pre class="code-block"><code>from langchain.chat_models import init_chat_model
@@ -672,8 +399,8 @@ model = init_chat_model("gpt-5-nano")</code></pre>
 
     <figure>
       <img src="../images/05.Multi%20Agent/28.png" alt="Subgraph 슬라이드 — Parent Graph 생성 – Node 생성, menu_recommender. 코드: def menu_recommender(state: ReservationState)에서 last_msg = state[&quot;messages&quot;][-1].content if state[&quot;messages&quot;] else &quot;&quot;, if &quot;비싸&quot; in last_msg or &quot;부담&quot; in last_msg면 proposal=B코스 (런치 스페셜), price=80000, 아니면 proposal=A코스 (쉐프 오마카세), price=150000. return {&quot;menu&quot;: proposal, &quot;price&quot;: price, &quot;messages&quot;: [msg]}. 아래에 전체 설계도가 다시 놓여 있고 메뉴 추천 노드에 빨간 표시" />
-      <figcaption>5-3의 <code>recommender_node</code>와 <strong>거의 같지만 한 군데가 다릅니다</strong> —
-      <strong><code>selected_menu</code>를 보는 대신 <code>messages</code>의 마지막 메시지를 봅니다.</strong></figcaption>
+      <figcaption>5-3의 <code>recommender_node</code>와 거의 같지만 —
+      <strong><code>selected_menu</code> 대신 <code>messages</code>의 마지막 메시지를 봅니다.</strong></figcaption>
     </figure>
 
     <pre class="code-block"><code># [부서 1] 메뉴 추천
@@ -692,22 +419,16 @@ def menu_recommender(state: ReservationState):
     return {"menu": proposal, "price": price, "messages": [msg]}</code></pre>
 
     <p>
-      <strong>판단 기준은 딱 두 단어</strong>입니다 — <strong>직전 메시지에 "비싸"나 "부담"이 있으면</strong> 싼 코스로 내려갑니다.
-      <strong>맨 처음에는 <code>messages</code>가 비어 있으니</strong> <code>last_msg</code>가 빈 문자열이 되고,
-      자연스럽게 <code>else</code>로 빠져 <strong>A코스부터 제안</strong>합니다.
+      판단 기준은 딱 두 단어 — 직전 메시지에 "비싸"나 "부담"이 있으면 싼 코스로 내려갑니다.
+      맨 처음에는 <code>messages</code>가 비어 있으니 <code>else</code>로 빠져 A코스부터 제안합니다.
+      고객이 "너무 비싸요"라고 하면 <code>confirm</code>이 <code>goto="recommender"</code>로 여기로 다시 보내고,
+      그때는 "비싸"에 걸려 B코스가 나옵니다 — <strong>같은 함수인데 두 번째 방문에서 다른 답을 내놓는 구조</strong>입니다.
     </p>
-
-    <div class="callout callout-info">
-      <strong>이 노드가 되돌아오는 자리이기도 합니다</strong>
-      <p>고객이 <strong>"너무 비싸요"</strong>라고 하면 <code>confirm</code> 노드가 <code>goto="recommender"</code>로
-      <strong>여기로 다시 보냅니다.</strong> 그때는 <code>messages</code>의 마지막이 <strong>"아니요.. 너무 비싸요."</strong>이므로
-      <strong>"비싸"에 걸려 B코스가 나오죠.</strong> <strong>같은 함수인데 두 번째 방문에서 다른 답을 내놓는</strong> 구조입니다.</p>
-    </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
     <h2 id="step5">STEP 5. confirm 노드 — 사람에게 묻고, 세 갈래로 보낸다</h2>
 
-    <p>먼저 <strong>LLM이 아무 말이나 하지 못하도록 답변 형식을 고정</strong>합니다. 5-3에서 실습으로 봤던 그 방식입니다.</p>
+    <p>먼저 <a href="2.html">5-3</a>에서 본 방식대로, LLM의 답변 형식을 고정합니다.</p>
 
     <pre class="code-block"><code>from typing import Literal
 from pydantic import BaseModel, Field
@@ -718,16 +439,14 @@ class UserIntent(BaseModel):
 intent_analyzer = model.with_structured_output(UserIntent)</code></pre>
 
     <p>
-      이렇게 만들어 두면 <code>intent_analyzer.invoke(...)</code>의 결과는
-      <strong>문장이 아니라 <code>action</code> 속성을 가진 객체</strong>로 돌아옵니다.
-      그래서 아래 코드에서 <code>analysis.action</code>으로 꺼내 쓸 수 있고,
-      <strong>값은 반드시 셋 중 하나</strong>입니다.
+      <code>intent_analyzer.invoke(...)</code>의 결과는 문장이 아니라 <code>action</code> 속성을 가진 객체이고,
+      값은 반드시 셋 중 하나입니다.
     </p>
 
     <figure>
       <img src="../images/05.Multi%20Agent/29.png" alt="Subgraph 슬라이드 — Parent Graph 생성 – Node 생성, customer_confirm_node : 라우팅 기능. 분석 결과 confirm이 나오면 서브 그래프로 순간 이동. 코드: interrupt로 사용자 입력을 받고 intent_analyzer.invoke로 의도를 분석한 뒤, if analysis.action == &quot;confirm&quot;이면 return Command(update={&quot;messages&quot;: [HumanMessage(content=user_input)]}, goto=&quot;kitchen&quot;) — 이 부분이 빨간 사각형으로 강조되어 있고 주석 '# [핵심] 여기서 kitchen으로 보내면, 연결된 Subgraph가 실행됨'. elif change면 goto=&quot;recommender&quot;, else면 goto=&quot;cancel&quot;" />
       <figcaption><strong>빨간 사각형 안이 이번 장의 한 줄</strong>입니다 — <code>goto="kitchen"</code>.
-      슬라이드 주석 그대로, <strong>"여기서 kitchen으로 보내면 연결된 Subgraph가 실행"</strong>됩니다.</figcaption>
+      여기서 kitchen으로 보내면 연결된 Subgraph가 실행됩니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code># [부서 2] Agentic Router
@@ -764,25 +483,17 @@ def customer_confirm_node(state: ReservationState):
         )</code></pre>
 
     <p>
-      노드 하나가 <strong>세 가지 일</strong>을 합니다 — <strong>멈추고(<code>interrupt</code>), 알아듣고(LLM), 보냅니다(<code>goto</code>).</strong>
-      전부 5-1·5-3에서 이미 본 문법이에요.
+      노드 하나가 <strong>멈추고(<code>interrupt</code>), 알아듣고(LLM), 보냅니다(<code>goto</code>)</strong> —
+      전부 <a href="1.html">5-1</a>·<a href="2.html">5-3</a>에서 이미 본 문법입니다.
     </p>
 
     <div class="callout callout-warn">
-      <strong>⚠️ 여기서 놓치기 쉬운 것 — goto="kitchen"의 "kitchen"은 무엇인가</strong>
-      <p><strong>지금 이 코드를 쓰는 시점에는 <code>kitchen</code>이라는 노드가 아직 존재하지 않습니다.</strong>
+      <strong>⚠️ goto="kitchen"의 "kitchen"은 무엇인가</strong>
+      <p>이 코드를 쓰는 시점에 <code>kitchen</code>이라는 노드는 아직 없습니다.
       <a href="#step7">STEP 7</a>에서 <code>parent_builder.add_node("kitchen", kitchen_subgraph)</code>로
-      <strong>서브그래프를 등록할 때 붙일 이름</strong>을 미리 적어 둔 거예요.</p>
-      <p><strong>즉 <code>goto</code>에 적는 건 "그래프 이름"이 아니라 "등록할 때 준 노드 이름"</strong>입니다.
-      등록 이름을 <code>"주방"</code>으로 바꾸면 여기도 <code>goto="주방"</code>이 됩니다.</p>
-    </div>
-
-    <div class="callout callout-analogy">
-      <strong>🔍 비유 — 문패에 적힌 이름으로 부른다</strong>
-      <p>서류를 <strong>"주방으로 보내"</strong>라고 적을 때, 우리는 <strong>주방에 몇 명이 있고 어떤 순서로 일하는지 몰라도</strong> 됩니다.
-      <strong>문 앞에 붙은 문패 이름만 정확하면</strong> 서류는 도착합니다.</p>
-      <p><code>goto="kitchen"</code>이 딱 그겁니다. <strong>부모는 "kitchen"이라는 문패까지만 알고,
-      그 문 안에서 <code>check_stock</code> → <code>assign_chef</code>가 돈다는 건 알 필요가 없습니다.</strong></p>
+      <strong>서브그래프를 등록할 때 붙일 이름</strong>을 미리 적어 둔 것입니다.
+      즉 <code>goto</code>에 적는 건 그래프 변수 이름이 아니라 <strong>"등록할 때 준 노드 이름"</strong>입니다.
+      부모는 그 이름(문패)까지만 알면 되고, 문 안에서 무엇이 도는지는 알 필요가 없습니다.</p>
     </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
@@ -790,8 +501,7 @@ def customer_confirm_node(state: ReservationState):
 
     <figure>
       <img src="../images/05.Multi%20Agent/30.png" alt="Subgraph 슬라이드 — Parent Graph 생성 – Node 생성, cancel_node. 코드: # [부서 3] 취소 처리 / def cancel_node(state: ReservationState): print(f&quot;\n👋 [카운터]: 예약 종료.&quot;) / return {&quot;status&quot;: &quot;cancelled&quot;}. 아래 전체 설계도에서 메뉴 추천 노드, 고객 의사 확인 라우터, 취소 처리 노드 세 곳에 빨간 동그라미가 쳐져 있음" />
-      <figcaption>아래 설계도에서 <strong>빨간 동그라미 세 개</strong>가 지금까지 만든 <strong>부모 노드 3개</strong>입니다.
-      <strong>남은 건 보라색 주방 상자를 노드로 등록하는 일</strong>뿐이에요.</figcaption>
+      <figcaption>빨간 동그라미 세 개가 부모 노드 3개. <strong>남은 건 주방 상자를 노드로 등록하는 일</strong>뿐입니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code># [부서 3] 취소 처리
@@ -799,15 +509,15 @@ def cancel_node(state: ReservationState):
     print(f"\n👋 [카운터]: 예약 종료.")
     return {"status": "cancelled"}</code></pre>
 
-    <p><strong>특별한 게 없습니다.</strong> 상태만 <code>cancelled</code>로 바꾸고 끝냅니다.</p>
+    <p>특별한 게 없습니다. 상태만 <code>cancelled</code>로 바꾸고 끝냅니다.</p>
 
     <!-- ══════════════════════════════════════════════════════ -->
     <h2 id="step7">STEP 7. 부모 그래프 조립 — 그래프를 노드로 등록한다 ★★</h2>
 
     <figure>
       <img src="../images/05.Multi%20Agent/31.png" alt="Subgraph 슬라이드 — Parent Graph 생성. subgraph 자체를 kitchen이라는 이름의 Node로 등록. parent_builder를 컴파일 시 checkpointer를 입력하면 자식 그래프도 자동 전파. 코드: parent_builder = StateGraph(ReservationState), add_node 세 개(recommender/confirm/cancel), 빨간 사각형 안에 '# 컴파일된 Subgraph를 노드로 등록 / # 이름은 kitchen이지만, 실제로는 kitchen_subgraph라는 그래프가 실행' 주석과 parent_builder.add_node(&quot;kitchen&quot;, kitchen_subgraph). 이어서 add_edge(START, &quot;recommender&quot;), add_edge(&quot;recommender&quot;, &quot;confirm&quot;), '# 주방(Subgraph) 작업이 끝나면 END로' 주석과 add_edge(&quot;kitchen&quot;, END), checkpointer = InMemorySaver(), 빨간 사각형 안에 app = parent_builder.compile(checkpointer=checkpointer)" />
-      <figcaption><strong>빨간 사각형 두 개가 이 장의 전부</strong>입니다.
-      위쪽은 <strong>그래프를 노드로 등록하는 한 줄</strong>, 아래쪽은 <strong>checkpointer를 부모에게만 주는 한 줄</strong>.</figcaption>
+      <figcaption><strong>빨간 사각형 두 개가 이 장의 전부</strong> —
+      그래프를 노드로 등록하는 한 줄, checkpointer를 부모에게만 주는 한 줄.</figcaption>
     </figure>
 
     <h3 id="add-node-graph">일반 노드 3개 + 그래프 1개</h3>
@@ -818,7 +528,7 @@ parent_builder.add_node("recommender", menu_recommender)
 parent_builder.add_node("confirm", customer_confirm_node)
 parent_builder.add_node("cancel", cancel_node)</code></pre>
 
-    <p>여기까지는 <strong>평범한 함수 3개를 등록</strong>한 것입니다. 그리고 다음 한 줄이 이번 장의 핵심입니다.</p>
+    <p>여기까지는 평범한 함수 3개 등록입니다. 다음 한 줄이 이번 장의 핵심입니다.</p>
 
     <pre class="code-block"><code># [핵심] 컴파일된 Subgraph를 '노드'로 등록합니다.
 # 이름은 "kitchen"이지만, 실제로는 'kitchen_subgraph' 전체가 실행됩니다.
@@ -826,10 +536,11 @@ parent_builder.add_node("kitchen", kitchen_subgraph)</code></pre>
 
     <div class="callout callout-info">
       <strong>이 줄을 앞의 세 줄과 나란히 놓고 보세요</strong>
-      <p><code>add_node("cancel", cancel_node)</code> — 두 번째 자리에 <strong>함수</strong>가 들어갔습니다.<br />
-      <code>add_node("kitchen", kitchen_subgraph)</code> — 두 번째 자리에 <strong>컴파일된 그래프</strong>가 들어갔습니다.</p>
-      <p><strong>문법 모양이 완전히 똑같습니다.</strong> LangGraph 입장에서 <strong>"노드"는 그냥 <code>State</code>를 받아 <code>State</code> 조각을 돌려주는 무언가</strong>일 뿐이고,
-      <strong>함수든 그래프든 그 조건만 만족하면 노드가 될 수 있습니다.</strong></p>
+      <p><code>add_node("cancel", cancel_node)</code> — 두 번째 자리에 <strong>함수</strong>.<br />
+      <code>add_node("kitchen", kitchen_subgraph)</code> — 두 번째 자리에 <strong>컴파일된 그래프</strong>.</p>
+      <p>문법 모양이 완전히 똑같습니다. LangGraph에게 "노드"란
+      <strong>State를 받아 State 조각을 돌려주는 무언가</strong>일 뿐이고,
+      함수든 그래프든 그 조건만 만족하면 노드가 될 수 있습니다.</p>
     </div>
 
     <h3>엣지는 3개만</h3>
@@ -840,21 +551,18 @@ parent_builder.add_edge("recommender", "confirm")
 parent_builder.add_edge("kitchen", END)   # 주방 작업이 끝나면 전체 프로세스 종료</code></pre>
 
     <p>
-      <strong><code>confirm</code>에서 나가는 엣지가 하나도 없다</strong>는 걸 보세요.
-      <code>confirm</code>이 어디로 갈지는 <strong>실행 중에 <code>goto</code>가 정하기 때문</strong>입니다 — 5-3에서 배운 그대로예요.
-    </p>
-
-    <p>
-      마지막 줄 <code>add_edge("kitchen", END)</code>는 <strong>주방 그래프가 자기 <code>END</code>에 도달한 뒤</strong>
-      <strong>부모 그래프에서 어디로 갈지</strong>를 정합니다. 여기서는 <strong>바로 전체 종료</strong>입니다.
+      <code>confirm</code>에서 나가는 엣지가 하나도 없습니다 — 어디로 갈지는 실행 중에
+      <code>goto</code>가 정하기 때문입니다(<a href="2.html">5-3</a>).
+      마지막 줄 <code>add_edge("kitchen", END)</code>는 주방 그래프가 자기 <code>END</code>에 도달한 뒤
+      부모 그래프에서 어디로 갈지를 정합니다.
     </p>
 
     <div class="callout callout-warn">
       <strong>⚠️ END가 두 겹이라는 점을 헷갈리지 마세요</strong>
-      <p>주방 그래프 안에도 <code>add_edge("assign_chef", END)</code>가 있었습니다. <strong>그건 주방 그래프의 END</strong>고,
-      <strong>거기 도달하면 "주방 노드가 끝났다"는 뜻</strong>일 뿐 전체가 끝나는 게 아닙니다.</p>
-      <p><strong>주방을 빠져나온 다음 어디로 갈지는 부모 그래프의 엣지가 결정</strong>합니다.
-      만약 <code>add_edge("kitchen", "결제")</code>라고 썼다면 <strong>주방 다음에 결제 노드로</strong> 갔겠죠.</p>
+      <p>주방 그래프 안의 <code>add_edge("assign_chef", END)</code>는 <strong>주방 그래프의 END</strong>이고,
+      거기 도달하면 "주방 노드가 끝났다"는 뜻일 뿐입니다.
+      <strong>주방을 빠져나온 다음 행선지는 부모 그래프의 엣지가 결정</strong>합니다 —
+      <code>add_edge("kitchen", "결제")</code>라고 썼다면 주방 다음에 결제 노드로 갔겠죠.</p>
     </div>
 
     <h3>컴파일 — checkpointer는 여기서 한 번만</h3>
@@ -872,13 +580,8 @@ app = parent_builder.compile(checkpointer=checkpointer)</code></pre>
 * kitchen 안: check_stock → assign_chef</pre>
 
     <p>
-      <strong>부모에게만 <code>checkpointer</code>를 줬는데 주방 그래프도 같이 체크포인트가 걸립니다.</strong>
-      <a href="#no-checkpointer">STEP 3</a>에서 말한 자동 전파가 이 줄에서 일어나는 거예요.
-    </p>
-
-    <p>
-      그리고 그래프 그림에서 <strong><code>kitchen</code>은 네모 한 칸으로 보이지만</strong>,
-      <strong>현미경으로 확대하면 그 안에 <code>check_stock</code> → <code>assign_chef</code>가 돌고 있습니다.</strong>
+      부모에게만 <code>checkpointer</code>를 줬는데 주방 그래프도 같이 체크포인트가 걸립니다 —
+      <a href="#no-checkpointer">STEP 3</a>에서 말한 자동 전파가 이 줄에서 일어납니다.
     </p>
 
     <hr />
@@ -899,16 +602,9 @@ app.invoke({"messages": []}, config=config)</code></pre>
  '__interrupt__': [Interrupt(value="'A코스 (쉐프 오마카세)' (150,000원)으로 하시겠습니까?", ...)]}</pre>
 
     <p>
-      <strong>메시지를 빈 리스트로 넣고 시작했는데도</strong> A코스가 나왔습니다.
-      <code>menu_recommender</code>가 <strong><code>messages</code>가 비었으니 <code>last_msg</code>는 빈 문자열</strong>로 두고
-      <code>else</code>로 빠졌기 때문이죠.
-    </p>
-
-    <p>
-      그리고 <strong>그래프가 <code>confirm</code>에서 멈췄습니다.</strong>
-      <code>__interrupt__</code>에 <strong>"'A코스 (쉐프 오마카세)' (150,000원)으로 하시겠습니까?"</strong>가 담겨 있고,
-      <strong><code>status</code>·<code>chef_name</code>·<code>cooking_time</code>은 아직 결과에 없습니다.</strong>
-      <strong>주방이 한 번도 안 돌았으니까요.</strong>
+      <code>messages</code>가 비어 있으니 A코스가 제안됐고, 그래프는 <code>confirm</code>에서 멈췄습니다.
+      <strong><code>status</code>·<code>chef_name</code>·<code>cooking_time</code>은 아직 결과에 없습니다 —
+      주방이 한 번도 안 돌았으니까요.</strong>
     </p>
 
     <h3>재개 — "좋아요, 그걸로 주세요."</h3>
@@ -926,18 +622,16 @@ result = app.invoke(Command(resume=user_response), config=config)</code></pre>
 
     <p>
       <strong>여기가 이 장의 결정적 장면입니다.</strong>
-      우리는 <code>confirm</code> 노드에서 <code>goto="kitchen"</code> 한 줄만 반환했는데,
+      <code>confirm</code>에서 <code>goto="kitchen"</code> 한 줄만 반환했는데,
       <strong>주방 안의 노드 두 개가 순서대로 실행되면서 로그를 찍었습니다.</strong>
-      <strong>"kitchen 노드를 실행하라"고 했더니 그 안의 그래프가 통째로 돌아간 것</strong>이죠.
+      "kitchen 노드를 실행하라"고 했더니 그 안의 그래프가 통째로 돌아간 것이죠.
     </p>
 
     <div class="callout callout-warn">
       <strong>⚠️ 맨 윗줄 로그가 왜 또 찍혔나</strong>
-      <p><code>🛑 [System]: 고객 의사 확인 중 (Interrupt)</code>이 <strong>다시 한 번 찍혀 있습니다.</strong>
-      5-1·5-3에서도 만난 현상이에요 — <strong>재개하면 그 노드는 처음부터 다시 실행됩니다.</strong>
-      <code>interrupt()</code> 위의 <code>print</code>가 <strong>한 번 더 지나가는 것</strong>이고,
-      <code>interrupt()</code> 자리에서는 이번엔 멈추지 않고 <strong>우리가 넣은 값을 그대로 돌려받습니다.</strong></p>
-      <p>서브그래프와는 무관한, <strong><code>interrupt</code>의 원래 성질</strong>입니다.</p>
+      <p><code>🛑</code> 로그가 다시 찍힌 건 <strong>재개하면 그 노드가 처음부터 다시 실행되는</strong>
+      <code>interrupt</code>의 원래 성질 때문입니다. 서브그래프와는 무관합니다 —
+      자세한 원리는 <a href="1.html">5-1</a>을 보세요.</p>
     </div>
 
     <h3 id="run1-detail">결과 읽기 — 이 값을 누가 채웠나</h3>
@@ -970,9 +664,8 @@ result = app.invoke(Command(resume=user_response), config=config)</code></pre>
     </div>
 
     <p>
-      <strong>★ 표시된 두 줄이 핵심입니다.</strong>
-      <strong>자식 그래프 안에서 만들어진 값이, 부모의 최종 결과에 아무 일도 없었다는 듯 섞여 있습니다.</strong>
-      <strong>우리가 값을 옮기는 코드는 한 줄도 쓰지 않았어요.</strong> <strong>State를 공유했기 때문</strong>입니다.
+      <strong>★ 두 줄이 핵심입니다. 자식 그래프 안에서 만들어진 값이 부모의 최종 결과에 그대로 섞여 있습니다.
+      옮기는 코드는 한 줄도 쓰지 않았어요 — State를 공유했기 때문입니다.</strong>
     </p>
 
     <pre class="code-block"><code>print(f"메뉴: {result['menu']}")
@@ -1015,9 +708,8 @@ result = app.invoke(Command(resume=user_response), config=config)</code></pre>
 
     <p>
       <strong>주방 로그가 하나도 없습니다.</strong> 의도가 <code>change</code>였으니
-      <code>goto="recommender"</code>로 <strong>메뉴 추천 노드로 되돌아갔고</strong>,
-      거기서 <strong>B코스를 새로 제안한 뒤 <code>confirm</code>에서 또 멈춘</strong> 겁니다.
-      마지막 줄의 <code>🛑</code>가 <strong>두 번째 질문이 시작됐다는 신호</strong>예요.
+      <code>goto="recommender"</code>로 되돌아가 B코스를 새로 제안한 뒤 <code>confirm</code>에서 또 멈춘 겁니다.
+      마지막 줄의 <code>🛑</code>가 두 번째 질문의 신호입니다.
     </p>
 
     <pre class="code-block"><code>result</code></pre>
@@ -1031,12 +723,10 @@ result = app.invoke(Command(resume=user_response), config=config)</code></pre>
  '__interrupt__': [Interrupt(value="'B코스 (런치 스페셜)' (80,000원)으로 하시겠습니까?", ...)]}</pre>
 
     <p>
-      <strong><code>menu</code>가 B코스로 갈아 끼워졌고 가격도 8만 원으로 내려갔습니다.</strong>
-      <code>messages</code>에 <strong>거절 발언이 그대로 남아 있는 것</strong>도 보이죠 —
-      바로 <strong>이 문장의 "비싸" 때문에</strong> <code>menu_recommender</code>가 B코스를 고른 겁니다.
+      <code>menu</code>가 B코스로 바뀌고 가격도 8만 원으로 내려갔습니다.
+      <code>messages</code>에 남은 거절 발언의 <strong>"비싸" 때문에</strong> <code>menu_recommender</code>가 B코스를 고른 겁니다.
+      이번엔 승낙합니다.
     </p>
-
-    <p>이번엔 승낙합니다.</p>
 
     <pre class="code-block"><code>user_response = "그렇게 할게요."
 final_result = app.invoke(Command(resume=user_response), config=config)</code></pre>
@@ -1051,10 +741,9 @@ final_result = app.invoke(Command(resume=user_response), config=config)</code></
 
     <div class="callout callout-info">
       <strong>"그렇게 할게요."가 confirm으로 분류된 게 포인트입니다</strong>
-      <p><strong>"yes"도 "네"도 아닌데</strong> LLM이 <strong>맥락을 보고 confirm으로 판단</strong>했습니다.
-      5-3 실습에서 다룬 <strong>자연어 의도 파악</strong>이 여기 그대로 들어가 있어요.</p>
-      <p>그리고 이번엔 <strong>메뉴가 B코스라서 "오마카세"가 안 들어 있으니</strong>
-      <code>assign_chef</code>의 <code>else</code>로 빠져 <strong>Chef Kim에 20분</strong>이 배정됐습니다.</p>
+      <p>"yes"도 "네"도 아닌데 LLM이 맥락을 보고 confirm으로 판단했습니다.
+      그리고 이번엔 메뉴가 B코스라 "오마카세"가 없으니 <code>assign_chef</code>의 <code>else</code>로 빠져
+      <strong>Chef Kim에 20분</strong>이 배정됐습니다.</p>
     </div>
 
     <pre class="code-block"><code>print(f"메뉴: {final_result['menu']}")
@@ -1096,16 +785,15 @@ print(f"담당 쉐프: {final_result.get('chef_name')} (Subgraph에서 생성된
     </div>
 
     <p>
-      <strong>다섯 번째 줄이 부모 그래프 입장에서는 그냥 "kitchen 노드 1회 실행"</strong>입니다.
-      <strong>안에서 두 칸이 돌았다는 사실은 부모가 신경 쓰지 않아요.</strong> 그게 모듈화의 의미입니다.
+      다섯 번째 줄이 부모 그래프 입장에서는 그냥 <strong>"kitchen 노드 1회 실행"</strong>입니다.
+      안에서 두 칸이 돌았다는 사실은 부모가 신경 쓰지 않아요. 그게 모듈화의 의미입니다.
     </p>
 
     <h3 id="getstate">한 걸음 더 — get_state(subgraphs=True)</h3>
 
     <p>
-      그런데 <strong>디버깅할 때는 주방 안이 궁금할 수 있습니다.</strong>
-      평소처럼 <code>app.get_state(config)</code>를 부르면 <strong>부모의 State만</strong> 보이는데,
-      <code>subgraphs=True</code>를 주면 <strong>자식 그래프 내부 상태까지 함께</strong> 조회됩니다.
+      디버깅할 때는 주방 안이 궁금할 수 있습니다. 평소의 <code>app.get_state(config)</code>는
+      부모의 State만 보여 주지만, <code>subgraphs=True</code>를 주면 자식 그래프 내부 상태까지 조회됩니다.
     </p>
 
     <pre class="code-block"><code>snapshot = app.get_state(config, subgraphs=True)
@@ -1114,9 +802,9 @@ print(snapshot.tasks)         # 자식 그래프 상태는 task 안쪽에 담겨
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 매장 CCTV를 주방까지 확장하는 스위치</strong>
-      <p>기본 <code>get_state(config)</code>는 <strong>홀 CCTV만</strong> 보여 줍니다. 주방 문 앞까지가 화면 끝이에요.</p>
-      <p><code>subgraphs=True</code>는 <strong>주방 안 카메라까지 켜는 스위치</strong>입니다.
-      <strong>평소엔 필요 없지만, "왜 40분이 아니라 20분이 나왔지?"를 추적할 땐 이 스위치가 필요합니다.</strong></p>
+      <p>기본 <code>get_state(config)</code>는 <strong>홀 CCTV만</strong> 보여 줍니다.
+      <code>subgraphs=True</code>는 <strong>주방 안 카메라까지 켜는 스위치</strong>예요.
+      평소엔 필요 없지만, "왜 40분이 아니라 20분이 나왔지?"를 추적할 땐 이 스위치가 필요합니다.</p>
     </div>
 
     <hr />
@@ -1126,28 +814,25 @@ print(snapshot.tasks)         # 자식 그래프 상태는 task 안쪽에 담겨
 
     <figure>
       <img src="../images/05.Multi%20Agent/32.png" alt="Subgraph 슬라이드 — 큰 글씨로 'State를 부모와 자식 그래프가 공유하고 있다!' 아래에 '보안 / 프라이버시, State가 거대해지는 것을 방지하기 위해 State를 분리하자!'" />
-      <figcaption>지금까지 만든 구조의 <strong>성질을 한 문장으로 요약</strong>한 슬라이드입니다.
-      <strong>편했던 그 성질이, 상황에 따라서는 문제가 됩니다.</strong></figcaption>
+      <figcaption>지금까지 만든 구조의 성질 — <strong>편했던 그 성질이, 상황에 따라서는 문제가 됩니다.</strong></figcaption>
     </figure>
 
     <p>
-      앞 절의 그래프를 다시 떠올려 보세요.
-      <strong>부모의 <code>menu_recommender</code>도 <code>ReservationState</code>를 받고,
-      자식의 <code>assign_chef</code>도 <code>ReservationState</code>를 받습니다.</strong>
-      <strong>공책 한 권을 온 식당이 돌려 쓰고 있는 것</strong>이죠.
-      값이 저절로 오가서 편했지만, <strong>바꿔 말하면 아무나 아무 칸이나 다 볼 수 있다는 뜻</strong>이기도 합니다.
+      앞 절에서는 부모의 <code>menu_recommender</code>도, 자식의 <code>assign_chef</code>도
+      <code>ReservationState</code>를 받았습니다. <strong>공책 한 권을 온 식당이 돌려 쓰는</strong> 구조죠.
+      값이 저절로 오가서 편했지만, 바꿔 말하면 <strong>아무나 아무 칸이나 다 볼 수 있다</strong>는 뜻이기도 합니다.
     </p>
 
     <h3 id="split-reason">분리하는 두 가지 이유</h3>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 여행 예약 에이전트에 외부 회사가 합류한다면</strong>
-      <p><a href="#merit">1장에서 든 여행 예약 시스템</a>으로 돌아가 봅시다.
-      호텔·항공 예약 서브그래프는 <strong>부킹닷컴</strong>이 만들고, 식당 예약 서브그래프는 <strong>배달 앱 회사</strong>가 만들어서 합류했다고 해 보죠.</p>
-      <p><strong>공책이 한 권이면</strong>, 부킹닷컴이 만든 그래프가 돌면서 적은 <strong>항공권 가격·좌석 등급·제휴 수수료 같은 값이 전부 그 공책에 남습니다.</strong>
-      그리고 <strong>배달 앱 쪽 그래프도 같은 공책을 받으니 그걸 다 읽을 수 있습니다.</strong>
+      <p><a href="#merit">1장의 여행 예약 시스템</a>에서 호텔·항공 서브그래프는 <strong>부킹닷컴</strong>이,
+      식당 서브그래프는 <strong>배달 앱 회사</strong>가 만들어 합류했다고 해 보죠.</p>
+      <p><strong>공책이 한 권이면</strong> 부킹닷컴 그래프가 적은 항공권 가격·좌석 등급·제휴 수수료가 전부 그 공책에 남고,
+      배달 앱 쪽 그래프도 같은 공책을 받으니 그걸 다 읽을 수 있습니다.
       <strong>보여 주고 싶지 않은 정보가 자동으로 새는 구조</strong>예요.</p>
-      <p><strong>공책을 따로 쓰면</strong> 이 문제가 사라집니다. 부킹닷컴 그래프는 <strong>자기 공책만</strong> 들고 일하고,
+      <p><strong>공책을 따로 쓰면</strong> 각 그래프는 자기 공책만 들고 일하고,
       <strong>넘겨줄 값만 손으로 건네받고 손으로 돌려줍니다.</strong></p>
     </div>
 
@@ -1166,7 +851,7 @@ print(snapshot.tasks)         # 자식 그래프 상태는 task 안쪽에 담겨
             <td><strong>State 비대화 방지</strong></td>
             <td>항공(편명·좌석·상태), 호텔(객실·체크인), 식당(가게 ID·주소·가격)…
             <strong>모든 하위 시스템의 필드가 State 하나에 다 붙습니다.</strong>
-            나중엔 <strong>어떤 노드가 어떤 필드를 쓰는지 아무도 모르게</strong> 됩니다.</td>
+            나중엔 어떤 노드가 어떤 필드를 쓰는지 아무도 모르게 됩니다.</td>
           </tr>
         </tbody>
       </table>
@@ -1177,15 +862,14 @@ print(snapshot.tasks)         # 자식 그래프 상태는 task 안쪽에 담겨
 
     <figure>
       <img src="../images/05.Multi%20Agent/33.png" alt="Subgraph 분리 슬라이드 — 오른쪽에 두 개의 그래프 그림. 부모 그래프는 __start__ → kitchen → delivery_manager → __end__, 자식 그래프는 __start__ → pickup → deliver → __end__이며 delivery_manager 노드에서 자식 그래프로 선이 이어져 있다. 왼쪽에 실행 로그: 👨‍🍳 [주방] '특선 초밥 세트' 조리 완료! 포장했습니다. / 📞 [매니저] 배달 업체 호출 중... / 🛵 [배달업체] 픽업 완료! (물품: 특선 초밥 세트) / Hit [배달업체] 서울시 강남구 역삼동 123로 배송 중... 띵동! 배달 완료. / 📞 [매니저] 배달 업체 응답 수신: delivered" />
-      <figcaption>이번 예제는 <strong>식당이 음식을 만들고, 배달은 외부 업체에 맡기는</strong> 구조입니다.
-      <strong>배달업체는 남의 회사</strong>니까 <strong>식당 장부를 같이 쓰지 않습니다.</strong></figcaption>
+      <figcaption>식당이 음식을 만들고, 배달은 외부 업체에 맡기는 구조.
+      <strong>배달업체는 남의 회사니까 식당 장부를 같이 쓰지 않습니다.</strong></figcaption>
     </figure>
 
     <p>
-      흐름은 단순합니다. <strong>주방에서 요리를 끝내고 → 배달 업체를 부르고 → 배달이 끝나면 그 결과만 받아 적습니다.</strong>
-      그런데 <strong>배달 업체가 아는 것은 딱 세 가지</strong>뿐이에요 —
-      <strong>어디로(주소)</strong>, <strong>무엇을(물품)</strong>, <strong>지금 어디까지 왔는지(상태)</strong>.
-      <strong>메뉴 가격도, 고객이 무슨 대화를 나눴는지도 알 필요가 없습니다.</strong>
+      흐름은 단순합니다 — 주방에서 요리를 끝내고 → 배달 업체를 부르고 → 결과만 받아 적습니다.
+      배달 업체가 아는 것은 딱 세 가지뿐입니다: <strong>어디로(주소), 무엇을(물품), 지금 어디까지 왔는지(상태)</strong>.
+      메뉴 가격도, 고객 대화도 알 필요가 없습니다.
     </p>
 
     <div class="flow">
@@ -1200,8 +884,8 @@ print(snapshot.tasks)         # 자식 그래프 상태는 task 안쪽에 담겨
 
     <figure>
       <img src="../images/05.Multi%20Agent/34.png" alt="Subgraph 분리 슬라이드 — 자식 그래프. 1. 자식 그래프만 사용할 State 정의, 2. 해당 State로 일할 Node 정의. 코드: class DeliveryState(TypedDict): address: str, package_info: str, delivery_status: str. def pickup_package(state: DeliveryState)는 print 후 return {&quot;delivery_status&quot;: &quot;picked_up&quot;}, def deliver_to_customer(state: DeliveryState)는 print 후 return {&quot;delivery_status&quot;: &quot;delivered&quot;}" />
-      <figcaption>필드가 <strong>딱 3개</strong>입니다. <code>messages</code>도 없고 <code>menu</code>도 <code>price</code>도 없습니다.
-      <strong>배달업체가 알아야 할 것만 들어 있어요.</strong></figcaption>
+      <figcaption>필드가 딱 3개. <code>messages</code>도 <code>menu</code>도 <code>price</code>도 없습니다 —
+      <strong>배달업체가 알아야 할 것만</strong> 들어 있습니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code>from typing_extensions import TypedDict
@@ -1213,7 +897,7 @@ class DeliveryState(TypedDict):
     delivery_status: str   # 지금 어디까지 왔는지   ← 자식이 직접 갱신</code></pre>
 
     <p>
-      <strong>앞의 두 개는 부모가 넘겨 주는 값</strong>, <strong>마지막 하나는 자식이 스스로 채우는 값</strong>입니다.
+      앞의 두 개는 부모가 넘겨 주는 값, 마지막 하나는 자식이 스스로 채우는 값입니다.
       <strong>이 3개가 배달업체와 주고받는 계약서의 전부</strong>예요.
     </p>
 
@@ -1229,17 +913,16 @@ def deliver_to_customer(state: DeliveryState):
     return {"delivery_status": "delivered"}</code></pre>
 
     <p>
-      단계를 지날 때마다 <code>delivery_status</code>가
-      <strong><code>picked_up</code> → <code>delivered</code></strong>로 바뀝니다.
-      <strong>배달 앱에서 보이는 그 상태 표시</strong>와 같은 거예요.
+      단계를 지날 때마다 <code>delivery_status</code>가 <strong><code>picked_up</code> → <code>delivered</code></strong>로 바뀝니다 —
+      배달 앱의 상태 표시와 같은 겁니다.
     </p>
 
     <h4>그래프 조립</h4>
 
     <figure>
       <img src="../images/05.Multi%20Agent/35.png" alt="Subgraph 분리 슬라이드 — 자식 그래프 그래프 생성. 코드: delivery_builder = StateGraph(DeliveryState), add_node(&quot;pickup&quot;, pickup_package), add_node(&quot;deliver&quot;, deliver_to_customer), add_edge(START, &quot;pickup&quot;), add_edge(&quot;pickup&quot;, &quot;deliver&quot;), add_edge(&quot;deliver&quot;, END). 주석 '# 하위 그래프 컴파일 (이 자체가 하나의 노드처럼 쓰임)'과 delivery_graph = delivery_builder.compile(). 오른쪽에 __start__ → pickup → deliver → __end__ 세로 그래프 그림" />
-      <figcaption><strong>앞 절의 주방 그래프와 코드 모양이 똑같습니다.</strong>
-      <strong>자식 그래프를 만드는 방법은 State를 공유하든 안 하든 완전히 동일</strong>해요.</figcaption>
+      <figcaption>앞 절의 주방 그래프와 코드 모양이 똑같습니다.
+      <strong>자식 그래프를 만드는 방법은 State를 공유하든 안 하든 완전히 동일</strong>합니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code>delivery_builder = StateGraph(DeliveryState)
@@ -1259,8 +942,8 @@ delivery_graph = delivery_builder.compile()</code></pre>
 
     <figure>
       <img src="../images/05.Multi%20Agent/37.png" alt="Subgraph 분리 슬라이드 — 앞의 자식 그래프 생성 슬라이드와 같은 화면인데, 오른쪽 그래프 그림의 __start__ 노드에 빨간 동그라미가 쳐져 있다" />
-      <figcaption>같은 슬라이드인데 <strong><code>__start__</code>에 동그라미</strong>가 쳐져 있습니다.
-      <strong>부모가 <code>invoke()</code>로 넘긴 값이 들어오는 입구가 바로 여기</strong>라는 뜻이에요.</figcaption>
+      <figcaption><strong><code>__start__</code>에 동그라미</strong> —
+      부모가 <code>invoke()</code>로 넘긴 값이 들어오는 입구가 바로 여기라는 뜻입니다.</figcaption>
     </figure>
 
     <!-- ══════════════════════════════════════════════════════ -->
@@ -1268,9 +951,8 @@ delivery_graph = delivery_builder.compile()</code></pre>
 
     <figure>
       <img src="../images/05.Multi%20Agent/36.png" alt="Subgraph 분리 슬라이드 — 부모 그래프. 부모 그래프만 사용할 State 정의, 해당 State로 일할 Node 정의 + 자식 그래프를 호출할 그래프 Node. state 분리 시 자식 그래프에 invoke() 메서드로 실행! → state 스키마가 달라 자동으로 넘어갈 수 없음. 코드: class RestaurantState(TypedDict): messages, menu, customer_address, final_status. def cook_food(...)는 return {&quot;messages&quot;: [&quot;조리 완료&quot;]}. 빨간 사각형 안 브릿지 노드 call_delivery_service: 1. 내 공책(Parent)의 정보를 → 외부 업체 양식(Child)으로 변환 (Mapping)해 delivery_input을 만들고, 2. delivery_result = delivery_graph.invoke(delivery_input)로 함수 안에서 그래프를 실행, 3. final_status = delivery_result[&quot;delivery_status&quot;]로 결과를 받아 기록한 뒤 return {&quot;final_status&quot;: final_status}" />
-      <figcaption>왼쪽 마지막 줄이 <strong>이 절의 이유</strong>입니다 —
-      <strong>"state 스키마가 달라 자동으로 넘어갈 수 없음".</strong>
-      <strong>자동으로 안 되니 우리가 손으로 옮겨 담는다</strong>, 그게 빨간 사각형 안의 코드예요.</figcaption>
+      <figcaption>왼쪽 마지막 줄이 이 절의 이유 — <strong>"state 스키마가 달라 자동으로 넘어갈 수 없음".</strong>
+      자동으로 안 되니 우리가 손으로 옮겨 담습니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code>class RestaurantState(TypedDict):
@@ -1280,11 +962,9 @@ delivery_graph = delivery_builder.compile()</code></pre>
     final_status: str       # 최종 배송 상태     ← 자식에게서 받아올 값</code></pre>
 
     <p>
-      <strong><code>DeliveryState</code>와 필드 이름이 하나도 겹치지 않는다</strong>는 걸 보세요.
-      부모는 <code>menu</code>·<code>customer_address</code>라고 부르고,
-      자식은 <code>package_info</code>·<code>address</code>라고 부릅니다.
-      <strong>서로 다른 회사가 각자 만든 양식</strong>이니 당연한 일이고,
-      <strong>바로 그래서 값이 저절로 흘러갈 수가 없습니다.</strong>
+      <strong><code>DeliveryState</code>와 필드 이름이 하나도 겹치지 않습니다.</strong>
+      부모는 <code>menu</code>·<code>customer_address</code>, 자식은 <code>package_info</code>·<code>address</code> —
+      서로 다른 회사가 각자 만든 양식이니 당연하고, <strong>바로 그래서 값이 저절로 흘러갈 수 없습니다.</strong>
     </p>
 
     <h4>① cook_food — 조리 노드</h4>
@@ -1298,8 +978,8 @@ delivery_graph = delivery_builder.compile()</code></pre>
     <div class="callout callout-danger">
       <strong>이 절에서 딱 하나만 기억한다면 이 노드입니다</strong>
       <p><strong>State가 분리되면 <code>add_node("배달", delivery_graph)</code>를 쓸 수 없습니다.</strong>
-      필드 이름이 다르니 LangGraph가 <strong>무엇을 무엇에 넣어야 할지 알 방법이 없거든요.</strong></p>
-      <p>대신 <strong>평범한 함수 노드를 하나 만들고, 그 안에서 <code>delivery_graph.invoke(...)</code>로 직접 호출</strong>합니다.
+      필드 이름이 다르니 LangGraph가 무엇을 무엇에 넣어야 할지 알 방법이 없거든요.</p>
+      <p>대신 <strong>평범한 함수 노드 안에서 <code>delivery_graph.invoke(...)</code>로 직접 호출</strong>합니다.
       이 함수를 <strong>브릿지(Bridge) 노드</strong>라고 부릅니다.</p>
     </div>
 
@@ -1326,11 +1006,10 @@ def call_delivery_service(state):
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 택배 접수증을 대신 써 주는 직원</strong>
       <p>식당 매니저가 <strong>배달 업체 앱을 열어 접수증을 작성</strong>합니다.
-      우리 주문서에는 <strong>"메뉴: 특선 초밥 세트"</strong>라고 적혀 있지만,
-      업체 앱의 칸 이름은 <strong>"물품"</strong>이에요. <strong>매니저가 옮겨 적습니다.</strong></p>
-      <p>접수하면 <strong>기사님이 알아서 픽업하고 배달합니다.</strong> 매니저는 그 과정에 개입하지 않아요.</p>
-      <p>다 끝나면 앱에 <strong>"배송 완료"</strong>가 뜨고, <strong>매니저는 그 상태만 우리 장부에 옮겨 적습니다.</strong>
-      <strong>기사님이 어느 길로 갔는지, 몇 건을 같이 돌았는지는 우리 장부에 남지 않습니다.</strong></p>
+      우리 주문서에는 "메뉴: 특선 초밥 세트"라고 적혀 있지만 업체 앱의 칸 이름은 "물품"이에요.
+      <strong>매니저가 옮겨 적습니다.</strong> 접수하면 기사님이 알아서 픽업하고 배달하고,
+      다 끝나면 <strong>매니저는 앱에 뜬 "배송 완료" 상태만 우리 장부에 옮겨 적습니다.</strong>
+      기사님이 어느 길로 갔는지는 우리 장부에 남지 않습니다.</p>
     </div>
 
     <div class="info-card">
@@ -1363,10 +1042,9 @@ def call_delivery_service(state):
 
     <div class="callout callout-info">
       <strong>invoke()가 반환하는 건 "최종 State"입니다</strong>
-      <p><code>delivery_graph.invoke(...)</code>의 결과는 <strong>자식 그래프가 <code>END</code>에 도달했을 때의 State 전체</strong>예요.
-      그러니까 <code>{'address': '...', 'package_info': '...', 'delivery_status': 'delivered'}</code> 이런 딕셔너리가 통째로 옵니다.</p>
-      <p>거기서 <strong>우리가 필요한 <code>delivery_status</code> 하나만 꺼내</strong> 쓰는 거고,
-      <strong>나머지는 버립니다.</strong> <strong>무엇을 가져올지 우리가 고른다</strong>는 게 분리형의 특징입니다.</p>
+      <p><code>delivery_graph.invoke(...)</code>의 결과는 자식 그래프가 <code>END</code>에 도달했을 때의
+      State 전체입니다. 거기서 <strong>필요한 <code>delivery_status</code> 하나만 꺼내 쓰고 나머지는 버립니다.</strong>
+      무엇을 가져올지 우리가 고른다는 게 분리형의 특징입니다.</p>
     </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
@@ -1385,8 +1063,7 @@ app = parent_builder.compile()</code></pre>
 
     <div class="callout callout-info">
       <strong>이번엔 checkpointer가 없습니다</strong>
-      <p>이 그래프에는 <strong><code>interrupt()</code>로 사람에게 묻는 구간이 없어서</strong>
-      <strong>중간에 멈췄다 이어 갈 일이 없습니다.</strong> 그래서 <code>InMemorySaver</code>도 필요 없어요.
+      <p>이 그래프에는 <code>interrupt()</code>로 멈추는 구간이 없어서 <code>InMemorySaver</code>도 필요 없습니다.
       <strong>서브그래프라서 빼는 게 아니라, 이 예제가 짧아서 안 쓰는 것</strong>뿐입니다.</p>
     </div>
 
@@ -1414,8 +1091,9 @@ result = app.invoke(inputs)</code></pre>
    Hit [배달업체] 서울시 강남구 역삼동 123로 배송 중... 띵동! 배달 완료.</pre>
 
     <p>
-      <strong>배달업체 로그에 "특선 초밥 세트"와 "서울시 강남구 역삼동 123"이 정확히 찍혔습니다.</strong>
-      <strong>공책이 다른데도 값이 건너간 건</strong> 브릿지 노드가 <code>delivery_input</code>에 <strong>손으로 옮겨 담았기 때문</strong>이에요.
+      배달업체 로그에 "특선 초밥 세트"와 주소가 정확히 찍혔습니다.
+      <strong>공책이 다른데도 값이 건너간 건</strong> 브릿지 노드가 <code>delivery_input</code>에
+      <strong>손으로 옮겨 담았기 때문</strong>입니다.
     </p>
 
     <pre class="code-block"><code>result</code></pre>
@@ -1428,18 +1106,16 @@ result = app.invoke(inputs)</code></pre>
 
     <div class="callout callout-info">
       <strong>이 결과를 앞 절과 비교해 보세요</strong>
-      <p>앞 절(State 공유형)의 결과에는 <strong>자식이 만든 <code>chef_name</code>·<code>cooking_time</code>이 그대로 섞여</strong> 있었습니다.</p>
-      <p>이번 결과에는 <strong>자식의 필드가 하나도 없습니다.</strong>
-      <code>address</code>도 <code>package_info</code>도 <code>delivery_status</code>도 안 보이죠.
-      <strong>딱 하나, 우리가 브릿지 노드에서 골라 담은 <code>final_status</code>만</strong> 넘어왔습니다.</p>
-      <p><strong>이게 "State를 분리한다"의 실제 결과물</strong>입니다. <strong>필요한 것만 건너오고 나머지는 안 넘어옵니다.</strong></p>
+      <p>State 공유형의 결과에는 자식이 만든 <code>chef_name</code>·<code>cooking_time</code>이 그대로 섞여 있었습니다.
+      이번 결과에는 <strong>자식의 필드가 하나도 없습니다</strong> —
+      딱 하나, 브릿지 노드에서 골라 담은 <code>final_status</code>만 넘어왔습니다.</p>
+      <p><strong>이게 "State를 분리한다"의 실제 결과물입니다. 필요한 것만 건너오고 나머지는 안 넘어옵니다.</strong></p>
     </div>
 
     <p>
-      그리고 <code>final_status</code>의 값 <code>delivered</code>가 어디서 왔는지 거슬러 올라가 보면 —
-      <strong>자식 그래프의 마지막 노드 <code>deliver_to_customer</code>가 반환한 <code>{"delivery_status": "delivered"}</code></strong>입니다.
-      <strong>자식의 마지막 갱신 → <code>invoke()</code>의 반환 State → 브릿지 노드가 꺼냄 → 부모 필드에 기록</strong>.
-      <strong>네 단계를 거쳐 건너온 값</strong>이에요.
+      <code>final_status</code>의 <code>delivered</code>는
+      <strong>자식의 마지막 갱신 → <code>invoke()</code>의 반환 State → 브릿지 노드가 꺼냄 → 부모 필드에 기록</strong>,
+      네 단계를 거쳐 건너온 값입니다.
     </p>
 
     <hr />
@@ -1545,7 +1221,7 @@ result = app.invoke(inputs)</code></pre>
 
     <p>
       노트북 아래쪽에 <strong>직접 구현해 볼 문제 두 개</strong>가 정답과 함께 들어 있습니다.
-      <strong>먼저 명세만 읽고 직접 짜 본 다음</strong> 정답 셀과 비교해 보세요.
+      먼저 명세만 읽고 직접 짜 본 다음 정답 셀과 비교해 보세요.
     </p>
 
     <h3>실습 1 — "여행용 환전 지갑" (State 분리형)</h3>
@@ -1553,7 +1229,7 @@ result = app.invoke(inputs)</code></pre>
     <div class="info-card">
       <div class="info-card-title">요구사항</div>
       <p><strong>여행 가이드 앱(Parent)</strong>과 <strong>외부 은행 시스템(Child)</strong>은
-      <strong>보안 시스템이 달라 State를 공유하지 않습니다.</strong>
+      보안 시스템이 달라 State를 공유하지 않습니다.
       따라서 <code>add_node(subgraph)</code>를 쓸 수 없고, <strong>노드 함수 안에서 <code>invoke()</code></strong>를 써야 합니다.</p>
       <ol>
         <li>Parent의 <code>request_amount</code>(요청 달러)를 읽는다</li>
@@ -1575,7 +1251,7 @@ def exchange_bridge_node(state: TravelState):
     pass</code></pre>
 
     <p>
-      <strong>이 문제는 <a href="#bridge">브릿지 노드 3단계</a>를 그대로 옮기면 풀립니다.</strong>
+      이 문제는 <a href="#bridge">브릿지 노드 3단계</a>를 그대로 옮기면 풀립니다 —
       <strong>포장 → 호출 → 개봉.</strong>
     </p>
 
@@ -1619,9 +1295,9 @@ def exchange_bridge_node(state: TravelState):
 
     <p>
       <strong>5번이 이 문제의 핵심입니다.</strong>
-      <code>goto="content_team"</code>으로 <strong>서브그래프를 다시 실행시키는 것</strong>이고,
-      이번 장 본문에서 <code>goto="recommender"</code>로 되돌아갔던 것과 <strong>구조가 같습니다.</strong>
-      다만 <strong>돌아가는 대상이 노드가 아니라 그래프 통째</strong>죠.
+      <code>goto="content_team"</code>으로 서브그래프를 다시 실행시키는 것 —
+      본문에서 <code>goto="recommender"</code>로 되돌아갔던 것과 구조가 같고,
+      다만 돌아가는 대상이 노드가 아니라 그래프 통째입니다.
     </p>
 
     <pre class="code-block"><code># Parent Graph 조립 (정답 코드 일부)
@@ -1641,9 +1317,9 @@ app = parent_builder.compile(checkpointer=checkpointer)</code></pre>
     <div class="callout callout-info">
       <strong>피드백이 반영되는 원리</strong>
       <p><code>human_review_node</code>가 <code>Command(update={"feedback": review_input}, goto="content_team")</code>을 반환합니다.
-      <strong>State를 공유하니까</strong> <code>researcher_node</code>와 <code>writer_node</code>가
-      <code>state.get("feedback")</code>으로 <strong>그 피드백을 그냥 꺼내 읽습니다.</strong></p>
-      <p>만약 State를 분리했다면 <strong>피드백을 <code>invoke()</code>의 입력 딕셔너리에 직접 넣어 줘야</strong> 했겠죠.</p>
+      State를 공유하니까 <code>researcher_node</code>와 <code>writer_node</code>가
+      <code>state.get("feedback")</code>으로 그 피드백을 그냥 꺼내 읽습니다.
+      State를 분리했다면 피드백을 <code>invoke()</code>의 입력 딕셔너리에 직접 넣어 줘야 했겠죠.</p>
     </div>
 
     <hr />
@@ -1848,54 +1524,37 @@ result = app.invoke({
 
     <ul>
       <li><strong>서브그래프는 특별한 그래프가 아니다</strong> —
-      <strong>평범하게 만들어 컴파일한 그래프</strong>를 <strong>노드 자리에 꽂았을 뿐</strong>입니다.
-      <strong>이미 만들어 둔 어떤 그래프든 서브그래프가 될 수 있습니다.</strong></li>
-
-      <li><strong><code>add_node</code>의 두 번째 인자에 함수도 그래프도 들어간다</strong> —
-      LangGraph에게 노드란 <strong>State를 받아 State 조각을 돌려주는 무언가</strong>일 뿐이고,
-      <strong>그래프도 그 조건을 만족합니다.</strong></li>
+      평범하게 만들어 컴파일한 그래프를 노드 자리에 꽂았을 뿐입니다.
+      LangGraph에게 노드란 <strong>State를 받아 State 조각을 돌려주는 무언가</strong>이고,
+      함수든 그래프든 그 조건만 만족하면 됩니다.</li>
 
       <li><strong>State를 공유하면 값이 저절로 오간다</strong> —
-      부모가 적은 <code>menu</code>를 자식이 읽고, 자식이 적은 <code>chef_name</code>이 <strong>부모 결과에 그대로 남습니다.</strong>
-      <strong>옮기는 코드는 한 줄도 없습니다.</strong></li>
-
-      <li><strong>편한 만큼 다 보인다</strong> —
-      <strong>자식은 부모 State를 전부 볼 수 있습니다.</strong> 서드파티 모듈이라면 이게 곧 <strong>정보 유출</strong>이 됩니다.</li>
+      부모가 적은 <code>menu</code>를 자식이 읽고, 자식이 적은 <code>chef_name</code>이 부모 결과에 그대로 남습니다.
+      다만 <strong>편한 만큼 다 보입니다</strong> — 서드파티 모듈이라면 이게 곧 정보 유출이 됩니다.</li>
 
       <li><strong>State를 분리하면 자동은 끝나고 수동이 시작된다</strong> —
-      <strong>필드 이름이 다르니 자동으로 흘러갈 수 없습니다.</strong>
-      <strong>브릿지 노드</strong>가 <strong>딕셔너리로 옮겨 담고 → <code>invoke()</code>하고 → 결과에서 필요한 것만 꺼냅니다.</strong></li>
-
-      <li><strong>⚠️ 자식은 <code>checkpointer</code>를 받지 않는다</strong> —
-      부모가 컴파일할 때 준 것이 <strong>자동 전파</strong>됩니다. 자식 <code>compile()</code>의 괄호는 <strong>비워 둘 것.</strong></li>
-
-      <li><strong>⚠️ <code>goto</code>에 적는 건 등록 이름이다</strong> —
-      <code>goto="kitchen"</code>의 <code>"kitchen"</code>은 <strong><code>add_node</code>의 첫 번째 인자</strong>이지
-      <strong>그래프 변수 이름이 아닙니다.</strong></li>
-
-      <li><strong>⚠️ END는 두 겹이다</strong> —
-      자식의 <code>END</code>는 <strong>"자식이 끝났다"</strong>일 뿐입니다.
-      <strong>그다음 행선지는 부모의 <code>add_edge("kitchen", ...)</code></strong>가 정합니다.</li>
+      필드 이름이 다르니 자동으로 흘러갈 수 없습니다.
+      <strong>브릿지 노드</strong>가 딕셔너리로 옮겨 담고 → <code>invoke()</code>하고 → 결과에서 필요한 것만 꺼냅니다.</li>
     </ul>
 
     <div class="callout callout-analogy">
       <strong>🔍 마지막으로 — 이 장을 한 장면으로 기억한다면</strong>
       <p><strong>식당 홀에서 주방 문을 바라보는 장면</strong>을 떠올리세요.
-      홀 직원에게 <strong>주방은 문 하나</strong>입니다. <strong>주문표를 넣으면 음식이 나옵니다.</strong>
-      안에서 재료팀과 조리팀이 어떤 순서로 움직이는지는 <strong>알 필요도 없고 알 수도 없습니다.</strong></p>
-      <p>그리고 이 <strong>문 안쪽과 바깥쪽이 같은 주문표를 쓰느냐</strong>가 두 방식을 가릅니다.
-      <strong>같은 종이를 쓰면</strong> <code>add_node</code> 한 줄이면 되고,
-      <strong>종이를 나누면</strong> <strong>매니저가 접수증을 대신 써 주는 절차(브릿지 노드)</strong>가 하나 더 붙습니다.</p>
-      <p>그리고 <strong>지금 "주방"이라고 부른 그 문 안에, 다음 장부터는 에이전트가 들어갑니다.</strong></p>
+      홀 직원에게 주방은 문 하나입니다. 주문표를 넣으면 음식이 나오고,
+      안에서 누가 어떤 순서로 움직이는지는 알 필요가 없습니다.
+      그리고 <strong>문 안쪽과 바깥쪽이 같은 주문표를 쓰느냐</strong>가 두 방식을 가릅니다 —
+      같은 종이면 <code>add_node</code> 한 줄, 종이를 나누면 브릿지 노드가 하나 더 붙습니다.</p>
+      <p>그리고 지금 "주방"이라고 부른 그 문 안에, <strong>다음 장부터는 에이전트가 들어갑니다.</strong></p>
     </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
     <h2 id="next">다음 이야기 — 드디어 Multi Agent</h2>
 
     <p>
-      <strong>문법은 여기서 끝났습니다.</strong>
-      5-1에서 <strong>사람을 끼워 넣는 법</strong>, 5-3에서 <strong>노드 사이를 자유롭게 오가는 법(<code>goto</code>)</strong>,
-      그리고 이번 장에서 <strong>그래프를 통째로 접어 넣는 법(Subgraph)</strong>까지 모았어요.
+      문법은 여기서 끝났습니다.
+      <a href="1.html">5-1</a>의 <strong>사람을 끼워 넣는 법</strong>,
+      <a href="2.html">5-3</a>의 <strong>노드 사이를 자유롭게 오가는 법(<code>goto</code>)</strong>,
+      그리고 이번 장의 <strong>그래프를 통째로 접어 넣는 법(Subgraph)</strong> —
       <strong>이 셋을 조합하면 멀티 에이전트가 만들어집니다.</strong>
     </p>
 
@@ -1905,16 +1564,9 @@ result = app.invoke({
     </div>
 
     <p>
-      다음 장에서 만들 <strong>Supervisor(중앙 집권식)</strong>의 정체는 이렇습니다 —
-      <strong>오케스트레이터 역할을 하는 감독관 노드가 있고, 그 아래 작업자들이 붙어 있는데,
-      그 작업자가 노드 하나가 아니라 각각 하나의 에이전트 그래프</strong>입니다.
-      <strong>즉 서브그래프</strong>죠.
-      <strong>감독관이 일을 나눠 주고, 작업자가 일하고, 다시 보고합니다.</strong>
-    </p>
-
-    <p>
-      <strong>새로 배울 문법은 거의 없습니다.</strong>
-      <strong>지금까지 배운 걸 어떤 조직도로 배치하느냐</strong>가 남았을 뿐이에요.
+      다음 장의 <strong>Supervisor(중앙 집권식)</strong>는 감독관 노드 아래 작업자들이 붙어 있는데,
+      <strong>그 작업자 하나하나가 노드가 아니라 각각 하나의 에이전트 그래프 — 즉 서브그래프</strong>입니다.
+      새로 배울 문법은 거의 없고, 지금까지 배운 걸 어떤 조직도로 배치하느냐가 남았을 뿐입니다.
     </p>
 
     <div class="callout callout-info">

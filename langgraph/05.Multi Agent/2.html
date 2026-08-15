@@ -4,246 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>5-3. Command with Goto — 엣지를 그리지 않고 노드로 순간이동하기</title>
-  <style>
-    :root {
-      --bg: #f8f9fa;
-      --surface: #ffffff;
-      --border: #e1e4e8;
-      --text: #24292e;
-      --text-secondary: #586069;
-      --accent: #0366d6;
-      --green: #28a745;
-      --yellow: #f9a825;
-      --purple: #6f42c1;
-      --info-bg: #e8f4fd;
-      --info-border: #0366d6;
-      --warn-bg: #fff8e1;
-      --warn-border: #f9a825;
-      --danger-bg: #fce8e8;
-      --danger-border: #d32f2f;
-      --analogy-bg: #f5f1fb;
-      --analogy-border: #6f42c1;
-      --result-bg: #f1f8f2;
-      --result-border: #28a745;
-      --code-bg: #f6f8fa;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      font-size: 15px;
-      line-height: 1.7;
-      color: var(--text);
-      background: var(--bg);
-    }
-
-    /* ── Layout ── */
-    .page-wrapper { display: flex; min-height: 100vh; }
-
-    nav {
-      position: fixed;
-      top: 0; left: 0;
-      width: 260px; height: 100vh;
-      overflow-y: auto;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 24px 16px;
-      font-size: 13px;
-    }
-    nav .nav-title {
-      font-weight: 700; font-size: 12px;
-      text-transform: uppercase; letter-spacing: 0.08em;
-      color: var(--text-secondary); margin-bottom: 12px;
-    }
-    nav a {
-      display: block; padding: 5px 8px; border-radius: 4px;
-      color: var(--text-secondary); text-decoration: none;
-      line-height: 1.4; transition: background 0.1s;
-    }
-    nav a:hover { background: var(--bg); color: var(--accent); }
-    nav .nav-section { margin-top: 16px; }
-    nav .sub { padding-left: 20px; font-size: 12.5px; }
-
-    main {
-      margin-left: 260px; max-width: 920px;
-      padding: 48px 48px 80px; width: 100%;
-    }
-
-    /* ── Typography ── */
-    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
-    h2 { font-size: 21px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 12px; }
-    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
-    p  { margin-bottom: 12px; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    strong { font-weight: 600; }
-
-    .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
-    .lead {
-      font-size: 16px; color: var(--text);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
-    }
-
-    /* ── Callout boxes ── */
-    .callout {
-      border-left: 4px solid; border-radius: 0 6px 6px 0;
-      padding: 14px 18px; margin: 16px 0; font-size: 14px;
-    }
-    .callout-info    { background: var(--info-bg);    border-color: var(--info-border); }
-    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
-    .callout-danger  { background: var(--danger-bg);  border-color: var(--danger-border); }
-    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
-    .callout p:last-child { margin-bottom: 0; }
-    .callout > strong:first-child { display: block; margin-bottom: 4px; }
-    .callout-analogy > strong:first-child { color: var(--purple); }
-
-    /* ── Tables ── */
-    .table-wrap { overflow-x: auto; margin: 16px 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th {
-      background: var(--code-bg); font-weight: 600; text-align: left;
-      padding: 10px 14px; border: 1px solid var(--border); white-space: nowrap;
-    }
-    td { padding: 10px 14px; border: 1px solid var(--border); vertical-align: top; }
-    tr:nth-child(even) td { background: #fafbfc; }
-
-    /* ── Badges ── */
-    .badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 2px 8px; border-radius: 12px; font-size: 12px;
-      font-weight: 600; white-space: nowrap;
-    }
-    .badge-green  { background: #e8f5e9; color: #1b5e20; }
-    .badge-yellow { background: #fff8e1; color: #8d6e00; }
-    .badge-red    { background: #fce8e8; color: #a01818; }
-    .badge-blue   { background: #e8f4fd; color: #0b4a86; }
-
-    /* ── Code block ── */
-    pre.code-block {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 13px; background: var(--code-bg);
-      border: 1px solid var(--border); border-radius: 6px;
-      padding: 16px 20px; overflow-x: auto; white-space: pre;
-      line-height: 1.6; margin: 8px 0 4px;
-    }
-    code {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 12.5px; background: var(--code-bg);
-      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
-    }
-    pre.code-block code { background: none; border: none; padding: 0; font-size: inherit; }
-
-    /* ── Python 문법 강조 (syntax highlighting) ── */
-    pre.code-block .tok-com   { color: #6a737d; font-style: italic; }  /* 주석 */
-    pre.code-block .tok-str   { color: #032f62; }                       /* 문자열 */
-    pre.code-block .tok-kw    { color: #d73a49; }                       /* 키워드 (from, def, return ...) */
-    pre.code-block .tok-fn    { color: #6f42c1; font-weight: 600; }     /* def/class 이름 */
-    pre.code-block .tok-bi    { color: #005cc5; }                       /* 내장 타입/함수 (int, list, print ...) */
-    pre.code-block .tok-num   { color: #005cc5; }                       /* 숫자 */
-    pre.code-block .tok-dec   { color: #6f42c1; }                       /* 데코레이터 (@tool) */
-    pre.code-block .tok-shell { color: #b35900; }                       /* 셸 명령 (!pip ...) */
-
-    /* ── I/O labels + result block ── */
-    .io-label {
-      font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em;
-      text-transform: uppercase; color: var(--text-secondary);
-      margin: 16px 0 2px; display: flex; align-items: center; gap: 6px;
-    }
-    pre.result-block {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 13px; background: var(--result-bg);
-      border: 1px solid #cfe8d4; border-left: 4px solid var(--result-border);
-      border-radius: 6px; padding: 14px 18px; overflow-x: auto;
-      white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin: 4px 0 16px;
-    }
-    pre.result-block.bad {
-      background: #fdf2f2; border-color: #f3cccc; border-left-color: var(--danger-border);
-    }
-
-    /* ── Info card ── */
-    .info-card {
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 18px 22px; margin: 22px 0; background: var(--surface);
-    }
-    .info-card-title {
-      font-size: 14px; font-weight: 700; color: var(--accent);
-      margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
-    }
-
-    /* ── Step flow ── */
-    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 16px 0; }
-    .flow-step {
-      flex: 1 1 0; min-width: 140px;
-      border: 1px solid var(--border); border-radius: 8px;
-      background: var(--surface); padding: 12px 14px; font-size: 13px;
-    }
-    .flow-step .n {
-      display: inline-block; width: 20px; height: 20px; border-radius: 50%;
-      background: var(--accent); color: #fff; text-align: center;
-      line-height: 20px; font-size: 12px; font-weight: 700; margin-bottom: 6px;
-    }
-    .flow-step strong { display: block; margin-bottom: 2px; }
-    .flow-step p { font-size: 12px; color: var(--text-secondary); margin: 0; }
-
-    /* ── Figure ── */
-    figure {
-      margin: 20px 0; border: 1px solid var(--border);
-      border-radius: 8px; overflow: hidden; background: var(--surface);
-    }
-    figure img { display: block; width: 100%; height: auto; }
-    figcaption {
-      font-size: 12.5px; color: var(--text-secondary);
-      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--code-bg);
-    }
-
-    /* ── Trace box (실행 추적) ── */
-    .trace { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 18px 0; }
-    .trace-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-    .trace-row:last-child { border-bottom: none; }
-    .trace-row .who {
-      flex: 0 0 170px; padding: 12px 14px; font-weight: 700;
-      background: var(--code-bg); border-right: 1px solid var(--border);
-      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
-    }
-    .trace-row .what { padding: 12px 16px; background: var(--surface); flex: 1; }
-    .trace-row .what p { margin: 0; }
-
-    ul, ol { padding-left: 22px; margin: 10px 0; }
-    li { margin: 4px 0; font-size: 14px; }
-
-    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
-
-    .pager {
-      display: flex; justify-content: space-between; gap: 12px;
-      margin-top: 40px; font-size: 14px;
-    }
-    .pager a, .pager span.disabled {
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 12px 16px; background: var(--surface); flex: 1;
-    }
-    .pager a:hover { border-color: var(--accent); text-decoration: none; }
-    .pager .next { text-align: right; }
-    .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
-    .pager span.disabled { color: var(--text-secondary); text-align: right; }
-    .pager { flex-wrap: wrap; }
-    .pager a.to-index {
-      flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
-      color: var(--text-secondary); font-weight: 600; white-space: nowrap;
-    }
-    .pager a.to-index:hover { color: var(--accent); }
-    .pager span.disabled.prev { text-align: left; }
-    nav a.to-index { font-weight: 700; color: var(--accent); margin-bottom: 14px; }
-
-    @media (max-width: 720px) {
-      nav { display: none; }
-      main { margin-left: 0; padding: 24px 20px 60px; }
-      .trace-row { flex-direction: column; }
-      .trace-row .who { flex: none; border-right: none; border-bottom: 1px solid var(--border); }
-    }
-  </style>
+  <link rel="stylesheet" href="../styles.css" />
 </head>
 <body>
 
@@ -317,26 +78,24 @@
     </p>
 
     <p class="lead">
-      5-1에서 <code>Command</code>는 <strong>멈춘 그래프를 되살리는 열쇠</strong>였습니다 — <code>Command(resume="일식")</code>.
-      이번 장에서 <strong>같은 객체가 두 번째 얼굴</strong>을 보여 줍니다. <code>Command(goto="booking")</code>.
-      <strong>"다음에 실행할 노드는 여기다"라고 노드가 직접 지목하는</strong> 기능이에요.
-      이게 왜 중요하냐면, <strong>엣지를 하나도 그리지 않고도 그래프가 흐르게 되기 때문</strong>입니다.
-      그리고 그 순간 <strong>에이전트끼리 일을 넘기는 것(Handoff)</strong>이 문법적으로 가능해집니다.
-      <strong>5강 후반부 전체가 이 한 줄 위에 세워집니다.</strong>
+      <a href="1.html">5-1</a>에서 <code>Command(resume=)</code>는 <strong>멈춘 그래프를 되살리는 열쇠</strong>였습니다.
+      이번 장에서 같은 객체가 두 번째 얼굴을 보여 줍니다 — <code>Command(goto="booking")</code>.
+      <strong>"다음에 실행할 노드는 여기다"라고 노드가 직접 지목</strong>하는 기능이고, 덕분에
+      <strong>엣지를 하나도 그리지 않고도 그래프가 흐릅니다.</strong> 그 순간
+      <strong>에이전트끼리 일을 넘기는 것(Handoff)</strong>이 문법적으로 가능해지고,
+      5강 후반부 전체가 이 한 줄 위에 세워집니다.
     </p>
 
     <!-- ── Overview ── -->
     <div class="callout callout-info" id="overview">
       <strong>이 장에서 배우는 것</strong>
-      <p><strong>딱 하나입니다.</strong> <code>Command</code> 객체의 <strong><code>goto</code>와 <code>update</code> 두 속성.</strong>
-      새 개념도, 새 import도 없습니다. <strong>5-1에서 이미 가져다 쓴 그 <code>Command</code></strong>예요.</p>
-      <p>대신 <strong>이 한 줄이 그래프의 모양을 어떻게 바꾸는지</strong>를 끝까지 따라갑니다.
-      오마카세 예약 에이전트를 만들면서 <strong>노드 3개짜리 그래프에 엣지를 단 2개만 그리고</strong>,
-      <strong>나머지 길은 전부 <code>goto</code>로</strong> 잇습니다.
-      그 결과로 <strong>그래프 그림이 이상해지는 현상</strong>도 만나는데,
-      <strong>이게 버그가 아니라 당연한 결과</strong>라는 걸 <a href="#mermaid">4장</a>에서 자세히 뜯어봅니다.</p>
-      <p><strong>선행 지식</strong>: 5-1의 <code>interrupt()</code> · <code>Command(resume=)</code> · <code>checkpointer</code> · <code>thread_id</code>.
-      전부 그대로 다시 씁니다.</p>
+      <p>딱 하나 — <code>Command</code> 객체의 <strong><code>goto</code>와 <code>update</code> 두 속성</strong>입니다.
+      새 import도 없습니다. 오마카세 예약 에이전트를 만들면서 <strong>노드 3개짜리 그래프에 엣지를 단 2개만
+      그리고 나머지 길은 전부 <code>goto</code>로</strong> 잇습니다. 그 결과로
+      <strong>그래프 그림이 이상해지는 현상</strong>도 만나는데, 버그가 아니라 당연한 결과라는 걸
+      <a href="#mermaid">4장</a>에서 뜯어봅니다.</p>
+      <p><strong>선행 지식</strong>: <a href="1.html">5-1</a>의 <code>interrupt()</code> · <code>Command(resume=)</code>,
+      <a href="../04.%20Memory/1.html">4-1</a>의 <code>checkpointer</code> · <code>thread_id</code>. 전부 그대로 다시 씁니다.</p>
     </div>
 
     <hr />
@@ -345,53 +104,41 @@
     <h2 id="roadmap">1. 5강 후반부를 열며 — 단일 에이전트에서 여러 에이전트로</h2>
 
     <p>
-      지금까지 우리가 만든 건 전부 <strong>에이전트 하나, 그래프 하나</strong>였습니다.
-      노드가 몇 개든 <strong>결국 한 덩어리</strong>였죠.
+      지금까지 만든 건 전부 <strong>에이전트 하나, 그래프 하나</strong>였습니다.
+      멈추는 법(<a href="1.html">5-1</a>)과 사람의 답을 검증하는 법(<a href="1-2.html">5-2</a>)까지 갖췄으니,
       <strong>이제부터는 여러 그래프를 만들어 업무를 나눠 시킵니다.</strong>
     </p>
 
     <figure>
       <img src="../images/05.Multi%20Agent/14.png" alt="Command with Goto 슬라이드 — 왼쪽에 User request → Main Agent → Subagent A/B/C로 나가고 다시 Main Agent로 돌아와 Response를 내보내는 그래프. 오른쪽에 Single Agent, Network, Supervisor, Supervisor (as tools), Hierarchical, Custom 여섯 가지 멀티 에이전트 아키텍처 표" />
-      <figcaption>왼쪽이 <strong>앞으로 만들 그래프</strong>입니다. 메인 에이전트가 하위 에이전트들에게 일을 시키고,
-      결과를 돌려받아 최종 응답을 만듭니다. 오른쪽 표가 <strong>5강 후반부의 목차</strong>예요 —
-      <strong>Supervisor</strong>(감독관이 작업자에게 배분), <strong>Network</strong>(에이전트끼리 직접 협업),
-      <strong>Hierarchical</strong>(중간 관리자가 낀 다층 구조), 그리고 <strong>Custom</strong>.</figcaption>
+      <figcaption>오른쪽 표가 <strong>5강 후반부의 목차</strong>입니다. 회사 조직도로 읽으면 —
+      <strong>Single Agent</strong>는 1인 기업, <strong>Supervisor</strong>는 팀장 한 명에 팀원 여럿,
+      <strong>Hierarchical</strong>은 중간 관리자를 한 층 더 얹은 구조,
+      <strong>Network</strong>는 직급 없이 서로 직접 넘기는 수평 조직.</figcaption>
     </figure>
-
-    <p>
-      오른쪽 표를 <strong>회사 조직도</strong>라고 생각하면 편합니다.
-      <strong>Single Agent</strong>는 <strong>1인 기업</strong>이에요. 사장이 직접 도구를 들고 다 합니다.
-      <strong>Supervisor</strong>는 <strong>팀장 한 명에 팀원 여럿</strong> — 팀장이 일을 나눠 주고 받아 옵니다.
-      <strong>Hierarchical</strong>은 여기에 <strong>중간 관리자를 한 층 더</strong> 얹은 거고,
-      <strong>Network</strong>는 <strong>직급 없이 서로 직접 넘기는 수평 조직</strong>입니다.
-    </p>
 
     <h3 id="why-goto">왜 <code>goto</code>부터 배우나</h3>
 
     <p>
-      조직도가 커지면 <strong>연결선도 같이 폭발</strong>합니다.
-      <strong>노드가 100개인 그래프</strong>를 상상해 보세요.
-      지금까지 배운 방식대로라면 <strong>노드 사이의 모든 길을 <code>add_edge</code>와 <code>add_conditional_edges</code>로
-      일일이 선언</strong>해야 합니다. <strong>코드가 감당이 안 됩니다.</strong>
+      조직도가 커지면 연결선도 같이 폭발합니다. 노드가 100개라면 모든 길을
+      <code>add_edge</code>와 <code>add_conditional_edges</code>로 일일이 선언해야 하는데,
+      <strong>코드가 감당이 안 됩니다.</strong>
     </p>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 100층 건물에 계단만 놓기</strong>
-      <p><strong>엣지는 미리 깔아 둔 복도이자 계단</strong>입니다.
-      3층에서 7층으로 갈 일이 있으면 <strong>3층과 7층을 잇는 계단을 미리 만들어 둬야</strong> 하죠.
-      층이 100개가 되면 <strong>계단이 몇 개 필요할까요.</strong></p>
+      <p><strong>엣지는 미리 깔아 둔 복도이자 계단</strong>입니다. 3층에서 7층으로 갈 일이 있으면
+      계단을 미리 만들어 둬야 하죠. 층이 100개가 되면 계단이 몇 개 필요할까요.</p>
       <p><strong><code>Command(goto=...)</code>는 엘리베이터 버튼</strong>입니다.
-      계단을 놓는 대신 <strong>"7층"이라고 누르면 그냥 갑니다.</strong>
-      <strong>길을 미리 만들어 두지 않아도, 목적지 이름만 알면 도착</strong>하는 거예요.</p>
+      계단을 놓는 대신 "7층"이라고 누르면 그냥 갑니다.
+      <strong>길을 미리 만들어 두지 않아도, 목적지 이름만 알면 도착</strong>합니다.</p>
     </div>
 
     <div class="callout callout-info">
       <strong><code>Command</code>의 두 얼굴 — 5-1과 5-3</strong>
       <p><strong>5-1</strong>: <code>Command(resume="일식")</code> — <strong>바깥에서 그래프 안으로</strong> 던지는 값.
-      <strong>"멈춰 있는 <code>interrupt()</code>에 이 답을 넣고 다시 걸어라."</strong></p>
-      <p><strong>5-3</strong>: <code>Command(goto="booking")</code> — <strong>노드가 그래프 엔진에게</strong> 돌려주는 지시.
-      <strong>"내 일은 끝났고, 다음은 booking으로 보내라."</strong></p>
-      <p><strong>같은 클래스인데 쓰는 쪽과 방향이 반대</strong>입니다. 헷갈리면
+      <strong>5-3</strong>: <code>Command(goto="booking")</code> — <strong>노드가 그래프 엔진에게</strong> 돌려주는 지시.
+      같은 클래스인데 쓰는 쪽과 방향이 반대입니다.
       <strong><code>resume</code>은 사용자가 채우는 칸, <code>goto</code>는 노드가 채우는 칸</strong>이라고 기억하세요.</p>
     </div>
 
@@ -401,17 +148,16 @@
     <h2 id="scenario">2. 만들 것 — 오마카세 예약 에이전트</h2>
 
     <p>
-      <strong>고급 식당 예약을 대신 해 주는 에이전트</strong>를 만듭니다.
-      음식값이 비싸니까 <strong>확정 전에 반드시 사람의 승인</strong>을 받아야 하고,
+      <strong>고급 식당 예약을 대신 해 주는 에이전트</strong>입니다. 음식값이 비싸니
+      <strong>확정 전에 반드시 사람의 승인</strong>을 받아야 하고,
       <strong>거절당하면 더 싼 메뉴를 다시 제안</strong>해야 합니다.
     </p>
 
     <figure>
       <img src="../images/05.Multi%20Agent/15.png" alt="Command with Goto 슬라이드 — 1. AI가 1인당 20만 원짜리 오마카세를 추천, 2. 비싸니까 예약 확정 전에 사용자 승인(Human Approval) 요청, 3. yes → booking_node(예약 확정)로 점프, 4. no → recommender_node(다시 추천)로 점프. 오른쪽에 __start__ → recommender → approval → __end__ 세로 흐름과, 그 옆에 아무 선도 연결되지 않은 booking 노드가 따로 떠 있는 그래프" />
-      <figcaption>시나리오 네 줄과 완성된 그래프 그림입니다.
-      <strong>오른쪽 그림에서 <code>booking</code>이 아무 선도 없이 떠 있는 게 보이시나요?</strong>
-      <strong>그리고 <code>approval</code>에서 <code>__end__</code>로 선이 하나 내려가 있는데, 우리는 그런 엣지를 만든 적이 없습니다.</strong>
-      이 두 가지가 <a href="#mermaid">4장의 주제</a>입니다. 일단은 넘어가고, 먼저 만들어 보죠.</figcaption>
+      <figcaption>오른쪽 그림에서 <strong><code>booking</code>이 아무 선도 없이 떠 있고</strong>,
+      만든 적 없는 <strong><code>approval → __end__</code> 선이 그려져</strong> 있습니다.
+      이 두 가지가 <a href="#mermaid">4장의 주제</a>입니다. 일단 만들어 보죠.</figcaption>
     </figure>
 
     <h3 id="blueprint">설계도 읽기 — 노드 3개, 갈림길 1개</h3>
@@ -423,18 +169,16 @@
     </div>
 
     <p>
-      핵심은 <strong>2번 노드가 두 가지 일을 겸한다</strong>는 점입니다.
-      <strong>사람에게 묻는 일(Interrupt)</strong>과 <strong>답에 따라 길을 정하는 일(Router)</strong>이죠.
-      3강에서 배운 방식대로라면 <strong>라우팅은 <code>add_conditional_edges</code>의 몫</strong>이었습니다.
-      <strong>이번에는 그 역할을 노드 안으로 끌고 들어옵니다.</strong>
+      핵심은 2번 노드가 <strong>사람에게 묻는 일(Interrupt)</strong>과
+      <strong>답에 따라 길을 정하는 일(Router)</strong>을 겸한다는 점입니다.
+      <a href="../02.LangGraph%20기초/1.html">2강</a> 방식이라면 라우팅은 <code>add_conditional_edges</code>의
+      몫이었지만, <strong>이번에는 그 역할을 노드 안으로 끌고 들어옵니다.</strong>
     </p>
 
     <div class="callout callout-warn">
       <strong>이번 절에는 LLM이 등장하지 않습니다</strong>
-      <p>노트북 맨 위에서 <code>model = init_chat_model("gpt-5-nano")</code>로 모델을 만들긴 하는데,
-      <strong>2-1절 코드 어디에서도 <code>model.invoke()</code>를 부르지 않습니다.</strong>
-      판단은 전부 <strong>사람이 <code>yes</code>/<code>no</code>로</strong> 합니다.</p>
-      <p><strong>일부러 그런 겁니다.</strong> 이번 장의 주제는 <strong>"어떻게 판단하느냐"가 아니라 "판단 결과대로 어떻게 이동하느냐"</strong>거든요.
+      <p>모델을 만들긴 하지만 어디서도 <code>model.invoke()</code>를 부르지 않습니다.
+      이번 장의 주제는 <strong>"어떻게 판단하느냐"가 아니라 "판단 결과대로 어떻게 이동하느냐"</strong>이기 때문입니다.
       LLM은 <a href="#practice">맨 뒤 실습</a>에서 등장합니다.</p>
     </div>
 
@@ -445,7 +189,7 @@
 
     <figure>
       <img src="../images/05.Multi%20Agent/16.png" alt="Command with Goto 슬라이드 — State 정의, state 속 selected_menu에 따라 점프! 코드는 from langchain.messages import AnyMessage, from typing_extensions import TypedDict, Annotated, from langgraph.graph.message import add_messages, class ChatState(TypedDict): messages: Annotated[list[AnyMessage], add_messages], selected_menu: str  # 선택된 메뉴 저장" />
-      <figcaption>필드는 <strong>딱 두 개</strong>. 대화를 쌓는 <code>messages</code>와, <strong>지금 어떤 메뉴를 제안 중인지</strong> 적어 두는 <code>selected_menu</code>.</figcaption>
+      <figcaption>필드는 딱 두 개 — 대화를 쌓는 <code>messages</code>와, 지금 어떤 메뉴를 제안 중인지 적어 두는 <code>selected_menu</code>.</figcaption>
     </figure>
 
     <pre class="code-block"><code>from langchain.chat_models import init_chat_model
@@ -461,27 +205,18 @@ class ChatState(TypedDict):
     selected_menu: str   # 선택된 메뉴 저장</code></pre>
 
     <p>
-      <code>selected_menu</code>가 <strong>이 그래프의 기억 전체</strong>입니다.
-      <strong>"A 코스 (20만원)"</strong> 아니면 <strong>"B 코스 (8만원)"</strong>, 둘 중 하나의 문자열이죠.
-      <strong>리듀서가 없으니 기본 동작 — 덮어쓰기</strong>입니다. 노드가 새 값을 반환하면 <strong>통째로 갈아 끼워집니다.</strong>
+      <code>selected_menu</code>는 리듀서가 없으니 <strong>덮어쓰기</strong>입니다.
+      그리고 이 한 칸이 <strong>"몇 번째 제안인지" 카운터 역할까지 겸합니다</strong> —
+      비어 있으면 아직 제안 전이니 A코스, "A 코스"가 들어 있으면 퇴짜 맞은 것이니 B코스.
+      간결하지만 메뉴가 세 개 이상이 되면 결국 카운터가 따로 필요해집니다.
     </p>
-
-    <div class="callout callout-info">
-      <strong>이 한 칸이 "몇 번째 제안인지"를 대신한다</strong>
-      <p>보통이라면 <strong><code>attempt: int</code> 같은 카운터</strong>를 두고 싶어집니다.
-      그런데 여기서는 <strong><code>selected_menu</code> 값 자체가 카운터 역할</strong>을 해요.</p>
-      <p><strong>비어 있으면 = 아직 아무것도 제안 안 했다 → A코스.</strong>
-      <strong>"A 코스"가 들어 있으면 = A코스를 제안했다가 퇴짜 맞았다 → B코스.</strong>
-      <strong>상태 하나로 두 가지를 표현</strong>하는 거죠. 간결하지만, <strong>메뉴가 세 개 이상이 되는 순간 무너집니다.</strong>
-      (C코스를 추가하려면 결국 카운터가 필요해집니다.)</p>
-    </div>
 
     <!-- ─────────────────────────────── -->
     <h3 id="step2">STEP 2. recommender 노드 — 상태를 보고 메뉴를 고른다</h3>
 
     <figure>
       <img src="../images/05.Multi%20Agent/17.png" alt="Command with Goto 슬라이드 — recommender_node 생성, 최초 selected_menu는 빈 값 → A 코스 추천. 코드는 def recommender_node(state: ChatState)에서 last_menu = state.get('selected_menu')를 확인하고, A 코스면 B 코스를 반환, else면 A 코스를 반환. 오른쪽 그래프에서 recommender 노드가 빨간 원으로 강조되어 있음" />
-      <figcaption><strong>if 하나가 전부</strong>입니다. <strong>이전에 A코스를 추천했다면 거절당해 돌아온 것</strong>이므로 B코스를 꺼냅니다.</figcaption>
+      <figcaption><strong>if 하나가 전부</strong> — 이전에 A코스를 추천했다면 거절당해 돌아온 것이므로 B코스를 꺼냅니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code># [Node 1] 메뉴 추천
@@ -500,15 +235,10 @@ def recommender_node(state: ChatState):
         return {"selected_menu": "A 코스 (20만원)"}</code></pre>
 
     <p>
-      <code>state["selected_menu"]</code>가 아니라 <strong><code>state.get("selected_menu")</code></strong>인 이유는 5-1과 같습니다.
-      <strong>맨 처음 invoke할 때 이 키를 넣지 않기 때문</strong>이에요. <code>[]</code>로 접근하면 <code>KeyError</code>로 터지지만
-      <code>.get()</code>은 <strong>얌전히 <code>None</code>을 돌려줍니다.</strong>
-    </p>
-
-    <p>
-      그리고 이 노드는 <strong>평범한 딕셔너리를 반환</strong>합니다. <code>Command</code>가 아니에요.
-      <strong>다음에 어디로 갈지는 이 노드가 정하지 않기 때문</strong>입니다.
-      <code>recommender → approval</code>은 <strong>항상 같은 길</strong>이라 <strong>엣지로 미리 깔아 둘 겁니다.</strong>
+      <code>[]</code> 대신 <strong><code>state.get()</code></strong>인 이유는 맨 처음 invoke에 이 키가 없기
+      때문입니다(<code>KeyError</code> 대신 <code>None</code>).
+      그리고 이 노드는 <strong>평범한 딕셔너리를 반환</strong>합니다 —
+      <code>recommender → approval</code>은 항상 같은 길이라 엣지로 깔아 둘 것이기 때문입니다.
     </p>
 
     <!-- ─────────────────────────────── -->
@@ -516,7 +246,7 @@ def recommender_node(state: ChatState):
 
     <figure>
       <img src="../images/05.Multi%20Agent/18.png" alt="Command with Goto 슬라이드 — approval_node 생성, 사람의 입력(approved)에 따라 Command(goto='노드'), update: state 속 특정 필드의 값 업데이트(HumanMessage 추가). 오른쪽에 human_approval_node 전체 코드: interrupt로 승인 여부를 묻고, yes면 Command(update={'messages': [...]}, goto='booking'), else면 Command(update={'messages': [...]}, goto='recommender')" />
-      <figcaption>노드 하나가 <strong>세 가지 일</strong>을 합니다 — <strong>멈추고(interrupt)</strong>, <strong>판단하고(if)</strong>, <strong>보냅니다(goto)</strong>.</figcaption>
+      <figcaption>노드 하나가 세 가지 일을 합니다 — <strong>멈추고(interrupt), 판단하고(if), 보냅니다(goto)</strong>.</figcaption>
     </figure>
 
     <pre class="code-block"><code># [Node 2] 승인/거절 및 경로 변경 (Router 역할 겸임)
@@ -549,33 +279,27 @@ def human_approval_node(state: ChatState):
         )</code></pre>
 
     <p>
-      <strong>앞부분은 5-1에서 이미 배운 것</strong>입니다. <code>interrupt()</code>가 <strong>양방향</strong>으로 동작하죠 —
-      <strong>나갈 때</strong>는 괄호 안 문자열을 질문으로 내보내고 실행을 정지시키고,
-      <strong>돌아올 때</strong>는 <code>Command(resume="yes")</code>의 그 값이 <strong>이 함수의 반환값</strong>이 됩니다.
-      그래서 <code>approved</code>에 <code>"yes"</code>가 들어앉습니다.
+      앞부분은 <a href="1.html">5-1</a> 그대로입니다 — <code>interrupt()</code>는 나갈 때 질문을 내보내며 멈추고,
+      돌아올 때 <code>Command(resume="yes")</code>의 값이 이 함수의 반환값이 되어 <code>approved</code>에 담깁니다.
+      <strong>새로운 건 <code>return</code> 쪽</strong>입니다. 두 속성을 하나씩 봅시다.
     </p>
-
-    <p><strong>새로운 건 <code>return</code> 쪽</strong>입니다. 두 속성을 하나씩 봅시다.</p>
 
     <h4 id="goto-detail"><code>goto</code> — 다음에 실행할 노드 이름</h4>
 
     <pre class="code-block"><code>return Command(goto="booking")</code></pre>
 
     <p>
-      <strong>문자열 하나</strong>입니다. 그리고 이 문자열은 <strong>나중에 <code>add_node("booking", ...)</code>로
-      등록할 때 쓸 이름과 정확히 같아야</strong> 합니다.
-      <strong>함수 이름(<code>booking_node</code>)이 아니라 노드 이름(<code>"booking"</code>)</strong>이라는 점에 주의하세요.
+      문자열 하나입니다. 단, <strong><code>add_node("booking", ...)</code>로 등록할 때 쓸 이름과 정확히
+      같아야</strong> 합니다 — <strong>함수 이름(<code>booking_node</code>)이 아니라 노드 이름(<code>"booking"</code>)</strong>입니다.
     </p>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 복도 vs 택배 송장</strong>
-      <p><strong>엣지는 건물에 미리 뚫어 둔 복도</strong>입니다. 복도가 있어야 그리로 갈 수 있죠.
-      <strong>설계 단계에서 모든 통로를 다 뚫어 놔야</strong> 합니다.</p>
-      <p><strong><code>goto</code>는 서류 봉투에 붙이는 송장</strong>이에요.
-      <strong>"다음 수신처: 예약팀"</strong>이라고 적어서 내려놓으면, <strong>사내 우편이 알아서 배달</strong>합니다.
-      <strong>예약팀으로 가는 복도가 뚫려 있는지는 상관없습니다.</strong> 주소만 정확하면 됩니다.</p>
-      <p>대신 <strong>주소를 잘못 적으면 반송</strong>됩니다 —
-      실제로 없는 노드 이름을 적으면 <strong>실행 중에 에러</strong>가 납니다.
+      <p><strong>엣지는 건물에 미리 뚫어 둔 복도</strong>입니다. 설계 단계에서 모든 통로를 다 뚫어 놔야 하죠.
+      <strong><code>goto</code>는 서류 봉투에 붙이는 송장</strong>이에요.
+      <strong>"다음 수신처: 예약팀"</strong>이라고 적어 내려놓으면 사내 우편이 알아서 배달합니다.
+      복도가 뚫려 있는지는 상관없고, 주소만 정확하면 됩니다.</p>
+      <p>대신 <strong>주소를 잘못 적으면 반송</strong>됩니다 — 없는 노드 이름을 적으면 <strong>실행 중에</strong> 에러가 나고,
       <strong>컴파일 때는 아무 말도 안 해 줍니다.</strong> 오타 조심.</p>
     </div>
 
@@ -587,29 +311,23 @@ def human_approval_node(state: ChatState):
 )</code></pre>
 
     <p>
-      <strong>점프하기 전에 State를 갱신</strong>하고 싶을 때 씁니다.
-      <strong>보통 노드가 <code>return {"messages": [...]}</code>로 하던 그 일</strong>을,
-      <code>Command</code>를 반환할 때는 <strong><code>update=</code> 안에 넣어서</strong> 하는 거예요.
+      점프하기 전에 State를 갱신하고 싶을 때 씁니다. 보통 노드가 <code>return {"messages": [...]}</code>로
+      하던 그 일을 <code>update=</code> 안에 넣어서 하는 것뿐입니다.
     </p>
 
     <div class="callout callout-info">
       <strong><code>return {...}</code>와 <code>Command(update={...})</code>는 State 관점에서 완전히 같습니다</strong>
-      <p><strong>리듀서도 그대로 적용</strong>됩니다. <code>messages</code>에는 <code>add_messages</code>가 붙어 있으니
-      <strong>덮어쓰기가 아니라 뒤에 이어 붙기</strong>가 되죠.</p>
-      <p>차이는 <strong>딱 하나</strong> — <code>Command</code>는 여기에 <strong><code>goto</code>를 얹을 수 있다</strong>는 것.
-      <strong>"상태를 이렇게 바꾸고, 다음은 저기로 가라"를 한 번에 전달</strong>하는 게 <code>Command</code>의 존재 이유입니다.</p>
+      <p><strong>리듀서도 그대로 적용</strong>됩니다 — <code>messages</code>에는 <code>add_messages</code>가 붙어 있으니
+      덮어쓰기가 아니라 이어 붙기. 차이는 딱 하나, <code>Command</code>는 여기에 <strong><code>goto</code>를 얹어
+      "상태를 이렇게 바꾸고, 다음은 저기로 가라"를 한 번에 전달</strong>할 수 있다는 것입니다.</p>
     </div>
 
     <div class="callout callout-warn">
       <strong>⚠️ 문자열을 넣으면 <code>HumanMessage</code>가 됩니다</strong>
-      <p><code>update={"messages": ["사용자가 예약을 승인했습니다."]}</code> — <strong>그냥 문자열</strong>을 넣었죠.
-      <code>add_messages</code> 리듀서는 <strong>맨 문자열을 받으면 자동으로 <code>HumanMessage</code>로 감싸서</strong> 붙입니다.</p>
-      <p>편하지만 <strong>함정</strong>이기도 합니다. <strong>실제로 사람이 입력한 문장이 아닌 시스템 로그</strong>가
-      <strong>사람이 말한 것처럼 대화 기록에 남기</strong> 때문이에요.
-      나중에 이 <code>messages</code>를 <strong>그대로 LLM에게 넘기면</strong>, 모델은
-      <strong>"사용자가 예약을 승인했습니다"를 사용자가 한 말로 읽습니다.</strong></p>
-      <p>실전에서는 <strong><code>AIMessage(content=...)</code>로 직접 감싸거나</strong>,
-      <strong>로그는 아예 <code>messages</code>가 아닌 별도 필드</strong>에 쌓는 편이 안전합니다.</p>
+      <p><code>add_messages</code> 리듀서는 <strong>맨 문자열을 자동으로 <code>HumanMessage</code>로 감싸서</strong> 붙입니다.
+      편하지만 함정입니다 — <strong>시스템 로그가 사람이 말한 것처럼 대화 기록에 남고</strong>, 나중에 이
+      <code>messages</code>를 LLM에게 넘기면 모델은 그걸 사용자가 한 말로 읽습니다.
+      실전에서는 <strong><code>AIMessage(content=...)</code>로 직접 감싸거나 로그를 별도 필드</strong>에 쌓는 편이 안전합니다.</p>
     </div>
 
     <!-- ─────────────────────────────── -->
@@ -617,8 +335,7 @@ def human_approval_node(state: ChatState):
 
     <figure>
       <img src="../images/05.Multi%20Agent/19.png" alt="Command with Goto 슬라이드 — booking_node 생성, 최종 selected_menu 값 반환. 코드는 def booking_node(state: ChatState)에서 menu = state['selected_menu']를 읽어 예약 확정 문구를 print하고 messages에 예약 완료 메시지를 반환. 오른쪽 그래프에서 아무 선도 없이 떠 있는 booking 노드가 빨간 원으로 강조되어 있음" />
-      <figcaption>슬라이드에서 <strong>빨갛게 동그라미 친 부분</strong>을 보세요.
-      <strong><code>booking</code>이 그래프 그림에서 완전히 고립</strong>돼 있습니다. <strong>그런데도 정상 동작합니다.</strong></figcaption>
+      <figcaption><strong><code>booking</code>이 그래프 그림에서 완전히 고립</strong>돼 있습니다. 그런데도 정상 동작합니다.</figcaption>
     </figure>
 
     <pre class="code-block"><code># [Node 3] 예약 확정 (승인 시 이동할 곳)
@@ -628,10 +345,9 @@ def booking_node(state: ChatState):
     return {"messages": [f"'{menu}' 예약 완료"]}</code></pre>
 
     <p>
-      <strong>실제 서비스라면 이 자리에 예약 API 호출이 들어갑니다.</strong>
-      여기서는 <code>print</code>로 대신했어요. 중요한 건 <strong>이 노드가 언제 실행되는가</strong>입니다 —
+      실제 서비스라면 이 자리에 예약 API 호출이 들어갑니다. 중요한 건 이 노드가 언제 실행되는가 —
       <strong>오직 <code>approval</code>이 <code>goto="booking"</code>을 반환했을 때만.</strong>
-      <strong>들어오는 엣지가 하나도 없으니 다른 경로는 아예 존재하지 않습니다.</strong>
+      들어오는 엣지가 하나도 없으니 다른 경로는 존재하지 않습니다.
     </p>
 
     <!-- ─────────────────────────────── -->
@@ -639,7 +355,7 @@ def booking_node(state: ChatState):
 
     <figure>
       <img src="../images/05.Multi%20Agent/20.png" alt="Command with Goto 슬라이드 — 그래프 생성, 더 이상 conditional Edge 구현 x, draw_mermaid_png() 함수는 명시되지 않은 길은 표현하지 않아 끊긴 것처럼 보임. 왼쪽에 workflow = StateGraph(ChatState), add_node 3개, add_edge(START, 'recommender'), add_edge('recommender', 'approval'), checkpointer = InMemorySaver(), app = workflow.compile(checkpointer=checkpointer) 코드. 오른쪽에 booking이 떨어져 나온 그래프 그림" />
-      <figcaption>슬라이드 두 번째 줄이 <strong>이 장의 결론</strong>입니다 —
+      <figcaption>슬라이드 두 번째 줄이 이 장의 결론 —
       <strong>"draw_mermaid_png() 함수는 명시되지 않은 길은 표현하지 않아 끊긴 것처럼 보임".</strong></figcaption>
     </figure>
 
@@ -655,14 +371,9 @@ workflow.add_node("booking", booking_node)</code></pre>
 workflow.add_edge("recommender", "approval")</code></pre>
 
     <p>
-      <strong>끝입니다.</strong> 엣지 두 줄.
-      <strong><code>add_conditional_edges</code>가 한 줄도 없다</strong>는 게 포인트예요.
-    </p>
-
-    <p>
-      3강 방식이었다면 이렇게 썼어야 합니다 — <strong>라우터 함수를 따로 만들고</strong>,
-      <strong>approval에서 나가는 조건부 엣지를 선언</strong>하고, <strong>booking에서 END로 가는 엣지</strong>도 붙이고.
-      <strong>세 덩어리가 사라진 겁니다.</strong>
+      끝입니다. 엣지 두 줄, <strong><code>add_conditional_edges</code>는 한 줄도 없습니다.</strong>
+      3강 방식이었다면 라우터 함수 + 조건부 엣지 선언 + <code>booking → END</code> 엣지, 세 덩어리가
+      더 필요했을 겁니다.
     </p>
 
     <div class="table-wrap">
@@ -708,10 +419,10 @@ app = workflow.compile(checkpointer=checkpointer)</code></pre>
 
     <div class="callout callout-danger">
       <strong>⚠️ checkpointer는 여전히 필수입니다</strong>
-      <p><code>goto</code> 때문이 아니라 <strong><code>interrupt()</code> 때문</strong>이에요.
-      <strong>approval 노드 한가운데서 멈췄다가 나중에 이어서 실행</strong>하려면
-      <strong>"어디까지 갔었는지"를 저장할 곳</strong>이 필요합니다.
-      <strong>재개할 때 <code>config</code>(=<code>thread_id</code>)를 빠뜨리면 멈춰 있던 스레드를 못 찾습니다.</strong></p>
+      <p><code>goto</code> 때문이 아니라 <strong><code>interrupt()</code> 때문</strong>입니다.
+      노드 한가운데서 멈췄다가 이어서 실행하려면 "어디까지 갔었는지"를 저장할 곳이 필요하니까요
+      (<a href="../04.%20Memory/1.html">4-1 checkpointer</a>).
+      재개할 때 <code>config</code>(=<code>thread_id</code>)를 빠뜨리면 멈춰 있던 스레드를 못 찾습니다.</p>
     </div>
 
     <hr />
@@ -719,8 +430,8 @@ app = workflow.compile(checkpointer=checkpointer)</code></pre>
     <h2 id="mermaid">4. 그림이 거짓말을 한다 — 왜 booking이 떠 있나</h2>
 
     <p>
-      <code>app</code>을 그냥 출력하면 Jupyter가 <strong><code>draw_mermaid_png()</code>를 자동으로 호출</strong>해서
-      그래프를 그려 줍니다. 그런데 그 그림이 <strong>우리가 만든 것과 다르게</strong> 보입니다.
+      <code>app</code>을 출력하면 Jupyter가 <code>draw_mermaid_png()</code>를 자동 호출해 그래프를 그려 주는데,
+      그 그림이 <strong>우리가 만든 것과 다르게</strong> 보입니다.
     </p>
 
     <pre class="code-block"><code>app</code></pre>
@@ -731,32 +442,29 @@ recommender --&gt; approval
 approval  --&gt; __end__          &lt;-- 우리가 만든 적 없는 엣지
 booking                        &lt;-- 아무 선도 없이 떠 있음</pre>
 
-    <p><strong>이상한 점이 두 가지</strong>입니다.</p>
+    <p>이상한 점이 두 가지입니다.</p>
 
     <ul>
       <li><strong><code>booking</code>이 고립돼 있다</strong> — 들어가는 선도, 나오는 선도 없습니다.</li>
       <li><strong><code>approval → __end__</code> 선이 있다</strong> — <code>add_edge("approval", END)</code>를 쓴 적이 없는데도요.</li>
     </ul>
 
-    <p>
-      <strong>둘 다 정상입니다.</strong> 그리고 <strong>원인은 하나</strong>예요.
-    </p>
+    <p><strong>둘 다 정상이고, 원인은 하나입니다.</strong></p>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 건물 도면에는 지름길이 안 그려진다</strong>
-      <p><strong>건축 도면에는 복도와 계단만 그려집니다.</strong>
-      직원들이 실제로 매일 쓰는 <strong>"주차장 통해서 옆 동으로 넘어가는 지름길"</strong>은
-      <strong>도면 어디에도 없죠.</strong> 도면이 틀린 게 아니라, <strong>도면은 설계된 통로만 그리기 때문</strong>입니다.</p>
+      <p>건축 도면에는 복도와 계단만 그려집니다. 직원들이 매일 쓰는 "주차장 통해 옆 동으로 넘어가는
+      지름길"은 도면 어디에도 없죠. 도면이 틀린 게 아니라, <strong>도면은 설계된 통로만 그리기 때문</strong>입니다.</p>
       <p><strong><code>goto</code>는 설계된 통로가 아니라 실행 중에 생기는 지름길</strong>입니다.
-      <code>approval</code> 노드가 <strong>실제로 실행돼서 <code>Command</code>를 반환해 봐야</strong> 어디로 갈지 알 수 있어요.
-      그런데 <strong>그림을 그리는 시점에는 노드 함수를 실행하지 않습니다.</strong> 그러니 <strong>그릴 방법이 없죠.</strong></p>
+      <code>approval</code>이 실제로 실행돼 <code>Command</code>를 반환해 봐야 어디로 갈지 아는데,
+      <strong>그림을 그리는 시점에는 노드 함수를 실행하지 않으니</strong> 그릴 방법이 없습니다.</p>
     </div>
 
     <h3 id="mermaid-why"><code>__end__</code>는 그럼 누가 그렸나</h3>
 
     <p>
-      이쪽이 더 헷갈립니다. <strong>없는 길을 안 그리는 건 이해가 되는데, 왜 없는 길이 새로 생겼을까요.</strong>
-      LangGraph가 그림을 조립하는 마지막 단계에 <strong>이런 규칙</strong>이 있기 때문입니다.
+      없는 길을 안 그리는 건 이해가 되는데, <strong>왜 없는 길이 새로 생겼을까요.</strong>
+      LangGraph가 그림을 조립하는 마지막 단계에 이런 규칙이 있기 때문입니다.
       (<code>langgraph/pregel/_draw.py</code>)
     </p>
 
@@ -766,9 +474,9 @@ for src in sorted(termini):
     add_edge(graph, src, END)</code></pre>
 
     <p>
-      그림을 그릴 때 LangGraph가 알고 있는 엣지는 <strong>우리가 선언한 두 개뿐</strong>입니다.
-      <code>START → recommender</code>, <code>recommender → approval</code>.
-      여기에 위 규칙을 적용해 보죠.
+      그림 시점에 LangGraph가 아는 엣지는 우리가 선언한
+      <code>START → recommender</code>, <code>recommender → approval</code> 둘뿐입니다.
+      규칙을 적용하면:
     </p>
 
     <div class="table-wrap">
@@ -797,24 +505,23 @@ for src in sorted(termini):
     </div>
 
     <p>
-      정리하면 <strong>"나가는 선을 못 찾았으니 여기서 끝나는 모양이겠지"</strong> 하고
-      <strong>그림에만 <code>END</code>를 대신 그려 넣은 것</strong>입니다.
-      <strong>코드에 그런 엣지가 생긴 게 아니에요.</strong>
-      실행하면 <code>approval</code>은 <strong><code>goto</code>가 시키는 대로</strong> 멀쩡히 <code>booking</code>이나 <code>recommender</code>로 갑니다.
+      즉 <strong>"나가는 선을 못 찾았으니 여기서 끝나는 모양이겠지" 하고 그림에만 <code>END</code>를
+      대신 그려 넣은 것</strong>입니다. 코드에 그런 엣지가 생긴 게 아니에요.
+      실행하면 <code>approval</code>은 <code>goto</code>가 시키는 대로 멀쩡히 <code>booking</code>이나
+      <code>recommender</code>로 갑니다.
     </p>
 
     <div class="callout callout-warn">
       <strong>기억할 한 문장</strong>
-      <p><strong>그림은 "선언된 엣지"만 그린다. <code>goto</code>는 선언이 아니라 실행 결과다.</strong></p>
-      <p>그래서 <strong><code>goto</code>를 많이 쓸수록 그래프 그림은 점점 쓸모없어집니다.</strong>
-      노드 100개짜리 멀티 에이전트를 <code>goto</code>로만 이으면, <strong>그림에는 섬 100개가 떠 있게</strong> 됩니다.</p>
+      <p><strong>그림은 "선언된 엣지"만 그린다. <code>goto</code>는 선언이 아니라 실행 결과다.</strong>
+      그래서 <code>goto</code>를 많이 쓸수록 그래프 그림은 점점 쓸모없어집니다 —
+      노드 100개짜리 멀티 에이전트를 <code>goto</code>로만 이으면 그림에는 섬 100개가 떠 있게 됩니다.</p>
     </div>
 
     <h3 id="mermaid-fix">도면을 고치는 두 가지 방법</h3>
 
     <p>
-      <strong>실행에는 문제가 없지만</strong>, 팀에게 구조를 설명하거나 디버깅할 때
-      <strong>그림이 맞는 편이 훨씬 낫습니다.</strong>
+      실행에는 문제가 없지만, 팀에게 구조를 설명하거나 디버깅할 때는 그림이 맞는 편이 낫습니다.
       <strong>"이 노드는 이런 곳들로 갈 수 있다"를 미리 알려 주면</strong> LangGraph가 그려 줍니다.
     </p>
 
@@ -826,9 +533,9 @@ def human_approval_node(state: ChatState) -> Command[Literal["booking", "recomme
     ...</code></pre>
 
     <p>
-      <code>add_node()</code>는 <strong>함수의 반환 타입 힌트를 읽습니다.</strong>
-      <code>Command[Literal[...]]</code> 형태면 <strong>대괄호 안의 문자열들을 갈 수 있는 곳으로 등록</strong>해요.
-      <strong>코드는 한 줄도 안 바뀌고 힌트만 붙었는데 그림이 달라집니다.</strong>
+      <code>add_node()</code>는 함수의 반환 타입 힌트를 읽습니다. <code>Command[Literal[...]]</code> 형태면
+      <strong>대괄호 안의 문자열들을 갈 수 있는 곳으로 등록</strong>합니다 — 코드는 한 줄도 안 바뀌고
+      힌트만 붙었는데 그림이 달라집니다.
     </p>
 
     <h4>② <code>destinations=</code>로 직접 알려 주기</h4>
@@ -848,19 +555,16 @@ approval  -.-&gt; recommender
 booking   --&gt; __end__           &lt;-- 이제 진짜 막다른 노드는 booking</pre>
 
     <p>
-      <strong>점선(<code>-.-&gt;</code>)</strong>으로 그려지는 게 포인트입니다.
-      <strong>"항상 가는 길이 아니라 조건에 따라 갈 수도 있는 길"</strong>이라는 표시예요.
-      그리고 <strong><code>END</code>가 제자리를 찾았습니다</strong> — 이제 진짜 막다른 노드는 <code>booking</code>이니까요.
+      <strong>점선(<code>-.-&gt;</code>)</strong>은 "항상 가는 길이 아니라 조건에 따라 갈 수도 있는 길"이라는
+      표시입니다. 그리고 <code>END</code>가 제자리를 찾았습니다 — 이제 진짜 막다른 노드는 <code>booking</code>이니까요.
     </p>
 
     <div class="callout callout-info">
       <strong>둘 중 뭘 쓸까</strong>
-      <p><strong>타입 힌트를 권합니다.</strong> <strong>함수 바로 옆에 붙어 있어서</strong>
-      <code>goto</code> 대상을 고칠 때 <strong>같이 고치게 되거든요.</strong>
-      <code>destinations=</code>는 <strong>그래프 조립부에 떨어져 있어서</strong> 잊어버리기 쉽습니다.</p>
-      <p>다만 <strong>화살표에 "승인"/"거절" 같은 라벨을 달고 싶으면</strong> <code>destinations=</code>의 딕셔너리 형태를 써야 합니다.</p>
-      <p><strong>둘 다 "그림용 메타데이터"일 뿐 동작을 바꾸지는 않습니다.</strong>
-      여기 없는 노드로 <code>goto</code>해도 <strong>실행은 그냥 됩니다.</strong></p>
+      <p><strong>타입 힌트를 권합니다.</strong> 함수 바로 옆에 붙어 있어서 <code>goto</code> 대상을 고칠 때 같이
+      고치게 되기 때문입니다. 화살표에 "승인"/"거절" 라벨을 달고 싶을 때만 <code>destinations=</code>의
+      딕셔너리 형태를 쓰세요. <strong>둘 다 그림용 메타데이터일 뿐 동작을 바꾸지는 않습니다</strong> —
+      여기 없는 노드로 <code>goto</code>해도 실행은 그냥 됩니다.</p>
     </div>
 
     <hr />
@@ -869,8 +573,7 @@ booking   --&gt; __end__           &lt;-- 이제 진짜 막다른 노드는 book
     <h2 id="run1">5. 실행 — invoke 세 번으로 끝나는 예약</h2>
 
     <p>
-      <strong>사람에게 두 번 물어보는 시나리오</strong>를 돌려 봅니다.
-      <strong>A코스를 거절하고 → B코스를 승인</strong>하는 흐름이에요.
+      <strong>A코스를 거절하고 → B코스를 승인</strong>하는 시나리오입니다.
       <code>interrupt</code>가 두 번 걸리니 <strong><code>invoke</code>는 총 세 번</strong> 필요합니다.
     </p>
 
@@ -890,10 +593,8 @@ app.invoke({"messages": [HumanMessage(content="예약해줘")]}, config=config)<
                              id='3e2ee8a1c3aa11b50c6fcb6cbe4d4ba5')]}</pre>
 
     <p>
-      <strong><code>▶️ [Decision]</code>이 안 찍혔죠.</strong>
-      <code>interrupt()</code> 줄에서 <strong>실행이 통째로 끊겼기 때문</strong>입니다.
-      <strong>그 아래 <code>if</code>문은 아직 실행되지 않았습니다.</strong>
-      대신 <strong>질문이 <code>__interrupt__</code> 키에 실려</strong> 나왔습니다.
+      <code>▶️ [Decision]</code>이 안 찍혔습니다 — <code>interrupt()</code> 줄에서 실행이 끊겨
+      그 아래 <code>if</code>문은 아직 실행되지 않았고, 질문이 <code>__interrupt__</code> 키에 실려 나왔습니다.
     </p>
 
     <h3 id="snapshot">멈춘 자리를 <code>get_state</code>로 확인</h3>
@@ -907,9 +608,8 @@ print(snapshot.next)</code></pre>
 ('approval',)</pre>
 
     <p>
-      <strong><code>snapshot.next</code>가 <code>('approval',)</code></strong>입니다.
-      <strong>"재개하면 approval 노드부터 다시 시작한다"</strong>는 뜻이에요.
-      <strong>approval "다음"이 아니라 approval "자체"</strong>입니다 — 이게 다음 절의 복선입니다.
+      <code>snapshot.next</code>가 <code>('approval',)</code> — 재개하면 approval
+      <strong>"다음"이 아니라 approval "자체"부터</strong> 다시 시작한다는 뜻입니다. 다음 절의 복선이에요.
     </p>
 
     <h3 id="run2">② <code>resume="no"</code> — 되돌아간다</h3>
@@ -924,28 +624,26 @@ print(snapshot.next)</code></pre>
 
 👮 [Approval] 'B 코스 (8만원)'은(는) 고가이므로 승인이 필요합니다.</pre>
 
-    <p><strong>한 번의 invoke에서 세 가지 일이 일어났습니다.</strong></p>
+    <p>한 번의 invoke에서 세 가지 일이 일어났습니다.</p>
 
     <div class="trace">
       <div class="trace-row">
         <div class="who">approval (재실행)</div>
         <div class="what"><p><strong>맨 위 <code>print</code>가 다시 찍혔습니다.</strong>
         재개는 <strong>노드를 처음부터 다시 실행</strong>하는 방식이라
-        <code>interrupt()</code> 앞의 코드가 <strong>한 번 더</strong> 돕니다.
-        이번엔 <code>interrupt()</code>가 <strong>멈추지 않고 <code>"no"</code>를 반환</strong>합니다.</p></div>
+        <code>interrupt()</code> 앞의 코드가 한 번 더 돕니다.
+        이번엔 <code>interrupt()</code>가 멈추지 않고 <code>"no"</code>를 반환합니다.</p></div>
       </div>
       <div class="trace-row">
         <div class="who">Command(goto=<br>"recommender")</div>
         <div class="what"><p><code>approved != "yes"</code>니까 <code>else</code>로 갑니다.
-        <strong><code>messages</code>에 거절 로그를 붙이면서</strong>
-        <strong><code>recommender</code>로 점프</strong>합니다.
+        <code>messages</code>에 거절 로그를 붙이면서 <strong><code>recommender</code>로 점프</strong>합니다.
         <strong>이 방향으로는 엣지가 없습니다.</strong> <code>goto</code>가 만든 길이에요.</p></div>
       </div>
       <div class="trace-row">
         <div class="who">recommender<br>→ approval</div>
-        <div class="what"><p><code>selected_menu</code>가 <strong>"A 코스"</strong>로 남아 있으니
-        <strong><code>if</code>가 참</strong>이 되어 <strong>B코스</strong>를 꺼냅니다.
-        그리고 <strong><code>recommender → approval</code>은 우리가 깔아 둔 엣지</strong>라 그대로 흘러가고,
+        <div class="what"><p><code>selected_menu</code>가 "A 코스"로 남아 있으니 <code>if</code>가 참이 되어
+        <strong>B코스</strong>를 꺼냅니다. <code>recommender → approval</code>은 깔아 둔 엣지라 그대로 흘러가고,
         <strong>또 <code>interrupt</code>에 걸려 멈춥니다.</strong></p></div>
       </div>
     </div>
@@ -957,8 +655,8 @@ print(snapshot.next)</code></pre>
  '__interrupt__': [Interrupt(value="'B 코스 (8만원)' 예약을 진행하시겠습니까? (yes/no)", ...)]}</pre>
 
     <p>
-      <strong><code>update</code>에 넣었던 문자열이 <code>HumanMessage</code>가 되어 붙었습니다.</strong>
-      <strong><code>selected_menu</code>는 B코스로 갈아 끼워졌고요.</strong> 그리고 <strong>또 멈춰 있습니다.</strong>
+      <code>update</code>에 넣었던 문자열이 <code>HumanMessage</code>가 되어 붙었고,
+      <code>selected_menu</code>는 B코스로 갈아 끼워졌고, 또 멈춰 있습니다.
     </p>
 
     <h3 id="run3">③ <code>resume="yes"</code> — 건너뛴다</h3>
@@ -972,9 +670,8 @@ print(snapshot.next)</code></pre>
 ✅ [Booking] 'B 코스 (8만원)' 예약이 확정되었습니다! (문자 발송 완료)</pre>
 
     <p>
-      <strong><code>booking</code>이 실행됐습니다.</strong>
-      <strong>그래프 그림에서는 아무 선도 연결돼 있지 않던 그 노드</strong>가요.
-      <strong><code>goto="booking"</code> 한 줄이 실제로 작동한다는 증거</strong>입니다.
+      <strong>그래프 그림에서 아무 선도 연결돼 있지 않던 <code>booking</code>이 실행됐습니다.</strong>
+      <code>goto="booking"</code> 한 줄이 실제로 작동한다는 증거입니다.
     </p>
 
     <h3 id="trace">전체 흐름 한눈에</h3>
@@ -996,11 +693,9 @@ print(snapshot.next)</code></pre>
     </div>
 
     <p>
-      <strong>고리(loop)가 하나 있습니다.</strong> <code>approval → recommender → approval</code>.
-      3강에서라면 <strong>조건부 엣지로 만들었을 사이클</strong>인데,
-      여기서는 <strong><code>goto</code> 한 줄</strong>로 만들어졌습니다.
-      <strong>사용자가 계속 거절하면 무한히 돕니다</strong> —
-      메뉴가 A/B 둘뿐이라 <strong>실질적으로는 B에서 멈추지만</strong>,
+      <code>approval → recommender → approval</code> <strong>고리(loop)</strong>가 생겼습니다.
+      3강이라면 조건부 엣지로 만들었을 사이클이 <code>goto</code> 한 줄로 만들어진 거죠.
+      사용자가 계속 거절하면 무한히 돕니다 — 메뉴가 둘뿐이라 실질적으로는 B에서 멈추지만,
       <strong>실전에서는 시도 횟수 상한을 반드시 걸어야</strong> 합니다.
     </p>
 
@@ -1020,20 +715,12 @@ HumanMessage | 사용자가 거절했습니다. 다른 메뉴를 찾습니다.
 HumanMessage | 사용자가 예약을 승인했습니다.
 HumanMessage | 'B 코스 (8만원)' 예약 완료</pre>
 
-    <p>
-      <strong>대화 기록이 그래프가 지나온 길의 요약</strong>이 됐습니다.
-      <strong>실제 사용자가 입력한 건 첫 줄 하나뿐</strong>인데,
-      <strong>나머지 세 줄은 <code>Command(update=)</code>와 <code>booking</code> 노드가 남긴 것</strong>이죠.
-    </p>
-
     <div class="callout callout-warn">
-      <strong>네 줄이 전부 <code>HumanMessage</code>라는 점을 다시 보세요</strong>
-      <p><strong>예약 완료 안내는 시스템이 만든 문장</strong>인데도 <code>HumanMessage</code>입니다.
-      <a href="#update-detail">앞에서 말한 그 함정</a>이 그대로 드러난 거예요.
-      <strong><code>add_messages</code>는 맨 문자열을 무조건 <code>HumanMessage</code>로 감쌉니다.</strong></p>
-      <p>이 <code>messages</code>를 <strong>다음 턴에 LLM에게 넘기는 순간</strong>,
-      모델은 <strong>사용자가 "예약 완료"라고 말했다고 읽습니다.</strong>
-      <strong>학습용 예제니까 넘어가지만, 실전에서는 <code>AIMessage</code>로 감싸세요.</strong></p>
+      <strong>네 줄이 전부 <code>HumanMessage</code>라는 점을 보세요</strong>
+      <p>실제 사용자가 입력한 건 첫 줄 하나뿐인데, <a href="#update-detail">앞에서 말한 함정</a>대로
+      <code>add_messages</code>가 맨 문자열을 전부 <code>HumanMessage</code>로 감쌌습니다.
+      이 <code>messages</code>를 다음 턴에 LLM에게 넘기는 순간 모델은 사용자가 "예약 완료"라고 말했다고
+      읽습니다. <strong>실전에서는 <code>AIMessage</code>로 감싸세요.</strong></p>
     </div>
 
     <hr />
@@ -1041,17 +728,17 @@ HumanMessage | 'B 코스 (8만원)' 예약 완료</pre>
     <h2 id="vs">6. 조건부 엣지 vs <code>goto</code> — 언제 뭘 쓰나</h2>
 
     <p>
-      <strong>둘 다 "갈림길을 만든다"는 목적은 같습니다.</strong>
-      그러면 <strong>이제 <code>add_conditional_edges</code>는 안 써도 되는 걸까요?</strong> 그렇지 않습니다.
+      둘 다 "갈림길을 만든다"는 목적은 같습니다. 그러면 이제
+      <code>add_conditional_edges</code>는 안 써도 되는 걸까요? 그렇지 않습니다.
     </p>
 
     <div class="callout callout-analogy">
       <strong>🔍 비유 — 표지판이냐, 송장이냐</strong>
       <p><strong>조건부 엣지는 갈림길에 세워 둔 표지판</strong>입니다.
-      <strong>길 자체가 눈에 보이고</strong>, 지나가는 사람 누구나 <strong>"여기서 두 갈래로 나뉘는구나"를 알 수</strong> 있습니다.</p>
+      길 자체가 눈에 보이고, 누구나 "여기서 두 갈래로 나뉘는구나"를 알 수 있습니다.</p>
       <p><strong><code>goto</code>는 서류에 붙이는 송장</strong>입니다.
-      <strong>봉투를 열어 봐야 어디로 갈지 알 수</strong> 있죠.
-      대신 <strong>수신처가 몇 백 곳이어도 송장 한 장이면 됩니다.</strong></p>
+      봉투를 열어 봐야 어디로 갈지 알 수 있죠.
+      대신 수신처가 몇 백 곳이어도 송장 한 장이면 됩니다.</p>
     </div>
 
     <div class="table-wrap">
@@ -1091,9 +778,8 @@ HumanMessage | 'B 코스 (8만원)' 예약 완료</pre>
 
     <p>
       <strong>실무에서는 섞어 씁니다.</strong> 이번 그래프가 딱 그래요 —
-      <strong>항상 같은 길(<code>recommender → approval</code>)은 엣지로</strong>,
-      <strong>실행 중에 갈리는 길은 <code>goto</code>로</strong>.
-      <strong>"뻔한 길은 그려 두고, 상황에 따라 갈리는 길만 코드로"</strong> 정도가 좋은 기준입니다.
+      <strong>항상 같은 길(<code>recommender → approval</code>)은 엣지로, 실행 중에 갈리는 길은
+      <code>goto</code>로.</strong> "뻔한 길은 그려 두고, 상황에 따라 갈리는 길만 코드로" 정도가 좋은 기준입니다.
     </p>
 
     <hr />
@@ -1105,7 +791,7 @@ HumanMessage | 'B 코스 (8만원)' 예약 완료</pre>
 
     <p>
       <strong>가장 위험한 오해</strong>입니다.
-      <strong>노드에 나가는 엣지가 이미 있는데 <code>goto</code>를 반환하면, 둘 다 실행됩니다.</strong>
+      노드에 나가는 엣지가 이미 있는데 <code>goto</code>를 반환하면, <strong>둘 다 실행됩니다.</strong>
     </p>
 
     <pre class="code-block"><code>def a(state):
@@ -1119,22 +805,21 @@ workflow.add_edge("a", "b")      # 그런데 b로 가는 엣지도 남아 있다
 [c] 실행 (goto 때문에)</pre>
 
     <p>
-      <strong><code>b</code>와 <code>c</code>가 나란히 실행됐습니다.</strong>
-      <code>goto</code>는 <strong>"대신 여기로 가"가 아니라 "여기도 추가로 보내"</strong>에 가깝습니다.
-      <strong><code>goto=END</code>도 마찬가지</strong>라서, 정적 엣지가 남아 있으면 <strong>끝나지 않습니다.</strong>
+      <code>goto</code>는 "대신 여기로 가"가 아니라 <strong>"여기도 추가로 보내"</strong>에 가깝습니다.
+      <code>goto=END</code>도 마찬가지라서, 정적 엣지가 남아 있으면 끝나지 않습니다.
     </p>
 
     <div class="callout callout-danger">
       <strong>규칙</strong>
       <p><strong><code>goto</code>로 경로를 정하는 노드에서는, 그 노드에서 나가는 <code>add_edge</code>를 전부 지우세요.</strong>
-      이번 그래프에서 <code>approval</code>에 나가는 엣지가 하나도 없는 게 <strong>실수가 아니라 필수 조건</strong>입니다.</p>
+      이번 그래프에서 <code>approval</code>에 나가는 엣지가 하나도 없는 게 실수가 아니라 필수 조건입니다.</p>
     </div>
 
     <h3>② 같은 <code>thread_id</code>로 다시 실행하면 이전 상태가 남아 있다</h3>
 
     <p>
-      <strong>노트북을 만지다 보면 반드시 겪습니다.</strong>
-      <strong>첫 번째 셀을 다시 실행했는데 A코스가 아니라 B코스가 추천되는</strong> 현상이요.
+      노트북을 만지다 보면 반드시 겪습니다 —
+      <strong>첫 번째 셀을 다시 실행했는데 A코스가 아니라 B코스가 추천되는</strong> 현상.
     </p>
 
     <div class="io-label">⏹ 첫 실행 후, resume 없이 같은 셀을 다시 실행하면</div>
@@ -1145,35 +830,25 @@ workflow.add_edge("a", "b")      # 그런데 b로 가는 엣지도 남아 있다
 &gt;&gt;&gt; ['예약해줘', '예약해줘'] | selected_menu: B 코스 (8만원)</pre>
 
     <p>
-      <strong>버그가 아닙니다.</strong> <code>checkpointer</code>가 <strong><code>thread_id="goto-demo"</code>에
-      <code>selected_menu="A 코스 (20만원)"</code>를 이미 저장해 뒀기 때문</strong>이에요.
-      그 상태에서 <code>recommender</code>가 다시 돌면 <strong><code>if</code>가 참이 되어 B코스</strong>가 나오고,
-      <strong>"예약해줘"도 한 번 더 append</strong>됩니다.
+      버그가 아닙니다. <code>checkpointer</code>가 <code>thread_id="goto-demo"</code>에
+      <code>selected_menu="A 코스 (20만원)"</code>를 이미 저장해 뒀기 때문입니다.
+      해결은 <strong><code>thread_id</code>를 새로 뽑거나 <code>InMemorySaver()</code>를 다시 만드는 것</strong>.
+      실행 결과가 이상하면 먼저 <code>app.get_state(config)</code>로 지금 상태부터 확인하세요.
     </p>
-
-    <div class="callout callout-info">
-      <strong>해결 — 처음부터 다시 하려면 <code>thread_id</code>를 바꾸세요</strong>
-      <p><code>{"configurable": {"thread_id": "goto-demo-2"}}</code>처럼 <strong>새 번호표를 뽑으면</strong> 빈 상태에서 시작합니다.
-      <strong><code>InMemorySaver()</code>를 다시 만드는 셀부터 재실행</strong>해도 됩니다.</p>
-      <p><strong>중간부터 셀을 다시 돌리는 습관</strong>이 있다면 이 함정에 계속 걸립니다.
-      <strong>실행 결과가 이상하면 먼저 <code>app.get_state(config)</code>로 지금 상태부터 확인</strong>하세요.</p>
-    </div>
 
     <h3>③ 재개하면 노드가 <em>처음부터</em> 다시 실행된다</h3>
 
     <p>
-      5-1에서 배운 그대로입니다. <strong>실행 로그에 <code>👮 [Approval]</code>이 세 번 찍힌 것</strong>을 보세요.
-      <strong>사람에게 물어본 건 두 번인데</strong>요.
+      <a href="1.html">5-1</a>에서 배운 그대로입니다. 실행 로그에 <code>👮 [Approval]</code>이
+      사람에게 물어본 횟수(2번)보다 많은 세 번 찍힌 이유 —
       <strong><code>interrupt()</code> 앞의 코드는 재개할 때마다 다시 돕니다.</strong>
     </p>
 
     <div class="callout callout-danger">
       <strong>부작용은 <code>interrupt()</code> <em>뒤</em>에 두세요</strong>
-      <p><strong>DB 쓰기 · 결제 · 메일 발송 · 예약 API 호출</strong>을 <code>interrupt()</code> 앞에 두면
-      <strong>재개할 때마다 한 번씩 더 일어납니다.</strong>
-      <strong>"읽기 → interrupt → 쓰기"</strong> 순서를 기억하세요.</p>
-      <p>이번 코드가 <strong><code>booking</code>을 별도 노드로 분리한 이유</strong>이기도 합니다.
-      <strong>예약 확정을 approval 노드 안에 넣었다면</strong> 재실행 때마다 예약이 잡혔겠죠.</p>
+      <p>DB 쓰기 · 결제 · 예약 API 호출을 <code>interrupt()</code> 앞에 두면 재개할 때마다 한 번씩 더 일어납니다.
+      이번 코드가 <strong><code>booking</code>을 별도 노드로 분리한 이유</strong>이기도 합니다 —
+      예약 확정을 approval 노드 안에 넣었다면 재실행 때마다 예약이 잡혔겠죠.</p>
     </div>
 
     <h3>④ <code>goto</code>에 적는 건 <em>노드 이름</em>이지 함수 이름이 아니다</h3>
@@ -1185,11 +860,9 @@ return Command(goto="booking")      # ✅
 return Command(goto="booking_node") # ❌ 실행 중에 에러</code></pre>
 
     <p>
-      <strong>컴파일할 때는 아무 경고도 안 나옵니다.</strong>
-      <strong>실제로 그 <code>goto</code>가 실행되는 순간에야</strong> 터져요.
-      <strong>거절 경로를 한 번도 안 밟아 보고 배포하면 프로덕션에서 처음 만나게 됩니다.</strong>
-      <a href="#mermaid-fix">타입 힌트나 <code>destinations=</code></a>를 붙여 두면
-      <strong>그림에서 오타가 눈에 띄어</strong> 조금 빨리 잡을 수 있습니다.
+      컴파일할 때는 아무 경고도 없고, <strong>그 <code>goto</code>가 실제로 실행되는 순간에야</strong> 터집니다.
+      거절 경로를 한 번도 안 밟아 보고 배포하면 프로덕션에서 처음 만나게 됩니다.
+      <a href="#mermaid-fix">타입 힌트나 <code>destinations=</code></a>를 붙여 두면 그림에서 오타가 눈에 띕니다.
     </p>
 
     <h3>⑤ <code>Command</code>는 노드가 <em>반환</em>해야 한다</h3>
@@ -1199,9 +872,9 @@ return Command(goto="booking_node") # ❌ 실행 중에 에러</code></pre>
     return Command(goto="booking")   # ✅</code></pre>
 
     <p>
-      <code>Command</code>는 <strong>객체일 뿐</strong>입니다. <strong>만든다고 이동이 일어나지 않아요.</strong>
-      <strong>LangGraph는 노드의 반환값을 보고 판단</strong>합니다.
-      <strong>딕셔너리면 상태 갱신만, <code>Command</code>면 상태 갱신 + 이동</strong>으로 처리하는 거죠.
+      <code>Command</code>는 객체일 뿐, 만든다고 이동이 일어나지 않습니다.
+      LangGraph는 <strong>노드의 반환값</strong>을 보고 딕셔너리면 상태 갱신만,
+      <code>Command</code>면 상태 갱신 + 이동으로 처리합니다.
     </p>
 
     <hr />
@@ -1211,17 +884,10 @@ return Command(goto="booking_node") # ❌ 실행 중에 에러</code></pre>
 
     <figure>
       <img src="../images/05.Multi%20Agent/21.png" alt="Command with Goto (실습) 슬라이드 — approval 노드의 if approved == 'yes' 분기 코드 전체. 아래에 '사용자가 yes 또는 no 라고 입력하지 않는다면 순간 이동하지 않는다... → 사용자 입력(자연어)의 의도를 파악해 순간 이동을 시켜보자!'" />
-      <figcaption>지금 코드의 <strong>약점</strong>입니다. <code>approved == "yes"</code>라는 <strong>글자 비교</strong>라서,
-      <strong>"좋아요"도 "네 그걸로 할게요"도 전부 거절로 처리</strong>됩니다.</figcaption>
+      <figcaption>지금 코드의 약점 — <code>approved == "yes"</code>라는 <strong>글자 비교</strong>라서,
+      "응 그걸로 해줘"도 "네 그걸로 할게요"도 전부 거절로 처리됩니다.
+      사람은 <code>yes</code>/<code>no</code>로 말하지 않습니다.</figcaption>
     </figure>
-
-    <p>
-      <strong>문제를 정확히 짚어 봅시다.</strong>
-      사용자가 <strong>"응 그걸로 해줘"</strong>라고 입력하면 어떻게 될까요?
-      <code>approved == "yes"</code>가 <strong>거짓</strong>이니까 <code>else</code>로 빠지고,
-      <strong>승인 의도인데 거절로 처리</strong>돼서 <code>recommender</code>로 돌아갑니다.
-      <strong>사람은 <code>yes</code>/<code>no</code>로 말하지 않습니다.</strong>
-    </p>
 
     <div class="info-card">
       <div class="info-card-title">🎯 과제</div>
@@ -1231,7 +897,7 @@ return Command(goto="booking_node") # ❌ 실행 중에 에러</code></pre>
         <li><code>model.with_structured_output(...)</code>으로 <strong>구조화된 답변만 받는 분석기</strong>를 만듭니다.</li>
         <li><code>interrupt()</code>가 받은 값을 <strong>그대로 비교하지 말고 분석기에 넣어</strong> 판단하세요.</li>
       </ul>
-      <p><strong>힌트</strong>: <code>goto</code>와 <code>update</code>를 쓰는 부분은 <strong>하나도 안 바뀝니다.</strong>
+      <p><strong>힌트</strong>: <code>goto</code>와 <code>update</code>를 쓰는 부분은 하나도 안 바뀝니다.
       <strong><code>if</code>의 조건식만 바뀝니다.</strong></p>
     </div>
 
@@ -1277,21 +943,18 @@ def human_approval_node(state: ChatState) -> Command[Literal["booking", "recomme
 
     <div class="callout callout-info">
       <strong>이 실습이 진짜로 보여 주는 것</strong>
-      <p><strong><code>goto</code> 부분은 한 글자도 안 바뀌었습니다.</strong>
-      바뀐 건 <strong>"판단하는 주체"뿐</strong>이에요 — <strong><code>==</code> 연산자에서 LLM으로.</strong></p>
-      <p>이게 <strong>중요한 이유</strong>는, <strong>5강 후반부에서 만들 Supervisor가 정확히 이 구조</strong>이기 때문입니다.
-      <strong>LLM이 "누가 이 일을 해야 하는가"를 판단하고, 그 답을 <code>goto</code>에 그대로 넣는</strong> 거죠.
-      <strong>지금은 목적지가 2개지만, Supervisor에서는 그게 하위 에이전트 이름들</strong>이 됩니다.</p>
+      <p><code>goto</code> 부분은 한 글자도 안 바뀌고, <strong>판단 주체만 <code>==</code>에서 LLM으로</strong>
+      바뀌었습니다. 이게 중요한 이유는 <strong>5강 후반부의 Supervisor가 정확히 이 구조</strong>이기 때문입니다 —
+      LLM이 "누가 이 일을 해야 하는가"를 판단하고, 그 답을 <code>goto</code>에 넣는 것.
+      지금은 목적지가 2개지만, Supervisor에서는 그게 하위 에이전트 이름들이 됩니다.</p>
     </div>
 
     <div class="callout callout-warn">
       <strong>주의 — LLM이 라우터가 되면 검증이 필요해집니다</strong>
-      <p><code>with_structured_output</code>에 <code>Literal</code>을 쓰는 이유가 <strong>바로 이것</strong>입니다.
-      <strong>모델이 "yes"도 "no"도 아닌 엉뚱한 문자열을 뱉으면 <code>goto</code>가 터지니까</strong>,
-      <strong>애초에 그 두 개 말고는 못 만들게</strong> 막아 두는 거예요.</p>
-      <p><strong>LLM의 출력을 <code>goto</code>에 직접 꽂는 코드는 절대 쓰지 마세요.</strong>
-      <code>goto=intent.action</code> 같은 식이면 <strong>모델이 만든 문자열이 그대로 노드 이름</strong>이 됩니다.
-      <strong>반드시 <code>if</code>로 한 겹 걸러서 우리가 아는 이름만</strong> 넘기세요.</p>
+      <p><code>with_structured_output</code>에 <code>Literal</code>을 쓰는 이유가 바로 이것 —
+      모델이 엉뚱한 문자열을 뱉으면 <code>goto</code>가 터지니, 애초에 두 값 말고는 못 만들게 막는 겁니다.
+      <strong>LLM의 출력을 <code>goto=intent.action</code>처럼 직접 꽂지 말고,
+      반드시 <code>if</code>로 한 겹 걸러서 우리가 아는 이름만</strong> 넘기세요.</p>
     </div>
 
     <hr />
@@ -1383,65 +1046,54 @@ print(result['messages'][-1].content)                  # 'B 코스 (8만원)' �
 
     <ul>
       <li><strong><code>Command</code>의 두 얼굴</strong> —
-      <strong>바깥에서 안으로</strong>는 <code>Command(resume=값)</code>(5-1),
-      <strong>노드에서 엔진으로</strong>는 <code>Command(goto="노드이름")</code>(5-3).
-      <strong>같은 객체, 반대 방향.</strong></li>
+      바깥에서 안으로는 <code>Command(resume=값)</code>(5-1),
+      노드에서 엔진으로는 <code>Command(goto="노드이름")</code>(5-3). 같은 객체, 반대 방향.</li>
 
-      <li><strong><code>goto</code>는 엣지를 대신하는 지름길이다</strong> —
-      <strong>노드가 직접 다음 목적지를 지목</strong>한다.
-      <strong>엣지를 미리 깔아 둘 필요가 없어서</strong>, 목적지가 수십 개인 멀티 에이전트에서 필수가 된다.</li>
+      <li><strong><code>goto</code>는 엣지를 대신하는 지름길</strong> —
+      노드가 직접 다음 목적지를 지목한다. 엣지를 미리 깔 필요가 없어서
+      목적지가 수십 개인 멀티 에이전트에서 필수가 된다.</li>
 
       <li><strong><code>update</code>는 떠나며 남기는 메모</strong> —
-      <code>return {...}</code>와 <strong>State 관점에서 완전히 동일</strong>하다. <strong>리듀서도 그대로 적용</strong>된다.
-      차이는 <strong>여기에 <code>goto</code>를 얹을 수 있다</strong>는 것뿐.</li>
+      <code>return {...}</code>와 State 관점에서 동일하고 리듀서도 그대로 적용된다.
+      차이는 <code>goto</code>를 얹을 수 있다는 것뿐.</li>
 
       <li><strong>그림은 선언된 엣지만 그린다</strong> —
-      <code>goto</code>는 <strong>실행해 봐야 아는 길</strong>이라 <code>draw_mermaid_png()</code>가 못 그린다.
-      게다가 <strong>나가는 선이 없는 노드에는 <code>END</code>를 임의로 붙여 준다.</strong>
-      <strong>approval에 END가 달리고 booking이 떠 있는 건 버그가 아니다.</strong></li>
-
-      <li><strong>도면을 고치려면 미리 알려 준다</strong> —
-      반환 타입 힌트 <code>-&gt; Command[Literal["booking", "recommender"]]</code> 또는
-      <code>add_node(..., destinations=("booking", "recommender"))</code>.
-      <strong>둘 다 그림용 메타데이터일 뿐 동작은 안 바뀐다.</strong></li>
+      <code>goto</code>는 실행해 봐야 아는 길이라 <code>draw_mermaid_png()</code>가 못 그리고,
+      나가는 선이 없는 노드에는 <code>END</code>를 임의로 붙인다.
+      approval에 END가 달리고 booking이 떠 있는 건 버그가 아니다.
+      고치려면 타입 힌트 <code>-&gt; Command[Literal[...]]</code> 또는 <code>destinations=</code>
+      (둘 다 그림용 메타데이터일 뿐).</li>
 
       <li><strong>⚠️ <code>goto</code>는 엣지를 대체하지 않고 추가한다</strong> —
-      나가는 <code>add_edge</code>가 남아 있으면 <strong>엣지 대상과 <code>goto</code> 대상이 둘 다 실행</strong>된다.
-      <strong><code>goto</code>로 경로를 정하는 노드에서는 나가는 엣지를 전부 지울 것.</strong></li>
+      나가는 <code>add_edge</code>가 남아 있으면 둘 다 실행된다.
+      <code>goto</code>로 경로를 정하는 노드에서는 나가는 엣지를 전부 지울 것.</li>
 
       <li><strong>재개하면 노드는 처음부터 다시 돈다</strong> —
-      <code>👮 [Approval]</code> 로그가 사람에게 물어본 횟수보다 한 번 더 찍히는 이유.
-      <strong>예약 확정을 별도 <code>booking</code> 노드로 뺀 것도 이 때문</strong>이다.</li>
-
-      <li><strong>같은 <code>thread_id</code>는 이전 상태를 기억한다</strong> —
-      셀을 다시 돌렸는데 A코스가 아니라 B코스가 나오면 <strong>버그가 아니라 checkpointer</strong>다.
-      <strong><code>thread_id</code>를 바꾸거나 <code>app.get_state()</code>로 먼저 확인</strong>할 것.</li>
+      부작용(예약 확정 등)은 <code>interrupt()</code> 뒤, 가급적 별도 노드로.
+      같은 <code>thread_id</code>는 이전 상태를 기억하니, 결과가 이상하면 checkpointer부터 의심할 것.</li>
 
       <li><strong>조건부 엣지를 버리는 게 아니다</strong> —
-      <strong>항상 같은 길은 엣지로, 실행 중에 갈리는 길은 <code>goto</code>로.</strong>
-      <strong>갈래가 2~3개로 고정</strong>이면 여전히 조건부 엣지가 읽기 좋다.</li>
+      항상 같은 길은 엣지로, 실행 중에 갈리는 길은 <code>goto</code>로.
+      갈래가 2~3개로 고정이면 여전히 조건부 엣지가 읽기 좋다.</li>
 
       <li><strong>LLM의 출력을 <code>goto</code>에 직접 꽂지 말 것</strong> —
-      <code>Literal</code>로 선택지를 묶고 <strong><code>if</code>로 한 겹 걸러서</strong> 우리가 아는 노드 이름만 넘긴다.</li>
+      <code>Literal</code>로 선택지를 묶고 <code>if</code>로 한 겹 걸러서 우리가 아는 노드 이름만 넘긴다.</li>
     </ul>
 
     <div class="callout callout-analogy">
       <strong>🔍 마지막으로 — 이 장을 한 장면으로 기억한다면</strong>
-      <p><strong>결재 서류에 붙이는 송장</strong>을 떠올리세요.
-      <strong>"승인 도장 찍고(<code>update</code>), 다음은 예약팀으로(<code>goto</code>)"</strong>라고 적어 내려놓으면 끝입니다.
-      <strong>예약팀으로 가는 복도가 뚫려 있는지는 신경 쓰지 않아도 됩니다.</strong></p>
-      <p>대신 <strong>건물 도면에는 그 길이 안 그려집니다.</strong>
-      <strong>도면이 텅 빈 것처럼 보여도 서류는 정확히 도착하고 있다</strong> — 이게 이번 장의 전부예요.</p>
-      <p>그리고 <strong>지금 "예약팀"이라고 적은 그 칸에, 다음 장부터는 다른 에이전트 이름이 들어갑니다.</strong></p>
+      <p><strong>결재 서류에 붙이는 송장</strong>입니다.
+      "승인 도장 찍고(<code>update</code>), 다음은 예약팀으로(<code>goto</code>)"라고 적어 내려놓으면 끝.
+      복도가 뚫려 있는지는 신경 쓰지 않아도 되지만, <strong>건물 도면에는 그 길이 안 그려집니다.</strong>
+      그리고 지금 "예약팀"이라고 적은 그 칸에, 다음 장부터는 <strong>다른 에이전트 이름</strong>이 들어갑니다.</p>
     </div>
 
     <!-- ══════════════════════════════════════════════════════ -->
     <h2 id="next">다음 이야기 — Subgraph</h2>
 
     <p>
-      이번 장에서 <strong>노드 사이를 자유롭게 오가는 법</strong>을 얻었습니다.
-      그런데 <strong>노드 100개짜리 그래프를 한 파일에 늘어놓는 건</strong> 여전히 감당이 안 되죠.
-      <strong>다음에 배울 건 그래프를 통째로 접어 넣는 법</strong>입니다.
+      노드 사이를 자유롭게 오가는 법은 얻었지만, <strong>노드 100개짜리 그래프를 한 파일에 늘어놓는 건</strong>
+      여전히 감당이 안 됩니다. 다음에 배울 건 <strong>그래프를 통째로 접어 넣는 법</strong>입니다.
     </p>
 
     <div class="flow">
@@ -1452,10 +1104,10 @@ print(result['messages'][-1].content)                  # 'B 코스 (8만원)' �
     </div>
 
     <p>
-      <strong>3번과 4번이 결국 이번 장의 <code>goto</code> 위에 세워집니다.</strong>
-      <strong>Supervisor의 정체는 "LLM이 판단해서 <code>goto</code>를 반환하는 노드"</strong>이고,
-      <strong>Handoff는 "에이전트 노드가 다른 에이전트 노드를 <code>goto</code>하는 것"</strong>이거든요.
-      <strong>문법은 오늘로 끝났습니다. 남은 건 조직도를 어떻게 그리느냐</strong>입니다.
+      3번과 4번이 결국 이번 장의 <code>goto</code> 위에 세워집니다 —
+      <strong>Supervisor는 "LLM이 판단해서 <code>goto</code>를 반환하는 노드"</strong>이고,
+      <strong>Handoff는 "에이전트 노드가 다른 에이전트 노드를 <code>goto</code>하는 것"</strong>입니다.
+      문법은 오늘로 끝났습니다. 남은 건 조직도를 어떻게 그리느냐입니다.
     </p>
 
     <div class="callout callout-info">
