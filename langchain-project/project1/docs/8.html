@@ -279,6 +279,91 @@ git commit -am "실험: k=4 -&gt; 6 (context_recall 0.71 -&gt; 0.78, precision 0
       <div class="callout callout-result">
         <strong>✅ 검증 게이트</strong> 3가지 이상 설정의 지표를 한 표에 모으고, 최종 설정을 <strong>숫자 근거</strong>로 선택한 문장이 있으면 통과.
       </div>
+      <div class="label">🏭 참고 · 실무에서는 어떤 순서로 하나</div>
+      <p>
+        이 STEP은 <strong>손잡이 네 개</strong>를 다뤘지만, 실제 서비스에서 RAG 품질을 올릴 때
+        <strong>숫자 튜닝은 맨 마지막에 오는 일</strong>입니다.
+        순서를 거꾸로 잡으면 — 표가 깨진 채로 인덱싱해 놓고 <code>k</code>만 6으로 올리면 —
+        <b>깨진 조각을 더 많이 건지는 것</b>뿐이에요.
+        위에서부터 점검하고, <strong>위쪽이 정리된 다음에</strong> 이 STEP으로 내려오세요.
+      </p>
+      <table>
+        <thead>
+          <tr><th style="width:6%">순서</th><th style="width:24%">무엇을</th><th>구체적으로</th><th style="width:13%">효과 크기</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>1</b></td>
+            <td><strong>측정 장치부터</strong><br /><small>STEP 7</small></td>
+            <td>골든셋 + 채점기. <b>이게 없으면 아래 전부가 감(感)</b>이라, 좋아졌다는 말을 할 수가 없습니다.</td>
+            <td><span class="badge badge-red">전제 조건</span></td>
+          </tr>
+          <tr>
+            <td><b>2</b></td>
+            <td><strong>원본이 제대로 들어갔나</strong><br /><small>STEP 1 · Load</small></td>
+            <td>파싱된 텍스트를 <b>눈으로</b> 열어 보세요. 표가 한 줄로 뭉개지거나, 머리말·쪽번호가 문장 사이에 끼거나,
+              스캔 PDF라 글자가 아예 안 잡히는 일이 실무에선 아주 흔합니다. <b>여기가 깨지면 아래는 전부 무의미합니다.</b></td>
+            <td><span class="badge badge-purple">가장 큼</span></td>
+          </tr>
+          <tr>
+            <td><b>3</b></td>
+            <td><strong>어떻게 자를까</strong><br /><small>STEP 1 · Split</small></td>
+            <td>글자 수로 1000자씩 자르는 대신 <b>조항·제목 단위</b>로 자르기.
+              약관·매뉴얼처럼 구조가 뚜렷한 문서라면 <code>chunk_size</code> 숫자를 조이는 것보다 훨씬 크게 움직입니다.</td>
+            <td><span class="badge badge-purple">큼</span></td>
+          </tr>
+          <tr>
+            <td><b>4</b></td>
+            <td><strong>질문을 손보기</strong><br /><small>검색 직전</small></td>
+            <td>사용자의 짧고 애매한 질문("환불 언제까지?")을 <b>검색 전에 다시 쓰거나</b>(query rewriting)
+              <b>여러 개로 늘려</b>(multi-query) 던지기. 질문이 나쁘면 검색기가 아무리 좋아도 못 건집니다.</td>
+            <td><span class="badge badge-blue">중간</span></td>
+          </tr>
+          <tr>
+            <td><b>5</b></td>
+            <td><strong>프롬프트</strong><br /><small>STEP 2</small></td>
+            <td>"문맥에 없으면 모른다고 답하라", 인용 형식 강제 같은 지시.
+              <code>faithfulness</code>는 검색보다 여기서 더 크게 움직이는 경우가 많습니다.</td>
+            <td><span class="badge badge-blue">중간</span></td>
+          </tr>
+          <tr>
+            <td><b>6</b></td>
+            <td><strong>숫자 손잡이</strong><br /><span class="badge badge-gray">← 이 STEP</span></td>
+            <td><code>chunk_size</code>·<code>k</code>·<code>top_n</code>·<code>weights</code>.
+              위가 다 정리된 뒤 <b>마지막 몇 %를 짜내는</b> 단계입니다.</td>
+            <td><span class="badge badge-gray">작음</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        그러니 이 STEP에서 진짜 가져갈 것은 <code>k=6</code>이라는 결론이 아니라
+        <strong>측정 없이는 아무것도 주장하지 않는 습관</strong>입니다.
+        실무에서 쓰는 문장도 대개 "k를 6으로 올렸다"가 아니라
+        <em>"표 파싱을 고치고 조항 단위 청킹으로 바꿨더니 recall 0.71 → 0.85, 비용은 그대로"</em>에 가깝습니다.
+      </p>
+
+      <div class="callout callout-info">
+        <strong>💰 실무 기록표에는 칼럼이 두 개 더 붙습니다</strong>
+        <p style="margin-top:6px">
+          <code>top_n</code>을 4 → 8로 올리면 지표는 조금 오를지 몰라도
+          매 질문마다 LLM에 들어가는 <b>토큰이 두 배</b>가 되고, 응답이 느려지고, 청구서가 커집니다.
+          그래서 실제 회의에서는 <em>"recall 0.03 오르는데 비용 2배면 안 한다"</em>는 결론이 자주 나와요.
+          실무 표에는 지표 옆에 <strong>쿼리당 비용</strong>과 <strong>p95 응답시간</strong>이 함께 적히고,
+          그 두 숫자는 STEP 6의 Langfuse에서 그대로 볼 수 있습니다.
+        </p>
+      </div>
+
+      <div class="callout callout-info">
+        <strong>🔁 골든셋은 "만들어 두는 것"이 아니라 자랍니다</strong>
+        <p style="margin-top:6px">
+          STEP 7에서는 15문항을 손으로 먼저 만들었지만 실무 순서는 반대입니다 —
+          <b>일단 배포하고</b>, Langfuse 트레이스에서 <b>이상한 답이 나간 질문</b>을 발견할 때마다
+          골든셋에 한 줄씩 추가해요. 그러면 골든셋이 <strong>실패에서 자라는 회귀 테스트 모음</strong>이 됩니다.
+          여기에 채점기를 CI에 걸어 두면, 누가 프롬프트를 "개선"했을 때
+          특정 유형만 조용히 망가지는 사고를 <b>배포 전에</b> 잡을 수 있습니다.
+        </p>
+      </div>
+
       <div class="label">🎓 배우는 것</div>
       <p>
         실험 관리와 의사결정 — <strong>변수 하나만 바꿔 비교하는 습관</strong>,
