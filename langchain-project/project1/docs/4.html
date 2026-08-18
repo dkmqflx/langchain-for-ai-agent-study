@@ -63,9 +63,31 @@
           지금까지 쓴 방식은 정확히는 <strong>Bi-Encoder</strong>(bi = 둘) —
           인코더를 <b>질문에 한 번, 문서에 한 번 따로</b> 돌리기 때문입니다.
         </p>
-<pre><code>질문  ──[인코더]──→ 벡터 A ─┐
-                          ├─→ 두 벡터 사이 거리 계산
-문서  ──[인코더]──→ 벡터 B ─┘   (미리 계산해 둔 것)</code></pre>
+        <div class="enc">
+          <div class="enc-bi">
+            <div class="enc-lanes">
+              <div class="enc-lane">
+                <span class="enc-box q">질문</span>
+                <span class="enc-arw">→</span>
+                <span class="enc-box model">인코더</span>
+                <span class="enc-arw">→</span>
+                <span class="enc-box vec">벡터 A</span>
+              </div>
+              <div class="enc-lane">
+                <span class="enc-box d">문서</span>
+                <span class="enc-arw">→</span>
+                <span class="enc-box model">인코더</span>
+                <span class="enc-arw">→</span>
+                <span class="enc-box vec">벡터 B</span>
+              </div>
+            </div>
+            <div class="enc-join"></div>
+            <div class="enc-out">두 벡터 사이 거리 계산</div>
+          </div>
+          <div class="enc-cap">
+            두 줄이 <b>끝까지 따로</b> 흐릅니다 — 아래쪽 <b>벡터 B</b>는 질문이 오기 전에 미리 계산해 둔 것.
+          </div>
+        </div>
         <p style="margin-top:6px">
           여기서 핵심은 <strong>문서를 벡터로 만드는 시점에 질문이 뭔지 모른다</strong>는 점입니다.
           그래서 164개를 미리 다 계산해 Chroma에 넣어 둘 수 있었고, 검색이 순식간에 끝났죠.
@@ -74,9 +96,22 @@
           <strong>Cross-Encoder</strong>는 질문과 문서를 <strong>한 덩어리로 이어붙여 모델에 한 번에</strong> 넣습니다.
           출력은 벡터가 아니라 <b>관련도 점수 하나</b>예요.
         </p>
-<pre><code>"환불은 며칠 안에 신청해야 하나요? [SEP] 환불 신청 기한은 14일입니다"
-                     ↓ (모델 한 번 실행)
-                   0.94  ← 점수 하나</code></pre>
+        <div class="enc enc-cross">
+          <div class="enc-merge">
+            <span class="enc-seg q"><b>질문</b>환불은 며칠 안에 신청해야 하나요?</span>
+            <span class="enc-sep">[SEP]</span>
+            <span class="enc-seg d"><b>문서</b>환불 신청 기한은 14일입니다</span>
+          </div>
+          <div class="arch-conn">
+            <div class="line"></div>
+            <div class="lbl">Cross-Encoder · <b>모델 한 번 실행</b></div>
+            <div class="arrow">▼</div>
+          </div>
+          <div class="enc-score">0.94</div>
+          <div class="enc-cap">
+            질문과 문서가 <b>한 상자 안에</b> 들어가고, 나오는 건 벡터가 아니라 <b>관련도 점수 하나</b>.
+          </div>
+        </div>
         <p style="margin-top:6px">
           이름이 <b>cross(교차)</b>인 이유는, 모델 안에서 <strong>질문의 단어 하나하나가 문서의 단어 하나하나를 교차로 들여다보기</strong> 때문입니다.
           Bi-Encoder에서는 이 교차가 <b>원천적으로 불가능</b>합니다 — 문서를 벡터로 만들 때 질문이 아직 존재하지 않으니까요.
