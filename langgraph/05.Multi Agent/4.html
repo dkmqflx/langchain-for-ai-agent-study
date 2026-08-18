@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>5-5. Multi Agent — 감독관이 지휘하거나, 서로에게 넘기거나</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <nav>
+    <a href="../index.html" class="to-index">📚 전체 목차</a>
+    <div class="nav-title">5강 · Multi Agent (5)</div>
+    <a href="#overview">개요 · 이 장에서 배우는 것</a>
+
+    <div class="nav-section">
+      <div class="nav-title">1. Supervisor란</div>
+      <a href="#sup-what">감독관 하나, 작업자 여럿</a>
+      <a href="#sup-llm" class="sub">호출 결정권이 LLM에게 넘어간다</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">2. Supervisor 구현</div>
+      <a href="#sup-scenario">만들 것 — 블로그 작성 팀</a>
+      <a href="#sup-step1">STEP 1. Model &amp; State</a>
+      <a href="#sup-step2">STEP 2. 결정 목록 RouteResponse ★</a>
+      <a href="#sup-step3">STEP 3. supervisor 노드</a>
+      <a href="#sup-step4">STEP 4. 작업자 노드 2개</a>
+      <a href="#name-attr" class="sub">name 속성 — 누가 쓴 글인가</a>
+      <a href="#sup-step5">STEP 5. 그래프 조립</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">3. Supervisor 실행</div>
+      <a href="#sup-run">실행 — 로그 읽기</a>
+      <a href="#sup-result" class="sub">결과 메시지 뜯어보기</a>
+      <a href="#sup-extend">검수자를 추가한다면?</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">4. Handoff란</div>
+      <a href="#ho-what">분산형(Mesh) 구조</a>
+      <a href="#ho-tool" class="sub">작동 방식 — Tool-based Handoff</a>
+      <a href="#ho-flow" class="sub">메시지 4종 세트 미리 보기</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">5. Handoff 구현</div>
+      <a href="#ho-step1">STEP 1. 이동 버튼(툴) 3개 ★</a>
+      <a href="#toolruntime" class="sub">ToolRuntime — tool_call_id 자동 조달</a>
+      <a href="#ho-step2">STEP 2. State</a>
+      <a href="#ho-step3">STEP 3. 상담원 노드 3개</a>
+      <a href="#ho-step4">STEP 4. ToolNode</a>
+      <a href="#ho-step5">STEP 5. 그래프 조립 ★★</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">6. Handoff 실행</div>
+      <a href="#ho-run1">① "화면이 안 나와요"</a>
+      <a href="#ho-run2">② "그냥 환불해 주세요"</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">7. 정리</div>
+      <a href="#vs">두 조직도 비교 — 언제 뭘 쓰나</a>
+      <a href="#pitfalls">자주 걸리는 함정 8가지</a>
+      <a href="#full-code">전체 코드 한눈에 보기</a>
+      <a href="#summary">📚 한 장 정리</a>
+      <a href="#finale">🎓 강의를 마치며</a>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <h1>5-5. Multi Agent — 감독관이 지휘하거나, 서로에게 넘기거나</h1>
+    <p class="doc-meta">
+      실습 노트북: <code>4.ipynb</code> · <code># Multi-Agent (Supervisor)</code> / <code># Multi-Agent (Handoff)</code> 절
+      &nbsp;·&nbsp; 대상 범위: <code>with_structured_output()</code> 라우팅 · <code>Command(goto=)</code> · <code>ToolRuntime</code> · <code>ToolNode</code> · <code>tools_condition</code>
+      &nbsp;·&nbsp; 난이도: <span class="badge badge-yellow">🟡 중급</span>
+    </p>
+
+    <p class="lead">
+      드디어 마지막 장, <strong>진짜 멀티 에이전트</strong>입니다.
+      <a href="1.html">5-1</a>의 <code>interrupt()</code>, <a href="2.html">5-3</a>의 <code>Command(goto=)</code>,
+      <a href="3.html">5-4</a>의 Subgraph — 지금까지 만든 부품을 전부 조립해서
+      <strong>에이전트 여럿이 업무를 나눠 하는 조직</strong>을 두 가지 형태로 만듭니다.
+      하나는 <strong>감독관이 지시하는 Supervisor(중앙 집중형)</strong>,
+      다른 하나는 <strong>동료끼리 서로 넘기는 Handoff(네트워크형)</strong>입니다.
+      새 문법은 거의 없습니다 — <strong>배운 문법을 어떤 조직도로 배치하느냐</strong>가 이 장의 전부입니다.
+    </p>
+
+    <!-- ── Overview ── -->
+    <div class="callout callout-info" id="overview">
+      <strong>이 장에서 배우는 것</strong>
+      <p>멀티 에이전트 조직도 두 가지를 직접 구현합니다. 가르는 기준은 하나 —
+      <strong>"다음에 누가 일할지"를 누가 정하느냐</strong>입니다.</p>
+      <ol>
+        <li><strong>Supervisor(중앙 집중형)</strong> — 감독관 LLM이
+        <code>with_structured_output()</code>으로 다음 작업자를 고르고, <code>Command(goto=)</code>로 보냅니다.
+        작업자는 일을 마치면 <strong>반드시 감독관에게 복귀 보고</strong>합니다.</li>
+        <li><strong>Handoff(네트워크형)</strong> — 감독관이 없습니다. 동등한 에이전트들이
+        <strong>"연결 버튼(툴)"</strong>을 눌러 서로에게 직접 일을 넘깁니다.
+        버튼이 눌리면 <code>ToolNode</code>가 <code>Command(goto=)</code>로 담당 노드에 점프시킵니다.</li>
+      </ol>
+      <p><strong>선행 지식</strong>: <a href="2.html">5-3</a>의 <code>Command(goto=)</code> · <code>with_structured_output()</code>,
+      <a href="3.html">5-4</a>의 서브그래프,
+      <a href="../03.%20LangGraph%20응용/2-2.html">3-4</a>의 Orchestrator-Worker 패턴,
+      <a href="../04.%20Memory/3.html">4-3</a>의 툴 기반(Tool-based) 접근. 전부 그대로 다시 씁니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-what">1. Supervisor란 — 감독관 하나, 작업자 여럿</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/38.png" alt="Supervisor 슬라이드 — 중앙의 메인 에이전트 – 하위 에이전트 (Worker). 메인 에이전트가 하위 에이전트를 마치 도구처럼 호출하여 작업하는 방식. 메인 에이전트 / 하위 에이전트가 State를 완전히 분리해 사용 → 컨텍스트가 불필요하게 길어지는 것(Context Bloat) 방지. 왼쪽 그림: User request → Main Agent가 Subagent A/B/C를 화살표로 오가며 호출하고 Response로 끝남. 오른쪽 그림: Single Agent / Network / Supervisor / Supervisor (as tools) / Hierarchical / Custom 6가지 멀티 에이전트 유형표에서 Supervisor 칸에 빨간 동그라미" />
+      <figcaption>가운데에 <strong>Main Agent(감독관)</strong>가 있고, 그 아래 Subagent들이 붙어 있습니다.
+      오른쪽 유형표의 <strong>Supervisor 칸에 빨간 표시</strong> — 이번 절에서 만들 조직도입니다.</figcaption>
+    </figure>
+
+    <p>
+      구조는 단순합니다. <strong>유저 요청이 들어오면 메인 에이전트가 하위 에이전트에게 업무를 토스하고,
+      하위 작업자가 일을 끝내면 다시 메인 에이전트에게 보고</strong>합니다.
+      <a href="../03.%20LangGraph%20응용/2-2.html">3-4</a>에서 배운 Orchestrator-Worker와 같은 그림인데,
+      결정적 차이가 하나 있습니다 — <strong>그때의 워커는 단일 노드였지만,
+      지금의 워커는 각각이 하나의 에이전트 그래프</strong>가 될 수 있습니다.
+      <a href="3.html">5-4</a>에서 만든 "그래프를 노드로 접어 넣는" 벽돌이 여기서 쓰입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 잡지 편집장</strong>
+      <p>편집장은 기사를 직접 쓰지 않습니다. <strong>"이 주제는 김 기자가 취재해 와" → (취재 보고를 읽고) →
+      "이제 박 작가가 원고 써" → (원고를 읽고) → "됐다, 마감!"</strong> —
+      매 단계마다 <strong>지금까지의 결과물을 읽고 다음 담당자를 정하는 것</strong>이 편집장의 일이죠.</p>
+      <p>Supervisor 노드가 정확히 이 편집장입니다. 그리고 편집장의 판단 능력은
+      <strong>구조화된 답변을 하는 LLM</strong>이 맡습니다.</p>
+    </div>
+
+    <h3 id="sup-llm">호출 결정권이 개발자에서 LLM에게 넘어간다</h3>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/39.png" alt="Supervisor 슬라이드 — Subgraph - Supervisor : 자식 그래프를 호출하는 결정권. 왼쪽 코드: 5-4에서 만든 call_delivery_service 브릿지 노드 — 개발자가 하드코딩으로 delivery_graph.invoke(delivery_input)를 호출하는 부분에 빨간 사각형. 캡션 <Subgraph - 개발자>. 오른쪽 코드: supervisor_node — 시스템 프롬프트로 관리자 역할을 주고 supervisor_agent.invoke(messages)로 decision을 받아 if decision.next_step == 'FINISH'면 Command(goto=END), 아니면 Command(goto=decision.next_step)를 반환하는 부분에 빨간 사각형. 캡션 <Supervisor - LLM>" />
+      <figcaption>왼쪽은 <a href="3.html">5-4</a>의 브릿지 노드 — <strong>개발자가 코드로 호출을 고정</strong>했습니다.
+      오른쪽이 이번 장의 Supervisor — <strong>같은 호출을 LLM이 결정</strong>합니다.</figcaption>
+    </figure>
+
+    <p>
+      <a href="3.html">5-4</a>의 서브그래프에서는 <strong>브릿지 노드에 도달하면 무조건</strong> 자식 그래프가
+      <code>invoke()</code>되도록 개발자가 흐름을 하드코딩해 뒀습니다. "음식이 완료되면 반드시 배달 업체를 부른다" —
+      플로우가 고정이었죠.
+    </p>
+
+    <p>
+      Supervisor는 그 <strong>호출 결정권을 언어 모델에게</strong> 줍니다.
+      요청이 들어오면 감독관 노드 안의 LLM이 <strong>"지금은 조사가 필요하니 researcher에게",
+      "조사가 끝났으니 writer에게", "다 끝났으니 FINISH"</strong>를 스스로 판단하고,
+      그 판단대로 <code>Command(goto=)</code>가 해당 노드(사실은 에이전트 그래프)로 점프시킵니다.
+      판단이 제멋대로 튀지 않도록 <strong>답의 형태는 <code>with_structured_output()</code>으로 고정</strong>합니다 —
+      <a href="2.html">5-3</a>에서 의도를 confirm/change/cancel 셋 중 하나로 못박았던 것과 같은 수법입니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-scenario">2. Supervisor 구현 — 만들 것: 블로그 작성 팀</h2>
+
+    <p>
+      <strong>"AI 최신 트렌드에 대해 블로그 글 써줘"</strong>라는 요청을 처리하는 3인 팀을 만듭니다.
+    </p>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">supervisor ★</div>
+        <div class="what"><p><strong>관리자.</strong> 대화 내용을 읽고 <strong>다음 작업자(researcher / writer / FINISH)를 결정</strong>해
+        <code>Command(goto=)</code>로 보냅니다. 실체는 <strong>구조화된 답변을 하는 LLM</strong>입니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">researcher</div>
+        <div class="what"><p><strong>검색 담당.</strong> 주제에 대한 조사 보고서를 작성하고 <strong>supervisor에게 복귀 보고</strong>합니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">writer</div>
+        <div class="what"><p><strong>집필 담당.</strong> researcher의 조사 결과를 바탕으로 블로그 글을 쓰고 <strong>supervisor에게 복귀 보고</strong>합니다.</p></div>
+      </div>
+    </div>
+
+    <p>
+      이번 실습에서 두 작업자는 <strong>LLM 한 번 호출로 끝나는 단일 노드</strong>로 만듭니다.
+      하지만 자리 자체는 그래프가 들어갈 수 있는 자리입니다 — writer를
+      "초안 작성 → 첨삭 → 최종본"으로 도는 서브그래프로 바꿔 끼워도 나머지 코드는 그대로입니다.
+      <a href="https://docs.langchain.com/oss/python/langchain/multi-agent" target="_blank">공식 문서(Multi-agent)</a>도
+      같은 구조를 소개하니 함께 열어 두고 보세요.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-step1">STEP 1. Model &amp; State 정의</h2>
+
+    <pre class="code-block"><code>from langchain.chat_models import init_chat_model
+
+model = init_chat_model("gpt-5-nano")</code></pre>
+
+    <pre class="code-block"><code>from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class TeamState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]</code></pre>
+
+    <p>
+      State는 <code>messages</code> 필드 하나뿐입니다. <strong>이 대화 기록 한 권을 팀 전체가 돌려 씁니다</strong> —
+      researcher의 조사 결과도, writer의 원고도 전부 여기에 쌓이고,
+      supervisor는 매번 이 기록을 처음부터 읽고 다음 담당자를 정합니다.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-step2">STEP 2. 감독관의 결정 목록 — RouteResponse ★</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/40.png" alt="Supervisor 슬라이드 — 구조화된 답변, with_structured_output(). 오른쪽 위 그래프 그림: __start__ → supervisor → __end__로만 이어져 있고 researcher와 writer 노드는 연결선 없이 떠 있음. 코드: # 감독관이 내릴 수 있는 결정 목록 / class RouteResponse(BaseModel): next_step: Literal['researcher', 'writer', 'FINISH'] = Field(description='다음 작업을 수행할 팀원을 선택하거나, 모든 작업이 완료되었으면 FINISH를 선택'), reason: str = Field(description='선택한 이유') / supervisor_agent = model.with_structured_output(RouteResponse)" />
+      <figcaption>감독관이 내릴 수 있는 결정은 <strong>딱 세 가지</strong>로 못박습니다 —
+      <code>researcher</code>, <code>writer</code>, <code>FINISH</code>.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code>from typing import Literal
+from pydantic import BaseModel, Field
+
+# 감독관이 내릴 수 있는 결정 목록
+class RouteResponse(BaseModel):
+    next_step: Literal["researcher", "writer", "FINISH"] = Field(
+        description="다음 작업을 수행할 팀원을 선택하거나, 모든 작업이 완료되었으면 FINISH를 선택"
+    )
+    reason: str = Field(description="선택한 이유")</code></pre>
+
+    <pre class="code-block"><code>supervisor_agent = model.with_structured_output(RouteResponse)</code></pre>
+
+    <p>
+      <code>supervisor_agent.invoke(...)</code>의 결과는 문장이 아니라 <strong>필드 두 개짜리 객체</strong>입니다.
+      <code>next_step</code>에는 반드시 셋 중 하나가 담기고, <code>reason</code>에는 그 선택의 근거가 담깁니다.
+      <code>reason</code>은 라우팅에 쓰이진 않지만 <strong>감독관이 왜 그렇게 판단했는지 로그로 확인</strong>할 수 있어
+      디버깅에 아주 유용합니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ Literal의 문자열 = 나중에 노드를 등록할 이름</strong>
+      <p><code>"researcher"</code>와 <code>"writer"</code>는 <a href="#sup-step5">STEP 5</a>에서
+      <code>add_node("researcher", ...)</code>로 등록할 <strong>노드 이름과 글자가 정확히 같아야</strong> 합니다.
+      LLM이 고른 이 문자열이 그대로 <code>Command(goto=문자열)</code>에 들어가기 때문입니다.
+      한 글자라도 다르면 존재하지 않는 노드로 점프하다 에러가 납니다.
+      <code>FINISH</code>만은 노드 이름이 아니라 <strong>"끝내라"는 신호</strong>로, 코드에서 <code>END</code>로 바꿔 처리합니다.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-step3">STEP 3. supervisor 노드 — 판단하고, 보낸다</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/41.png" alt="Supervisor 슬라이드 — Supervisor Node. 코드: def supervisor_node(state: TeamState): print('👔 [Supervisor] 다음 작업자 결정 중...') / # 1. 현재까지의 대화 내용을 보고 판단 / system_prompt = '당신은 블로그 작성 팀의 관리자입니다. 1. 사용자 요청이 들어오면 researcher에게 조사를 시키세요. 2. 조사 결과가 나오면 writer에게 글 작성을 시키세요. 3. 글 작성이 완료되면 FINISH를 선언하세요.' / # LLM에게 판단 요청 / messages = [SystemMessage(content=system_prompt)] + state['messages'] / decision = supervisor_agent.invoke(messages) — invoke 부분에 빨간 밑줄 / print(f'👉 [지시] {decision.next_step} (이유: {decision.reason})') / # 2. 판단 결과에 따라 라우팅 (Command Goto) / if decision.next_step == 'FINISH': return Command(goto=END) else: return Command(goto=decision.next_step)" />
+      <figcaption>노드 하나가 <strong>읽고(state) → 판단하고(LLM) → 보냅니다(goto)</strong>.
+      <a href="2.html">5-3</a>의 Agentic Router와 같은 뼈대입니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code>from langchain.messages import SystemMessage
+from langgraph.types import Command
+from langgraph.graph import StateGraph, START, END
+
+def supervisor_node(state: TeamState):
+    print("\n👔 [Supervisor] 다음 작업자 결정 중...")
+
+    # 1. 현재까지의 대화 내용을 보고 판단
+    system_prompt = """
+    당신은 블로그 작성 팀의 관리자입니다.
+    1. 사용자 요청이 들어오면 'researcher'에게 조사를 시키세요.
+    2. 조사 결과가 나오면 'writer'에게 글 작성을 시키세요.
+    3. 글 작성이 완료되면 'FINISH'를 선언하세요.
+    """
+
+    # 2. LLM에게 판단 요청 (앞서 정의한 RouteResponse 구조로 정확히 반환됩니다)
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+    decision = supervisor_agent.invoke(messages)
+
+    print(f"👉 [지시] {decision.next_step} (이유: {decision.reason})")
+
+    # 3. 판단 결과에 따라 Command(goto=...)를 이용해 다음 노드로 직행(라우팅)시킵니다.
+    if decision.next_step == "FINISH":
+        return Command(goto=END)
+    else:
+        return Command(goto=decision.next_step)</code></pre>
+
+    <p>
+      마지막 네 줄이 이 노드의 전부입니다. <code>next_step</code>이 <code>FINISH</code>면 <code>END</code>로 끝내고,
+      아니면 <strong><code>decision.next_step</code>에 담긴 문자열 그대로</strong> 점프시킵니다 —
+      값이 <code>"researcher"</code>면 researcher 노드로, <code>"writer"</code>면 writer 노드로.
+      <strong>어디로 갈지가 코드에 고정돼 있지 않고 실행할 때마다 LLM의 판단으로 정해지는</strong>,
+      아주 다이나믹한 라우팅입니다.
+    </p>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 노트북(4.ipynb)의 이 셀에는 같은 코드가 두 번 적혀 있습니다</strong>
+      <p>실습 노트북의 <code>supervisor_node</code>에는 <code>messages = ...</code>와
+      <code>decision = supervisor_agent.invoke(messages)</code>가 <strong>실수로 두 번 반복</strong>돼 있습니다
+      (강의 중 복사-붙여넣기 흔적). 동작은 같지만 <strong>매번 LLM을 한 번씩 더 호출해 비용이 두 배</strong>가 되니,
+      위 코드처럼 한 번만 남기면 됩니다.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-step4">STEP 4. 작업자 노드 2개 — 일하고, 복귀 보고한다</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/42.png" alt="Supervisor 슬라이드 — Worker Node : 작업이 끝나면 supervisor에게 보고. 왼쪽 코드: # [팀원 1] 검색 담당 (Researcher) — researcher_node는 IT 트렌드 전문 리서처 시스템 프롬프트를 부여하고 model.invoke(messages) 후 return Command(update={'messages': [HumanMessage(content=response.content, name='Researcher')]}, goto='supervisor'). 오른쪽 코드: # [팀원 2] 집필 담당 (Writer) — writer_node는 테크 블로그 전문 작가 시스템 프롬프트로 Researcher의 조사 결과를 바탕으로 글을 쓰게 하고 마찬가지로 name='Writer'와 goto='supervisor'로 반환" />
+      <figcaption>두 작업자의 뼈대는 완전히 같습니다 — <strong>역할(시스템 프롬프트)과 name만 다르고,
+      끝나면 둘 다 <code>goto="supervisor"</code></strong>.</figcaption>
+    </figure>
+
+    <h4>① researcher_node — 검색 담당</h4>
+
+    <pre class="code-block"><code>from langchain.messages import AIMessage
+
+# [팀원 1] 검색 담당 (Researcher)
+def researcher_node(state: TeamState):
+    print("\n🔎 [Researcher] LLM이 자료를 조사/생성 중입니다...")
+
+    # 시스템 프롬프트 부여
+    system_msg = SystemMessage(content="""
+    당신은 IT 트렌드 전문 리서처입니다.
+    사용자의 요청 주제에 대해 핵심 트렌드, 기술 용어, 통계 등을 포함하여
+    전문적인 조사 보고서를 3줄 요약 형태로 작성하세요.
+    """)
+
+    # 이전 대화 내용 + 내 역할(System)을 합쳐서 LLM에게 전달
+    # state["messages"] 안에 사용자의 요청이 들어있음
+    messages = [system_msg] + state["messages"]
+
+    # LLM 실행
+    response = model.invoke(messages)
+
+    # 결과 반환 (name을 지정해야 감독관이 누가 말했는지 앎)
+    return Command(
+        update={"messages": [AIMessage(content=response.content, name="Researcher")]},
+        goto="supervisor"
+    )</code></pre>
+
+    <h4>② writer_node — 집필 담당</h4>
+
+    <pre class="code-block"><code># [팀원 2] 집필 담당 (Writer)
+def writer_node(state: TeamState):
+    print("\n✍️ [Writer] LLM이 블로그 포스팅을 작성 중입니다...")
+
+    system_msg = SystemMessage(content="""
+    당신은 테크 블로그 전문 작가입니다.
+    위의 대화 내역에 있는 'Researcher'의 조사 결과를 바탕으로
+    매력적인 블로그 포스팅(제목+본문)을 작성하세요.
+    이모지를 적절히 사용하여 가독성을 높이세요.
+    """)
+
+    # 공유된 대화 기록(Researcher의 결과 포함)을 다 같이 넘겨줌
+    messages = [system_msg] + state["messages"]
+
+    response = model.invoke(messages)
+
+    return Command(
+        update={"messages": [AIMessage(content=response.content, name="Writer")]},
+        goto="supervisor"
+    )</code></pre>
+
+    <p>
+      마지막 <code>return</code>에 이 조직도의 규칙이 다 들어 있습니다.
+      <strong>① 결과물을 <code>update</code>로 공용 대화 기록에 남기고,
+      ② <code>goto="supervisor"</code>로 반드시 감독관에게 복귀</strong>합니다.
+      이 <code>goto</code>를 빼먹으면 작업자에서 그래프가 그냥 끝나 버립니다 —
+      나가는 엣지를 하나도 안 그렸으니까요.
+    </p>
+
+    <h3 id="name-attr">name 속성 — 이 글을 누가 썼는지 적어 두기</h3>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/43.png" alt="Supervisor 슬라이드 — Worker Node, HumanMessage 객체 속 name 속성. Supervisor는 대화 기록(messages)을 보고 다음은 누구 차례인지 결정 / name이 없으면 content만 읽고 확인해야 함 / name이 있으면 해당 부분을 누가 작성했는지 인지하기 유리. 코드: human_msg = HumanMessage(content='Hello!', name='alice', # Optional: identify different users — name에 빨간 밑줄과 화살표, id='msg_123' # Optional: unique identifier for tracing)" />
+      <figcaption>메시지 객체에는 <code>content</code>·<code>id</code> 말고도 <strong><code>name</code>이라는 선택 속성</strong>이 있습니다 —
+      "이 메시지를 쓴 사람이 누구인지"를 적는 칸입니다.</figcaption>
+    </figure>
+
+    <p>
+      supervisor는 매번 <code>messages</code> 리스트 전체를 읽고 다음 차례를 정합니다.
+      이때 <code>name</code>이 없으면 <strong>내용만 보고 "이게 조사 결과인지 원고인지"를 추측</strong>해야 하지만,
+      <code>name="Researcher"</code> / <code>name="Writer"</code>가 붙어 있으면
+      <strong>"조사는 끝났고 원고는 아직이구나"를 훨씬 정확하게 인지</strong>할 수 있습니다.
+      필수는 아니지만, 멀티 에이전트에서는 붙이는 쪽이 확실히 유리합니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 회의록의 발언자 이름</strong>
+      <p>이름 없는 회의록은 "…라고 했다. …라는 의견이 나왔다"의 연속이라, 다음 안건을 누구에게 맡길지
+      정하려면 문맥을 한참 더듬어야 합니다. <strong>발언자 이름이 붙은 회의록</strong>은 한눈에 업무 진행 상황이 보이죠.
+      <code>name</code>은 대화 기록에 발언자 이름을 붙이는 일입니다.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-step5">STEP 5. 그래프 조립 — 엣지는 딱 하나</h2>
+
+    <pre class="code-block"><code>workflow = StateGraph(TeamState)
+
+workflow.add_node("supervisor", supervisor_node)
+workflow.add_node("researcher", researcher_node)
+workflow.add_node("writer", writer_node)
+
+workflow.add_edge(START, "supervisor")</code></pre>
+
+    <pre class="code-block"><code>from langgraph.checkpoint.memory import InMemorySaver
+
+checkpointer = InMemorySaver()
+app = workflow.compile(checkpointer=checkpointer)
+app</code></pre>
+
+    <div class="io-label">▶ 출력 — app</div>
+    <pre class="result-block">__start__ → supervisor → __end__
+(researcher, writer는 연결선 없이 떠 있음)</pre>
+
+    <p>
+      정적 엣지는 <code>START → supervisor</code> 하나뿐입니다. 그래서 그래프 그림에는
+      researcher와 writer가 <strong>연결선 없이 둥둥 떠 있는 것처럼</strong> 보입니다.
+      화면에는 보이지 않지만 supervisor는 필요에 따라 <code>Command(goto=)</code>로
+      researcher·writer·END 어디로든 순간이동시킬 수 있고, 작업자들도 <code>goto</code>로 supervisor에 복귀합니다 —
+      <strong>동적 라우팅은 그림에 그려지지 않는다</strong>는 것, <a href="2.html">5-3</a>에서 본 그대로입니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-run">3. 실행 — 감독관의 지시 로그 읽기</h2>
+
+    <pre class="code-block"><code>from langchain.messages import HumanMessage
+
+config = {"configurable": {"thread_id": "team-blog-1"}}
+
+app.invoke(
+    {"messages": [HumanMessage(content="AI 최신 트렌드에 대해 블로그 글 써줘")]},
+    config=config
+)</code></pre>
+
+    <div class="io-label">▶ 출력 — 실행 로그</div>
+    <pre class="result-block">👔 [Supervisor] 다음 작업자 결정 중...
+👉 [지시] researcher (이유: 요청에 따라 AI 최신 트렌드에 대해 조사하고 수집된 정보를 바탕으로 글 작성을 진행하기 위함.)
+
+🔎 [Researcher] LLM이 자료를 조사/생성 중입니다...
+
+👔 [Supervisor] 다음 작업자 결정 중...
+👉 [지시] researcher (이유: 블로그 글 작성을 위해 최신 AI 트렌드에 대한 신뢰 가능한 자료를 수집하고 방향성(...)을 정리하기 위함.)
+
+🔎 [Researcher] LLM이 자료를 조사/생성 중입니다...
+
+👔 [Supervisor] 다음 작업자 결정 중...
+👉 [지시] writer (이유: 조사 결과를 바탕으로 블로그 글 작성을 시작합니다. ...)
+
+✍️ [Writer] LLM이 블로그 포스팅을 작성 중입니다...
+
+👔 [Supervisor] 다음 작업자 결정 중...
+👉 [지시] FINISH (이유: 작업 완료: Writer가 AI 최신 트렌드에 관한 블로그 글 작성을 마쳤습니다. ...)</pre>
+
+    <p>
+      로그가 조직도 그대로 읽힙니다 — <strong>supervisor → researcher → supervisor → writer → supervisor → FINISH</strong>.
+      매번 supervisor가 먼저 찍히는 건 <strong>작업자가 일을 마칠 때마다 감독관에게 복귀 보고</strong>하기 때문이고,
+      <code>👉 [지시]</code> 줄의 이유(reason)도 전부 LLM이 직접 작성한 것입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>researcher가 두 번 불린 게 보이시나요?</strong>
+      <p>시스템 프롬프트에는 "조사 한 번 → 글 한 번"이라고 썼지만, 이번 실행에서 감독관은
+      <strong>조사가 더 필요하다고 판단해 researcher를 연달아 두 번</strong> 불렀습니다.
+      Supervisor 구조의 순서는 <strong>코드에 고정된 것이 아니라 매번 LLM이 새로 판단</strong>한다는 증거입니다 —
+      유연함이자, 프롬프트를 명확하게 써야 하는 이유이기도 합니다.</p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ Pydantic serializer warning이 떠도 놀라지 마세요</strong>
+      <p>실행 중 <code>PydanticSerializationUnexpectedValue ...</code> 경고가 여러 줄 출력될 수 있습니다.
+      구조화된 답변 객체를 직렬화하는 과정에서 나오는 <strong>경고일 뿐 동작에는 문제가 없으니</strong> 무시해도 됩니다.</p>
+    </div>
+
+    <h3 id="sup-result">결과 메시지 뜯어보기 — name으로 구분되는 기록</h3>
+
+    <div class="io-label">▶ 출력 — 최종 State (요약)</div>
+    <pre class="result-block">{'messages': [
+  HumanMessage(content='AI 최신 트렌드에 대해 블로그 글 써줘', ...),
+  AIMessage(content='AI 최신 트렌드 3줄 요약:\n- 핵심 트렌드: 생성형 AI의 기업 생산성 증대와 ...',
+            name='Researcher', ...),
+  AIMessage(content='AI 최신 트렌드의 핵심은 생성형 AI로 인한 기업 생산성 증대와 ...',
+            name='Researcher', ...),
+  AIMessage(content='제목: AI 최신 트렌드: 생산성은 올리고, 보안은 지키고? 멀티모달과 에지 거버넌스의 시대\n\n...',
+            name='Writer', ...)
+]}</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>메시지</th><th>name</th><th>누가 만든 값인가</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>messages</code>[0]</td><td>—</td><td>사용자의 최초 요청</td></tr>
+          <tr><td><code>messages</code>[1], [2]</td><td><code>Researcher</code></td><td><span class="badge badge-blue">researcher</span> 두 번 호출된 조사 보고서 두 건</td></tr>
+          <tr><td><code>messages</code>[3]</td><td><code>Writer</code></td><td><span class="badge badge-green">writer</span> 조사 결과를 바탕으로 쓴 최종 블로그 원고 ★</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      마지막 메시지가 최종 결과물입니다 — <strong>writer는 [1]·[2]의 조사 내용을 읽고 썼습니다.</strong>
+      State 한 권을 팀 전체가 공유하니 값을 옮겨 주는 코드는 한 줄도 없었고,
+      <code>name</code> 덕분에 어느 메시지를 누가 작성했는지가 기록에 그대로 남아 있습니다.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="sup-extend">한 걸음 더 — 검수자(Evaluator)를 추가한다면?</h2>
+
+    <p>
+      이 팀에 <strong>"글을 검수하는 네 번째 팀원"</strong>을 붙이고 싶다면 어디를 고치면 될까요?
+      노드 함수를 새로 짜는 것 말고, 딱 세 군데입니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>결정 목록 확장</strong><p><code>RouteResponse</code>의 <code>Literal</code>에 <code>"evaluator"</code> 추가 — 감독관의 <strong>선택지가 하나 늘어남</strong></p></div>
+      <div class="flow-step"><span class="n">2</span><strong>시스템 메시지 수정</strong><p>"글 작성이 끝나면 <strong>FINISH 전에 evaluator에게 검수</strong>를 시키세요" 한 줄 추가</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>노드 등록</strong><p>검수 로직을 담은 <code>evaluator_node</code>를 만들어 <code>add_node("evaluator", ...)</code> — 끝나면 역시 <code>goto="supervisor"</code></p></div>
+    </div>
+
+    <p>
+      라우팅 코드는 <strong>한 줄도 안 고칩니다.</strong> <code>Command(goto=decision.next_step)</code>이
+      이미 "LLM이 고른 문자열로 점프"이기 때문에, 선택지가 늘면 감독관이 알아서 새 팀원을 부릅니다.
+      이게 Supervisor 구조의 확장성입니다.
+    </p>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-what">4. Handoff란 — 감독관 없이, 서로에게 넘긴다</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/44.png" alt="Handoff 슬라이드 — 분산형 구조 (Mesh): 현재 담당자가 다음 담당자를 결정 ('제 담당이 아니네요. OO부서로 연결해 드릴게요'). 왼쪽: 멀티 에이전트 유형 6종 표(Single Agent, Network, Supervisor, Supervisor as tools, Hierarchical, Custom). 오른쪽: 이번에 만들 그래프 — Start → Receptionist로 들어가고, Receptionist·Tech Support·Billing Team 세 노드가 Handoff Network라는 노란 상자 안에서 Tech 도구/Billing 도구/Reception 도구 화살표로 서로 얽혀 있으며, 세 노드 모두 아래쪽 ToolNode(Handoff 실행)와 Command goto 점선으로 연결되어 있는 그림. 출처: openai.github.io의 handoffs 문서" />
+      <figcaption>이번엔 감독관이 없습니다. <strong>동등한 위치의 상담원 세 명</strong>이
+      "제 담당이 아니네요, 연결해 드릴게요" 하며 <strong>서로에게 직접</strong> 일을 넘깁니다.</figcaption>
+    </figure>
+
+    <p>
+      마지막으로 배울 조직도는 <strong>네트워크형(Handoff형)</strong>입니다.
+      분산형 구조, 매시(Mesh) 구조라고도 부릅니다.
+      고객센터에 전화를 걸면 리셉션이 먼저 받고, 담당 부서로 연결해 주고,
+      그 부서가 "이건 우리도 아니네요" 하면 또 다른 부서로 연결하는 —
+      <strong>수평적인 부서들이 협업으로 고객 하나를 응대하는 구조</strong>입니다.
+      참고로 Handoff라는 용어 자체는 OpenAI가 먼저 제안했습니다
+      (<a href="https://openai.github.io/openai-agents-python/handoffs/" target="_blank">OpenAI 공식 문서</a> ·
+      <a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs" target="_blank">LangChain 공식 문서</a>).
+    </p>
+
+    <div class="trace">
+      <div class="trace-row">
+        <div class="who">receptionist</div>
+        <div class="what"><p><strong>안내 데스크(시작점).</strong> 인사하고, 기술 문제면 기술팀으로 / 환불 문제면 환불팀으로 넘기고, 잡담은 직접 답변합니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">tech_support</div>
+        <div class="what"><p><strong>기술 지원팀.</strong> 직접 해결하거나, 환불 얘기가 나오면 billing으로 / 다 끝나면 reception으로 넘깁니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">billing</div>
+        <div class="what"><p><strong>환불팀.</strong> 환불을 처리하거나, 기술 질문이면 tech_support로 / 다 끝나면 reception으로 넘깁니다.</p></div>
+      </div>
+      <div class="trace-row">
+        <div class="who">tools ★</div>
+        <div class="what"><p><strong>연결 교환대(ToolNode).</strong> 누가 "연결" 버튼을 누르면 <strong><code>Command(goto=)</code>로 해당 노드에 점프</strong>시킵니다.</p></div>
+      </div>
+    </div>
+
+    <h3 id="ho-tool">작동 방식 — 반드시 Tool-based로 구현한다</h3>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/45.png" alt="Handoff 슬라이드 — 분산형 구조 (Mesh), 작동 방식: Tool-based Handoff (빨간 밑줄). 에이전트는 다른 에이전트로 이동하는 도구(Tool) 보유 / 대화 도중 자신의 분야가 아니면, 도구를 이용해 다른 에이전트에게 Command(goto)를 날림. 판서로 Store ← 조회/기록 라고 적혀 있음. 오른쪽: Receptionist·Tech Support·Billing Team이 각자의 도구 화살표와 Command goto 점선으로 ToolNode(Handoff 실행)에 연결된 전체 그래프" />
+      <figcaption>각 에이전트는 <strong>"다른 에이전트로 이동하는 도구(버튼)"를 들고</strong> 있습니다.
+      판서의 <strong>Store</strong> — <a href="../04.%20Memory/3.html">4-3</a>에서 장기 메모리를 툴로 조회/기록했던
+      바로 그 방식입니다.</figcaption>
+    </figure>
+
+    <p>
+      핵심은 <strong>노드끼리 직접 엣지로 잇는 게 아니라, 툴을 통해 넘긴다</strong>는 점입니다.
+      <a href="../04.%20Memory/3.html">4-3 Store</a>에서 장기 메모리를 다룰 때를 떠올려 보세요 —
+      "이건 기억해 둬야겠다"고 <strong>LLM이 추론하면</strong> 저장 툴을 호출했고, 실제 저장 로직은 툴 쪽에서 처리했습니다.
+      Handoff도 똑같습니다. 리셉션의 LLM이 "이건 기술팀 일이다"라고 추론하면
+      <strong>바인딩된 <code>transfer_to_tech_support</code> 버튼을 누르고</strong>,
+      그 버튼이 모여 있는 <code>ToolNode</code>가 <code>Command(goto=)</code>로 기술팀 노드에 점프시킵니다.
+    </p>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/46.png" alt="Handoff 슬라이드 — 작동 애니메이션. 왼쪽에 Reception Node(원), 가운데 Tool Node(Handoff)(사각형), 오른쪽 Tech Node(원)가 화살표로 이어져 있고, Tech Node 위 말풍선에 '해결책: 재부팅하세요'라고 적혀 있음. '고장 났어요' 요청이 Reception에 들어오면 Reception이 툴콜 → Tool Node가 Command goto로 Tech Node에 점프 → Tech Node의 언어 모델이 답변을 작성하는 흐름" />
+      <figcaption>"고장 났어요" → 리셉션이 <strong>버튼(툴콜)</strong> → Tool Node가 <strong>점프(Command goto)</strong> →
+      <strong>답변은 Tech Node의 LLM</strong>이 작성. Tool Node는 <strong>브릿지(토스) 역할만</strong> 합니다.</figcaption>
+    </figure>
+
+    <h3 id="ho-flow">메시지 4종 세트 미리 보기</h3>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/47.png" alt="Handoff 슬라이드 — 분산형 구조의 메시지 흐름 4단계: 1. HumanMessage : '제 컴퓨터 화면이 안 나와요. 고장난 것 같아요' (빨간 밑줄) / 2. AIMessage : tool_calls = 'transfer_to_tech_support' / 3. ToolMessage : '기술 지원팀으로 성공적으로 연결되었습니다' / 4. AIMessage (Tech Support) : '해결 방법은 ...'. 오른쪽에 전체 Handoff Network 그래프" />
+      <figcaption>한 번의 핸드오프가 남기는 메시지는 <strong>항상 이 4종 세트</strong>입니다.
+      실행 결과를 읽을 때 이 순서가 그대로 나옵니다.</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>순서</th><th>메시지</th><th>내용</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td><code>HumanMessage</code></td><td>"제 컴퓨터 화면이 안 나와요. 고장난 것 같아요."</td></tr>
+          <tr><td>2</td><td><code>AIMessage</code></td><td><strong>content는 빈칸</strong>, <code>tool_calls=transfer_to_tech_support</code> — 리셉션이 직접 답하지 않고 <strong>버튼을 누름</strong></td></tr>
+          <tr><td>3</td><td><code>ToolMessage</code></td><td>"기술 지원팀으로 성공적으로 연결되었습니다." — <strong>고정 문구</strong>. 이 순간 <code>Command(goto=)</code>로 점프</td></tr>
+          <tr><td>4</td><td><code>AIMessage</code></td><td>"해결 방법은 …" — <strong>tech_support 노드의 LLM이 작성한 실제 답변</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-step1">5. Handoff 구현 — STEP 1. 이동 버튼(툴) 3개 ★</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/48.png" alt="Handoff 슬라이드 — 1. Model &amp; Tool 정의: 순간 이동을 시켜줄 Tool 3개 정의, Command(goto)로 순간 이동, ToolMessage의 필수 값(content : 고정값, tool_call_id : ToolRuntime 지원). 코드: from langgraph.types import Command / from langchain.messages import ToolMessage / from langchain.tools import ToolRuntime / @tool(빨간 동그라미) def transfer_to_tech_support(runtime: ToolRuntime): docstring '기술적인 문제(컴퓨터, 코드, 에러 등)를 해결해야 할 때 이 도구를 사용하여 기술팀으로 연결하세요.' / tool_id = runtime.tool_call_id / return Command(update={'messages': [ToolMessage(content='기술 지원팀으로 성공적으로 연결되었습니다.', tool_call_id=tool_id)]}, goto='tech_support')" />
+      <figcaption>버튼 하나의 구조 — <strong>docstring이 "언제 누르는 버튼인지"를 LLM에게 알려 주고</strong>,
+      본체는 <code>ToolMessage</code> 한 장 쓰고 <code>goto</code>로 토스하는 게 전부입니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code>from langchain.tools import tool
+from langgraph.types import Command
+from langchain.messages import ToolMessage
+from langchain.tools import ToolRuntime
+
+@tool
+def transfer_to_tech_support(runtime: ToolRuntime):
+    """기술적인 문제(컴퓨터, 코드, 에러 등)를 해결해야 할 때 이 도구를 사용하여 기술팀으로 연결하세요."""
+
+    # runtime.tool_call_id로 현재 도구 호출 ID에 안전하게 접근
+    tool_id = runtime.tool_call_id
+    print(f"   [System] 기술 지원팀으로 이동합니다... (Tool Call ID: {tool_id})")
+
+    # Command를 반환하여 상태를 업데이트하고 tech_support 노드로 점프(Hand-off)
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content="기술 지원팀으로 성공적으로 연결되었습니다.",
+                    tool_call_id=tool_id # runtime에서 꺼낸 ID 매핑
+                )
+            ]
+        },
+        goto="tech_support"
+    )</code></pre>
+
+    <p>
+      이 툴은 <strong>실제 업무를 처리하지 않습니다.</strong> 하는 일은 딱 두 가지 —
+      ① "연결했습니다"라는 <strong>고정 문구의 <code>ToolMessage</code></strong>를 기록에 남기고,
+      ② <code>goto="tech_support"</code>로 <strong>점프</strong>시키는 것.
+      실제 응대는 도착한 노드의 LLM이 합니다.
+      그리고 <code>goto</code>의 <code>"tech_support"</code>는 <a href="#ho-step5">STEP 5</a>에서
+      <strong>노드를 등록할 때 붙일 이름</strong>과 정확히 같아야 합니다.
+    </p>
+
+    <h3 id="toolruntime">ToolRuntime — tool_call_id를 직접 파낼 필요가 없다</h3>
+
+    <p>
+      <code>ToolMessage</code>에는 <strong><code>tool_call_id</code>가 필수</strong>입니다.
+      예전에 도쿄·서울 날씨를 동시에 물었을 때를 기억하세요 — 툴이 여러 개 동시에 호출될 수 있어서,
+      어느 요청에 대한 응답인지 ID로 짝을 맞춰야 충돌이 나지 않았습니다.
+      원래라면 <code>AIMessage</code>의 <code>tool_calls</code> 안에서 <code>id</code>를 직접 꺼내 와야 하지만,
+      매개변수로 <code>runtime: ToolRuntime</code>을 선언하면 LangChain이
+      <strong>현재 호출의 <code>tool_call_id</code>를 알아서 담아 넣어 줍니다</strong>
+      (<a href="https://reference.langchain.com/python/langgraph/agents/?h=toolruntime#langgraph.prebuilt.tool_node.InjectedStore" target="_blank">ToolRuntime 레퍼런스</a>).
+      코드가 그만큼 깔끔해집니다.
+    </p>
+
+    <h4>나머지 버튼 두 개 — 로직은 복사, goto와 문구만 교체</h4>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/49.png" alt="Handoff 슬라이드 — transfer_to_billing 코드. @tool def transfer_to_billing(runtime: ToolRuntime): docstring '환불, 결제, 금액 관련 문제를 해결해야 할 때 이 도구를 사용하여 환불팀으로 연결하세요.' (환불, 결제, 금액에 빨간 밑줄) / tool_id = runtime.tool_call_id / return Command(update={'messages': [ToolMessage(content='환불/결제팀으로 성공적으로 연결되었습니다.', tool_call_id=tool_id)]}, goto='billing')" />
+      <figcaption>billing 버전 — <strong>docstring·문구·goto만</strong> 환불팀으로 바뀌었습니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code>@tool
+def transfer_to_billing(runtime: ToolRuntime):
+    """환불, 결제, 금액 관련 문제를 해결해야 할 때 이 도구를 사용하여 환불팀으로 연결하세요."""
+    tool_id = runtime.tool_call_id
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content="환불/결제팀으로 성공적으로 연결되었습니다.",
+                    tool_call_id=tool_id
+                )
+            ]
+        },
+        goto="billing"
+    )</code></pre>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/50.png" alt="Handoff 슬라이드 — transfer_to_reception 코드. @tool def transfer_to_reception(runtime: ToolRuntime): docstring '일반적인 문의거나, 인사가 끝났으면 안내 데스크로 다시 연결하세요.' (함수명 reception 부분에 빨간 동그라미) / tool_id = runtime.tool_call_id / return Command(update={'messages': [ToolMessage(content='안내 데스크로 복귀했습니다.', tool_call_id=tool_id)]}, goto='receptionist')" />
+      <figcaption>reception 버전 — <code>goto="receptionist"</code>. 세 버튼 모두
+      <strong>등록할 노드 이름을 목적지로</strong> 갖습니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code>@tool
+def transfer_to_reception(runtime: ToolRuntime):
+    """일반적인 문의거나, 인사가 끝났으면 안내 데스크로 다시 연결하세요."""
+    tool_id = runtime.tool_call_id
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content="안내 데스크로 복귀했습니다.",
+                    tool_call_id=tool_id
+                )
+            ]
+        },
+        goto="receptionist"
+    )</code></pre>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 비유 — 상담원 책상 위의 "돌려주기" 버튼 3개</strong>
+      <p>콜센터 상담원 책상에는 <strong>[기술팀 연결] [환불팀 연결] [안내 데스크 연결]</strong> 버튼이 있습니다.
+      버튼 자체는 문제를 해결하지 않죠 — 누르면 <strong>"연결해 드리겠습니다" 안내 멘트(ToolMessage)가 나가고
+      전화가 넘어갈 뿐(goto)</strong>입니다. 문제 해결은 전화를 받은 그 팀이 합니다.
+      docstring은 버튼에 붙은 라벨입니다 — LLM은 이 라벨을 읽고 어떤 버튼을 누를지 정합니다.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-step2">STEP 2. State 정의</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/51.png" alt="Handoff 슬라이드 — 2. State 정의. 코드: from langchain.messages import AnyMessage / from typing_extensions import TypedDict, Annotated / from langgraph.graph.message import add_messages / class AgentState(TypedDict): messages: Annotated[list[AnyMessage], add_messages]" />
+      <figcaption>이번에도 <code>messages</code> 하나 — <strong>상담 기록 한 권을 세 부서가 같이 봅니다.</strong></figcaption>
+    </figure>
+
+    <pre class="code-block"><code>from langchain.messages import AnyMessage
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+class AgentState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]</code></pre>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-step3">STEP 3. 상담원 노드 3개 — 각자 자기 버튼만 들고 있다</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/52.png" alt="Handoff 슬라이드 — 3. Node 정의: state 속 messages 값을 LLM에게 전달해 답변 생성 / 답변 생성 시 본인 업무가 아닐 시 tool calling을 할 수 있도록 LLM에 tool을 바인딩한 모델(model_with_tools)로 invoke(). 코드: # [상담원 1] 안내 데스크 (시작점) def receptionist_node(state: AgentState) — 시스템 프롬프트(당신은 고객센터의 친절한 안내 데스크입니다. 1. 고객의 말을 듣고 인사하세요. 2. '기술 문제'라면 tech_support 도구를 쓰세요. 3. '돈/환불 문제'라면 billing 도구를 쓰세요. 4. 그 외 잡담은 직접 답변하세요.) / # 안내 데스크는 기술팀과 환불팀으로 보낼 수 있음 / tools = [transfer_to_tech_support, transfer_to_billing] / model_with_tools = model.bind_tools(tools) / messages = [SystemMessage(...)] + state['messages'] / response = model_with_tools.invoke(messages) / return {'messages': [response]}" />
+      <figcaption>노드의 공식 — <strong>역할 프롬프트 + 자기가 누를 수 있는 버튼만 <code>bind_tools</code> + invoke.</strong></figcaption>
+    </figure>
+
+    <h4>① receptionist_node — 안내 데스크 (시작점)</h4>
+
+    <pre class="code-block"><code># [상담원 1] 안내 데스크 (시작점)
+def receptionist_node(state: AgentState):
+    print("\n💁 [Reception] 안녕하세요.")
+
+    system_prompt = """
+    당신은 고객센터의 친절한 안내 데스크입니다.
+    1. 고객의 말을 듣고 인사하세요.
+    2. '기술 문제'라면 tech_support 도구를 쓰세요.
+    3. '돈/환불 문제'라면 billing 도구를 쓰세요.
+    4. 그 외 잡담은 직접 답변하세요.
+    """
+
+    # 안내 데스크는 기술팀과 환불팀으로 보낼 수 있음
+    tools = [transfer_to_tech_support, transfer_to_billing]
+    model_with_tools = model.bind_tools(tools)
+
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+    response = model_with_tools.invoke(messages)
+
+    return {"messages": [response]}</code></pre>
+
+    <p>
+      Supervisor의 작업자와 달리 <strong><code>goto</code>가 없습니다.</strong>
+      대신 <code>bind_tools</code>로 버튼 두 개를 쥐여 줬으니, LLM의 추론에 따라
+      <strong>직접 답변(content 채움)하거나, 버튼을 누르거나(tool_calls 채움)</strong> 둘 중 하나의
+      <code>AIMessage</code>가 반환됩니다. 어디로 갈지는 다음 단계의 조건부 엣지가 처리합니다.
+    </p>
+
+    <h4>② tech_node — 기술 지원팀</h4>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/53.png" alt="Handoff 슬라이드 — tech_node 코드. # [상담원 2] 기술 지원팀 def tech_node(state: AgentState) — 시스템 프롬프트(당신은 베테랑 기술 지원 엔지니어입니다. 컴퓨터 고장, 파이썬 코드 에러 등을 해결해줍니다. 만약 고객이 '환불'을 요구하면 즉시 billing 도구를 써서 넘기세요. 해결이 끝나면 reception으로 넘기세요. — 환불·billing 도구·reception 부분에 빨간 판서) / # 기술팀은 환불팀이나 안내 데스크로 보낼 수 있음 / tools = [transfer_to_billing, transfer_to_reception] (리스트에 빨간 동그라미) / model_with_tools = model.bind_tools(tools) / 이하 동일" />
+      <figcaption>기술팀이 들 수 있는 버튼은 <strong>billing과 reception 두 개</strong> —
+      노드마다 <strong>보낼 수 있는 곳만 바인딩</strong>합니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code># [상담원 2] 기술 지원팀
+def tech_node(state: AgentState):
+    print("\n🛠️ [Tech Support] 기술적인 문제를 해결해드립니다.")
+
+    system_prompt = """
+    당신은 베테랑 기술 지원 엔지니어입니다.
+    컴퓨터 고장, 파이썬 코드 에러 등을 해결해줍니다.
+    만약 고객이 '환불'을 요구하면 즉시 billing 도구를 써서 넘기세요.
+    해결이 끝나면 reception으로 넘기세요.
+    """
+
+    # 기술팀은 환불팀이나 안내 데스크로 보낼 수 있음
+    tools = [transfer_to_billing, transfer_to_reception]
+    model_with_tools = model.bind_tools(tools)
+
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+    response = model_with_tools.invoke(messages)
+
+    return {"messages": [response]}</code></pre>
+
+    <h4>③ billing_node — 환불팀</h4>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/54.png" alt="Handoff 슬라이드 — billing_node 코드. # [상담원 3] 환불팀 def billing_node(state: AgentState) — 시스템 프롬프트(당신은 환불 담당자입니다. 고객의 환불 요청을 처리해줍니다. 기술적인 질문을 하면 tech_support로 넘기세요. 해결이 끝나면 reception으로 넘기세요.) / # 환불팀은 기술팀이나 안내 데스크로 보낼 수 있음 / tools = [transfer_to_tech_support, transfer_to_reception] / model_with_tools = model.bind_tools(tools) / 이하 동일" />
+      <figcaption>환불팀의 버튼은 <strong>tech_support와 reception</strong>. 세 노드의 코드 뼈대는 완전히 같습니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code># [상담원 3] 환불팀
+def billing_node(state: AgentState):
+    print("\n💰 [Billing] 결제 및 환불 담당입니다.")
+
+    system_prompt = """
+    당신은 환불 담당자입니다.
+    고객의 환불 요청을 처리해줍니다.
+    기술적인 질문을 하면 tech_support로 넘기세요.
+    해결이 끝나면 reception으로 넘기세요.
+    """
+
+    # 환불팀은 기술팀이나 안내 데스크로 보낼 수 있음
+    tools = [transfer_to_tech_support, transfer_to_reception]
+    model_with_tools = model.bind_tools(tools)
+
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+    response = model_with_tools.invoke(messages)
+
+    return {"messages": [response]}</code></pre>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-step4">STEP 4. ToolNode — 버튼들이 모이는 교환대</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/55.png" alt="Handoff 슬라이드 — 3. Node 정의: tool node. 코드: from langgraph.prebuilt import ToolNode (langgraph.prebuilt에 빨간 밑줄) / # 도구를 실행할 노드 (ToolNode) / # 에이전트가 도구를 호출하면 → Tool Node로 가서 → 함수 실행 → Command 반환 → 다른 노드로 점프 / # 따라서 모든 에이전트는 'tools' 노드 또는 END와 연결되어야 함 / all_tools = [transfer_to_tech_support, transfer_to_billing, transfer_to_reception] / tool_node = ToolNode(all_tools)" />
+      <figcaption>직접 만들 필요 없이 <strong>prebuilt <code>ToolNode</code>에 툴 리스트만 넘기면</strong> 끝입니다.</figcaption>
+    </figure>
+
+    <pre class="code-block"><code>from langgraph.prebuilt import ToolNode
+
+# 도구를 실행할 노드 (ToolNode)
+# 에이전트가 도구를 호출하면 -> Tool Node로 가서 -> 함수 실행 -> Command 반환 -> 다른 노드로 점프
+all_tools = [transfer_to_tech_support, transfer_to_billing, transfer_to_reception]
+tool_node = ToolNode(all_tools)</code></pre>
+
+    <p>
+      마지막 조각입니다. 상담원 노드 3개 말고 <strong>버튼(툴) 3개가 모여 있는 노드가 하나 더</strong> 필요했죠 —
+      에이전트가 툴콜을 하면 여기로 와서 해당 툴 함수가 실행되고, 그 함수가 반환한
+      <code>Command(goto=)</code>가 실제 점프를 일으킵니다.
+      <code>tool_node</code>를 출력해 보면 세 툴의 name·description·args_schema가 등록된
+      <code>StructuredTool</code> 목록이 자동으로 만들어져 있는 걸 확인할 수 있습니다.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-step5">STEP 5. 그래프 조립 — tools_condition으로 조건부 엣지 ★★</h2>
+
+    <figure>
+      <img src="../images/05.Multi%20Agent/56.png" alt="Handoff 슬라이드 — 4. 그래프 생성: 시작은 reception node / tools_condition 함수로 조건부 엣지를 위한 코드 작성할 필요 없음. 코드: workflow.add_edge(START, 'receptionist') / from langgraph.prebuilt import tools_condition / workflow.add_conditional_edges('receptionist', tools_condition, ['tools', END]) / workflow.add_conditional_edges('tech_support', tools_condition, ['tools', END]) / workflow.add_conditional_edges('billing', tools_condition, ['tools', END]) / from langgraph.checkpoint.memory import InMemorySaver / checkpointer = InMemorySaver() / app = workflow.compile(checkpointer=checkpointer) / app" />
+      <figcaption>세 상담원 노드 전부에 같은 조건부 엣지 — <strong>툴콜이 있으면 tools로, 없으면 END로.</strong></figcaption>
+    </figure>
+
+    <pre class="code-block"><code>workflow = StateGraph(AgentState)
+
+workflow.add_node("receptionist", receptionist_node)
+workflow.add_node("tech_support", tech_node)
+workflow.add_node("billing", billing_node)
+workflow.add_node("tools", tool_node)
+
+# 시작은 안내 데스크
+workflow.add_edge(START, "receptionist")</code></pre>
+
+    <pre class="code-block"><code>from langgraph.prebuilt import tools_condition
+
+# 조건부 엣지 연결 (도구 호출 여부에 따라 tools 또는 END로 분기)
+workflow.add_conditional_edges("receptionist", tools_condition, ["tools", END])
+workflow.add_conditional_edges("tech_support", tools_condition, ["tools", END])
+workflow.add_conditional_edges("billing", tools_condition, ["tools", END])</code></pre>
+
+    <p>
+      각 상담원 노드가 끝났을 때 갈 곳은 둘 중 하나입니다 —
+      <strong>버튼을 눌렀으면(tool_calls 있음) <code>tools</code> 노드로, 답변을 다 했으면 <code>END</code>로.</strong>
+      이 분기 함수는 직접 짤 필요가 없습니다. 랭그래프 prebuilt의 <code>tools_condition</code>이
+      정확히 이 판별을 해 주니, 세 노드에 그대로 등록만 하면 됩니다.
+    </p>
+
+    <pre class="code-block"><code>from langgraph.checkpoint.memory import InMemorySaver
+
+checkpointer = InMemorySaver()
+app = workflow.compile(checkpointer=checkpointer)
+app</code></pre>
+
+    <div class="io-label">▶ 출력 — app</div>
+    <pre class="result-block">__start__ → receptionist ─┬─→ tools
+                          └─→ __end__
+tech_support ─┬─→ tools     billing ─┬─→ tools
+              └─→ __end__            └─→ __end__
+
+* tools 노드에서 각 상담원으로 가는 Command(goto=) 점프는 그림에 나타나지 않음</pre>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 그림이 설계도와 달라 보이는 게 정상입니다</strong>
+      <p>우리가 설계한 건 상담원들이 서로 얽힌 매시(Mesh)인데, 출력된 그림은 각 노드가
+      tools/END에만 연결된 밋밋한 모양입니다. <strong>툴 안의 <code>Command(goto=)</code> 점프는
+      정적 엣지가 아니라서 그림에 그려지지 않기 때문</strong>입니다. 실제 실행 흐름은 곧 로그로 확인합니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-run1">6. 실행 — ① "제 컴퓨터 화면이 안 나와요"</h2>
+
+    <pre class="code-block"><code>config = {"configurable": {"thread_id": "handoff-demo-1"}}
+
+result = app.invoke(
+    {"messages": [HumanMessage(content="제 컴퓨터 화면이 안 나와요. 고장난 것 같아요.")]},
+    config=config
+)</code></pre>
+
+    <div class="io-label">▶ 출력 — 실행 로그</div>
+    <pre class="result-block">💁 [Reception] 안녕하세요.
+   [System] 기술 지원팀으로 이동합니다... (Tool Call ID: call_5GforUJNQbTVcox4hax6f4xz)
+
+🛠️ [Tech Support] 기술적인 문제를 해결해드립니다.</pre>
+
+    <p>
+      예상대로입니다 — 기술적인 문제라서 리셉션은 직접 답하지 않고 <strong>툴콜 → tools 노드 →
+      <code>Command(goto=)</code>로 tech_support 점프 → 기술팀 LLM이 답변 작성 → END</strong>의 순서로 흘렀습니다.
+      <code>result</code>를 열어 보면 아까 예고한 <a href="#ho-flow">4종 세트</a>가 그대로 있습니다.
+    </p>
+
+    <div class="io-label">▶ 출력 — result (요약)</div>
+    <pre class="result-block">{'messages': [
+  HumanMessage(content='제 컴퓨터 화면이 안 나와요. 고장난 것 같아요.', ...),
+  AIMessage(content='', tool_calls=[{'name': 'transfer_to_tech_support', 'args': {},
+            'id': 'call_5GforUJNQbTVcox4hax6f4xz', ...}], ...),
+  ToolMessage(content='기술 지원팀으로 성공적으로 연결되었습니다.',
+              name='transfer_to_tech_support', tool_call_id='call_5GforUJNQbTVcox4hax6f4xz'),
+  AIMessage(content='다행히 바로 도와드릴게요. 화면이 안 나오는 문제는 케이블/입력 소스 문제에서부터
+            하드웨어 고장까지 다양한 원인일 수 있습니다. 아래 순서대로 차근차근 확인해 보세요. ...', ...)
+]}</pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>메시지</th><th>누가 만들었나</th><th>읽는 포인트</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>HumanMessage</code></td><td>사용자</td><td>최초 요청</td></tr>
+          <tr><td><code>AIMessage</code> (빈 content)</td><td><span class="badge badge-blue">receptionist</span></td><td><strong>content가 비어 있고 <code>tool_calls</code>만 있음</strong> — 직접 답하지 않고 버튼을 누른 것. <code>args</code>가 <code>{}</code>인 건 이 툴의 매개변수가 <code>runtime</code>뿐이라서입니다</td></tr>
+          <tr><td><code>ToolMessage</code></td><td><span class="badge badge-yellow">transfer 툴</span></td><td>고정 문구 + <code>tool_call_id</code>가 위 AIMessage의 id와 <strong>정확히 짝</strong>. 이 순간 goto 점프 발생</td></tr>
+          <tr><td><code>AIMessage</code> (해결책)</td><td><span class="badge badge-green">tech_support</span></td><td><strong>실제 답변은 도착한 노드의 LLM</strong>이 작성 ★</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="ho-run2">② "아직 안 되는데, 그냥 환불하고 싶어요"</h2>
+
+    <p><strong>같은 thread_id로</strong> 대화를 이어 갑니다 — checkpointer 덕분에 이전 상담 내역을 전부 기억한 상태입니다.</p>
+
+    <pre class="code-block"><code>result = app.invoke(
+    {"messages": [HumanMessage(content="아직 안 되는데, 그냥 환불하고 싶어요.")]},
+    config=config
+)</code></pre>
+
+    <div class="io-label">▶ 출력 — 실행 로그</div>
+    <pre class="result-block">💁 [Reception] 안녕하세요.
+
+💰 [Billing] 결제 및 환불 담당입니다.</pre>
+
+    <div class="io-label">▶ 출력 — result 뒷부분 (요약)</div>
+    <pre class="result-block">{'messages': [
+  ...(첫 번째 상담의 4개 메시지)...,
+  HumanMessage(content='아직 안 되는데, 그냥 환불하고 싶어요.', ...),
+  AIMessage(content='', tool_calls=[{'name': 'transfer_to_billing', 'args': {}, ...}], ...),
+  ToolMessage(content='환불/결제팀으로 성공적으로 연결되었습니다.', name='transfer_to_billing', ...),
+  AIMessage(content='이해했습니다. 문제 해결이 되지 않아 환불을 원하시는군요. 환불은 결제팀(billing)에서
+            처리됩니다. 요청 접수를 도와드리겠습니다. 아래 정보를 보내주시면 절차를 즉시 시작하겠습니다. ...', ...)
+]}</pre>
+
+    <p>
+      이번엔 "환불"이라는 단어를 보고 리셉션이 <strong>billing 버튼</strong>을 눌렀고,
+      환불팀 LLM이 접수 안내를 작성했습니다. 입력이 들어올 때마다 <strong>각 담당자가 판단해서 토스하고,
+      질문에 대한 답이 끝나면 더 이상 버튼을 누르지 않고 END로 빠져나오는</strong> —
+      분산형(Handoff형) 멀티 에이전트가 완성됐습니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>두 번째 실행에서 [System] 이동 로그가 안 찍힌 이유</strong>
+      <p>print를 <code>transfer_to_tech_support</code>에만 넣어 두었기 때문입니다.
+      <code>transfer_to_billing</code>에는 print가 없어서 조용히 점프만 했습니다 —
+      툴마다 로그를 넣어 두면 흐름 추적이 편해집니다.</p>
+    </div>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="vs">7. 두 조직도 비교 — 언제 뭘 쓰나</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th></th><th>Supervisor (중앙 집중형)</th><th>Handoff (네트워크형)</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>다음 담당자를 정하는 주체</strong></td>
+            <td><strong>감독관 노드 하나</strong>가 전담</td>
+            <td><strong>현재 담당자 각자</strong>가 결정</td>
+          </tr>
+          <tr>
+            <td><strong>결정의 도구</strong></td>
+            <td><code>with_structured_output()</code> — 결정 목록(Literal)에서 선택</td>
+            <td><code>bind_tools()</code> — 이동 버튼(툴) 중 하나를 툴콜</td>
+          </tr>
+          <tr>
+            <td><strong>점프 방식</strong></td>
+            <td>감독관이 직접 <code>Command(goto=)</code></td>
+            <td>툴 함수가 <code>Command(goto=)</code> — <strong>ToolNode가 브릿지</strong></td>
+          </tr>
+          <tr>
+            <td><strong>작업 후 행선지</strong></td>
+            <td><strong>항상 supervisor로 복귀 보고</strong></td>
+            <td>다른 팀으로 또 넘기거나, 끝나면 <strong>바로 END</strong></td>
+          </tr>
+          <tr>
+            <td><strong>엣지 구성</strong></td>
+            <td><code>START → supervisor</code> 단 하나</td>
+            <td><code>START → receptionist</code> + 노드마다 <code>tools_condition</code> 조건부 엣지</td>
+          </tr>
+          <tr>
+            <td><strong>통제력</strong></td>
+            <td><span class="badge badge-blue">높음</span> 모든 흐름이 감독관을 거침 — 추적·개입이 쉬움</td>
+            <td><span class="badge badge-yellow">낮음</span> 흐름이 분산 — 대신 감독관 병목이 없음</td>
+          </tr>
+          <tr>
+            <td><strong>이럴 때 쓴다</strong></td>
+            <td><strong>정해진 산출물을 향해 단계를 밟는 작업.</strong> 조사→집필→검수 같은 파이프라인</td>
+            <td><strong>어디로 튈지 모르는 대화형 응대.</strong> 고객센터처럼 담당이 수시로 바뀌는 상황</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 고르는 기준 한 줄</strong>
+      <p><strong>"업무 흐름을 한 명이 다 지켜봐야 하는가?"</strong></p>
+      <p><strong>그렇다면</strong> Supervisor — 편집장이 모든 원고의 진행을 챙기는 편집국처럼.<br />
+      <strong>아니라면</strong> Handoff — 각 부서가 알아서 연결해 주는 고객센터처럼.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="pitfalls">자주 걸리는 함정 8가지</h2>
+
+    <ol>
+      <li><strong>Literal / goto의 문자열 = add_node 등록 이름</strong> —
+      Supervisor의 <code>RouteResponse</code> 값도, Handoff 툴의 <code>goto</code> 값도
+      <strong>노드를 등록한 이름과 글자가 정확히 같아야</strong> 합니다. 여기가 이 장 오류의 1순위입니다.</li>
+
+      <li><strong><code>FINISH</code>는 노드가 아니다</strong> —
+      결정 목록에 있는 신호일 뿐이며, 코드에서 <code>if decision.next_step == "FINISH": return Command(goto=END)</code>로
+      <strong>END로 번역</strong>해 줘야 합니다.</li>
+
+      <li><strong>⚠️ 작업자의 <code>goto="supervisor"</code>를 빼먹지 말 것</strong> —
+      Supervisor 구조의 작업자는 나가는 엣지가 없으므로, 복귀 <code>goto</code>가 없으면
+      <strong>작업자에서 그래프가 그냥 끝납니다.</strong></li>
+
+      <li><strong>메시지에 <code>name</code>을 붙여라</strong> —
+      없어도 돌아가지만, 감독관이 <strong>누가 어디까지 했는지</strong>를 content 추측만으로 판단하게 됩니다.
+      멀티 에이전트에서는 사실상 필수 습관입니다.</li>
+
+      <li><strong>Supervisor의 순서는 고정이 아니다</strong> —
+      매번 LLM이 새로 판단하므로 같은 작업자가 연속으로 불리거나 예상 밖 순서가 나올 수 있습니다.
+      시스템 메시지를 명확하게 쓰고, 필요하면 최대 반복 횟수 같은 안전장치를 고민하세요.</li>
+
+      <li><strong>Handoff 툴에서 <code>ToolMessage</code> + <code>tool_call_id</code>는 필수</strong> —
+      툴콜에 대한 응답 짝이 맞지 않으면 에러가 납니다. <strong><code>runtime: ToolRuntime</code>으로 받아
+      <code>runtime.tool_call_id</code>를 쓰면</strong> 직접 파낼 필요가 없습니다.</li>
+
+      <li><strong>⚠️ 상담원 노드마다 <code>tools_condition</code> 조건부 엣지를 등록할 것</strong> —
+      빼먹은 노드는 툴콜을 해도 <strong>tools 노드로 가지 못하고 그 자리에서 끝나 버립니다.</strong>
+      또한 <code>bind_tools</code>에는 그 노드가 실제로 보낼 수 있는 버튼만 담으세요
+      (reception은 tech+billing, tech는 billing+reception…).</li>
+
+      <li><strong>그래프 그림을 믿지 마라</strong> —
+      <code>Command(goto=)</code>에 의한 동적 점프는 그림에 그려지지 않습니다.
+      Supervisor에선 작업자들이 떠 있는 것처럼, Handoff에선 매시가 아닌 것처럼 보이는 게 정상이며,
+      <strong>실제 흐름은 실행 로그로 확인</strong>해야 합니다.</li>
+    </ol>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="full-code">전체 코드 한눈에 보기</h2>
+
+    <h3>① Supervisor — 블로그 작성 팀</h3>
+
+    <pre class="code-block"><code>from langchain.chat_models import init_chat_model
+from langchain.messages import AnyMessage, HumanMessage, SystemMessage, AIMessage
+from typing_extensions import TypedDict, Annotated
+from typing import Literal
+from pydantic import BaseModel, Field
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.types import Command
+from langgraph.checkpoint.memory import InMemorySaver
+
+model = init_chat_model("gpt-5-nano")
+
+# ── State (팀 공용 대화 기록) ─────────────────────────────
+class TeamState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+
+# ── 감독관의 결정 목록 ────────────────────────────────────
+class RouteResponse(BaseModel):
+    next_step: Literal["researcher", "writer", "FINISH"] = Field(
+        description="다음 작업을 수행할 팀원을 선택하거나, 모든 작업이 완료되었으면 FINISH를 선택"
+    )
+    reason: str = Field(description="선택한 이유")
+
+supervisor_agent = model.with_structured_output(RouteResponse)
+
+# ── 감독관 노드 ───────────────────────────────────────────
+def supervisor_node(state: TeamState):
+    print("\n👔 [Supervisor] 다음 작업자 결정 중...")
+
+    system_prompt = """
+    당신은 블로그 작성 팀의 관리자입니다.
+    1. 사용자 요청이 들어오면 'researcher'에게 조사를 시키세요.
+    2. 조사 결과가 나오면 'writer'에게 글 작성을 시키세요.
+    3. 글 작성이 완료되면 'FINISH'를 선언하세요.
+    """
+
+    messages = [SystemMessage(content=system_prompt)] + state["messages"]
+    decision = supervisor_agent.invoke(messages)
+
+    print(f"👉 [지시] {decision.next_step} (이유: {decision.reason})")
+
+    if decision.next_step == "FINISH":
+        return Command(goto=END)
+    else:
+        return Command(goto=decision.next_step)
+
+# ── 작업자 노드 2개 ───────────────────────────────────────
+def researcher_node(state: TeamState):
+    print("\n🔎 [Researcher] LLM이 자료를 조사/생성 중입니다...")
+    system_msg = SystemMessage(content="""
+    당신은 IT 트렌드 전문 리서처입니다.
+    사용자의 요청 주제에 대해 핵심 트렌드, 기술 용어, 통계 등을 포함하여
+    전문적인 조사 보고서를 3줄 요약 형태로 작성하세요.
+    """)
+    response = model.invoke([system_msg] + state["messages"])
+    return Command(
+        update={"messages": [AIMessage(content=response.content, name="Researcher")]},
+        goto="supervisor"
+    )
+
+def writer_node(state: TeamState):
+    print("\n✍️ [Writer] LLM이 블로그 포스팅을 작성 중입니다...")
+    system_msg = SystemMessage(content="""
+    당신은 테크 블로그 전문 작가입니다.
+    위의 대화 내역에 있는 'Researcher'의 조사 결과를 바탕으로
+    매력적인 블로그 포스팅(제목+본문)을 작성하세요.
+    이모지를 적절히 사용하여 가독성을 높이세요.
+    """)
+    response = model.invoke([system_msg] + state["messages"])
+    return Command(
+        update={"messages": [AIMessage(content=response.content, name="Writer")]},
+        goto="supervisor"
+    )
+
+# ── 그래프 조립 ───────────────────────────────────────────
+workflow = StateGraph(TeamState)
+workflow.add_node("supervisor", supervisor_node)
+workflow.add_node("researcher", researcher_node)
+workflow.add_node("writer", writer_node)
+workflow.add_edge(START, "supervisor")     # 정적 엣지는 이것 하나
+
+checkpointer = InMemorySaver()
+app = workflow.compile(checkpointer=checkpointer)
+
+# ── 실행 ──────────────────────────────────────────────────
+config = {"configurable": {"thread_id": "team-blog-1"}}
+app.invoke(
+    {"messages": [HumanMessage(content="AI 최신 트렌드에 대해 블로그 글 써줘")]},
+    config=config
+)</code></pre>
+
+    <h3>② Handoff — 고객센터 3개 팀</h3>
+
+    <pre class="code-block"><code>from langchain.chat_models import init_chat_model
+from langchain.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain.tools import tool, ToolRuntime
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.types import Command
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.memory import InMemorySaver
+
+model = init_chat_model("gpt-5-nano")
+
+# ── 이동 버튼(툴) 3개 ─────────────────────────────────────
+@tool
+def transfer_to_tech_support(runtime: ToolRuntime):
+    """기술적인 문제(컴퓨터, 코드, 에러 등)를 해결해야 할 때 이 도구를 사용하여 기술팀으로 연결하세요."""
+    tool_id = runtime.tool_call_id
+    print(f"   [System] 기술 지원팀으로 이동합니다... (Tool Call ID: {tool_id})")
+    return Command(
+        update={"messages": [ToolMessage(content="기술 지원팀으로 성공적으로 연결되었습니다.",
+                                         tool_call_id=tool_id)]},
+        goto="tech_support"
+    )
+
+@tool
+def transfer_to_billing(runtime: ToolRuntime):
+    """환불, 결제, 금액 관련 문제를 해결해야 할 때 이 도구를 사용하여 환불팀으로 연결하세요."""
+    tool_id = runtime.tool_call_id
+    return Command(
+        update={"messages": [ToolMessage(content="환불/결제팀으로 성공적으로 연결되었습니다.",
+                                         tool_call_id=tool_id)]},
+        goto="billing"
+    )
+
+@tool
+def transfer_to_reception(runtime: ToolRuntime):
+    """일반적인 문의거나, 인사가 끝났으면 안내 데스크로 다시 연결하세요."""
+    tool_id = runtime.tool_call_id
+    return Command(
+        update={"messages": [ToolMessage(content="안내 데스크로 복귀했습니다.",
+                                         tool_call_id=tool_id)]},
+        goto="receptionist"
+    )
+
+# ── State ─────────────────────────────────────────────────
+class AgentState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+
+# ── 상담원 노드 3개 ───────────────────────────────────────
+def receptionist_node(state: AgentState):
+    print("\n💁 [Reception] 안녕하세요.")
+    system_prompt = """
+    당신은 고객센터의 친절한 안내 데스크입니다.
+    1. 고객의 말을 듣고 인사하세요.
+    2. '기술 문제'라면 tech_support 도구를 쓰세요.
+    3. '돈/환불 문제'라면 billing 도구를 쓰세요.
+    4. 그 외 잡담은 직접 답변하세요.
+    """
+    tools = [transfer_to_tech_support, transfer_to_billing]
+    model_with_tools = model.bind_tools(tools)
+    response = model_with_tools.invoke([SystemMessage(content=system_prompt)] + state["messages"])
+    return {"messages": [response]}
+
+def tech_node(state: AgentState):
+    print("\n🛠️ [Tech Support] 기술적인 문제를 해결해드립니다.")
+    system_prompt = """
+    당신은 베테랑 기술 지원 엔지니어입니다.
+    컴퓨터 고장, 파이썬 코드 에러 등을 해결해줍니다.
+    만약 고객이 '환불'을 요구하면 즉시 billing 도구를 써서 넘기세요.
+    해결이 끝나면 reception으로 넘기세요.
+    """
+    tools = [transfer_to_billing, transfer_to_reception]
+    model_with_tools = model.bind_tools(tools)
+    response = model_with_tools.invoke([SystemMessage(content=system_prompt)] + state["messages"])
+    return {"messages": [response]}
+
+def billing_node(state: AgentState):
+    print("\n💰 [Billing] 결제 및 환불 담당입니다.")
+    system_prompt = """
+    당신은 환불 담당자입니다.
+    고객의 환불 요청을 처리해줍니다.
+    기술적인 질문을 하면 tech_support로 넘기세요.
+    해결이 끝나면 reception으로 넘기세요.
+    """
+    tools = [transfer_to_tech_support, transfer_to_reception]
+    model_with_tools = model.bind_tools(tools)
+    response = model_with_tools.invoke([SystemMessage(content=system_prompt)] + state["messages"])
+    return {"messages": [response]}
+
+# ── 그래프 조립 ───────────────────────────────────────────
+workflow = StateGraph(AgentState)
+workflow.add_node("receptionist", receptionist_node)
+workflow.add_node("tech_support", tech_node)
+workflow.add_node("billing", billing_node)
+
+all_tools = [transfer_to_tech_support, transfer_to_billing, transfer_to_reception]
+workflow.add_node("tools", ToolNode(all_tools))
+
+workflow.add_edge(START, "receptionist")
+workflow.add_conditional_edges("receptionist", tools_condition, ["tools", END])
+workflow.add_conditional_edges("tech_support", tools_condition, ["tools", END])
+workflow.add_conditional_edges("billing", tools_condition, ["tools", END])
+
+checkpointer = InMemorySaver()
+app = workflow.compile(checkpointer=checkpointer)
+
+# ── 실행 ──────────────────────────────────────────────────
+config = {"configurable": {"thread_id": "handoff-demo-1"}}
+app.invoke({"messages": [HumanMessage(content="제 컴퓨터 화면이 안 나와요. 고장난 것 같아요.")]},
+           config=config)
+app.invoke({"messages": [HumanMessage(content="아직 안 되는데, 그냥 환불하고 싶어요.")]},
+           config=config)</code></pre>
+
+    <hr />
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="summary">📚 한 장 정리</h2>
+
+    <div class="info-card">
+      <div class="info-card-title">Multi Agent — 딱 이것만 기억하면 됩니다</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>질문</th><th>답</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Supervisor가 뭔가</strong></td><td><strong>감독관 LLM이 다음 작업자를 고르는 중앙 집중형.</strong> 작업자는 일 끝나면 감독관에게 복귀</td></tr>
+            <tr><td><strong>감독관의 판단 도구</strong></td><td><code>with_structured_output(RouteResponse)</code> — <strong>Literal로 결정 목록을 고정</strong>, reason으로 근거 확인</td></tr>
+            <tr><td><strong>감독관의 라우팅</strong></td><td><code>Command(goto=decision.next_step)</code> · FINISH면 <code>goto=END</code></td></tr>
+            <tr><td><strong>name 속성</strong></td><td>메시지에 <strong>작성자 이름을 기록</strong> — 감독관이 진행 상황을 정확히 인지</td></tr>
+            <tr><td><strong>Handoff가 뭔가</strong></td><td><strong>동등한 에이전트끼리 서로 넘기는 네트워크형(Mesh).</strong> 감독관 없음</td></tr>
+            <tr><td><strong>Handoff의 구현 방식</strong></td><td><strong>Tool-based</strong> — 이동 버튼(툴)을 <code>bind_tools</code>, 툴 안에서 <code>ToolMessage</code> + <code>Command(goto=)</code></td></tr>
+            <tr><td><strong>tool_call_id</strong></td><td><code>runtime: ToolRuntime</code>으로 받아 <code>runtime.tool_call_id</code> — 직접 파낼 필요 없음</td></tr>
+            <tr><td><strong>엣지 구성</strong></td><td>Supervisor: <code>START→supervisor</code> 하나 · Handoff: 노드마다 <code>tools_condition</code>으로 <code>["tools", END]</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ul>
+      <li><strong>Supervisor는 "서브그래프 호출 결정권의 이관"이다</strong> —
+      5-4에서 개발자가 하드코딩했던 자식 그래프 호출을, 구조화된 답변을 하는 LLM이 대신 결정합니다.
+      선택지를 늘리고 시스템 메시지만 고치면 <strong>팀원이 얼마든지 늘어나는</strong> 확장 구조입니다.</li>
+
+      <li><strong>Handoff는 "버튼과 교환대"다</strong> —
+      각 에이전트는 자기가 넘길 수 있는 곳의 버튼만 들고, 버튼이 눌리면 ToolNode가 점프시킵니다.
+      실제 응대는 언제나 <strong>도착한 노드의 LLM</strong>이 하고, 툴은 고정 문구의 ToolMessage만 남깁니다.</li>
+
+      <li><strong>두 구조 모두 새 문법이 아니라 배치의 문제다</strong> —
+      <code>goto</code>, 구조화된 답변, 툴 바인딩, 서브그래프… 전부 이미 배운 부품이고,
+      조직도를 어떻게 그리느냐만 달랐습니다.</li>
+    </ul>
+
+    <div class="callout callout-analogy">
+      <strong>🔍 마지막으로 — 이 장을 한 장면으로 기억한다면</strong>
+      <p><strong>편집국과 고객센터</strong>를 나란히 떠올리세요.
+      편집국(Supervisor)에서는 모든 원고가 편집장의 책상을 거칩니다 — 누가 다음 일을 할지는 편집장이 정합니다.
+      고객센터(Handoff)에는 편집장이 없습니다 — 상담원 각자가 "제 담당이 아니네요" 하며
+      책상 위 연결 버튼을 누릅니다. <strong>결정권이 가운데 모여 있느냐, 각자에게 흩어져 있느냐</strong> —
+      멀티 에이전트 조직도는 결국 이 한 가지 질문입니다.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <h2 id="finale">🎓 강의를 마치며 — 여기까지 온 길</h2>
+
+    <p>
+      이것으로 LangGraph 강의가 모두 끝났습니다. 이제 하산하셔도 됩니다.
+      마지막으로, 우리가 걸어온 길을 한 번에 되짚어 보죠.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step"><span class="n">1</span><strong>1강 · 시작하며</strong><p>API 키 발급, <strong>Model I/O</strong> — 모델에 입력을 넣고 답변을 받는 기본기</p></div>
+      <div class="flow-step"><span class="n">2</span><strong>2강 · LangGraph 기초</strong><p><strong>State · Node · Edge · Tool</strong> — 그래프를 조립하는 부품 네 개</p></div>
+      <div class="flow-step"><span class="n">3</span><strong>3강 · 아키텍처 패턴</strong><p>Chaining · Parallelization · Routing · <strong>Evaluator-Optimizer · Orchestrator-Worker</strong></p></div>
+      <div class="flow-step"><span class="n">4</span><strong>4강 · Memory</strong><p>Checkpointer(단기) · <strong>Time Travel과 분기</strong> · Store(장기)</p></div>
+      <div class="flow-step"><span class="n">5</span><strong>5강 · Multi Agent</strong><p>Dynamic Interrupt · Command goto · Subgraph, 그리고 오늘의 <strong>Supervisor와 Handoff</strong></p></div>
+    </div>
+
+    <p>
+      돌아보면 한 줄기입니다 — <strong>부품(2강)을 배우고, 배치 패턴(3강)을 익히고, 기억(4강)을 붙이고,
+      마침내 여럿이 협업하는 조직(5강)으로 완성</strong>했습니다.
+      하나의 노드에서 모든 걸 하던 단일 에이전트에서 출발해, 이제는 노드 하나하나가
+      에이전트 그래프인 시스템을 설계할 수 있게 됐습니다.
+      이 다음은 배운 것을 실제 프로덕트 수준의 프로젝트로 옮기는 일만 남았습니다. 정말 수고 많으셨습니다! 🎉
+    </p>
+
+    <div class="callout callout-info">
+      <strong>참고 자료</strong>
+      <p><a href="https://docs.langchain.com/oss/python/langchain/multi-agent" target="_blank">LangChain 공식 문서 — Multi-agent</a></p>
+      <p><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs" target="_blank">LangChain 공식 문서 — Handoffs</a></p>
+      <p><a href="https://openai.github.io/openai-agents-python/handoffs/" target="_blank">OpenAI Agents SDK — Handoffs (용어의 출처)</a></p>
+      <p><a href="https://reference.langchain.com/python/langgraph/agents/?h=toolruntime#langgraph.prebuilt.tool_node.InjectedStore" target="_blank">LangGraph 레퍼런스 — ToolRuntime / ToolNode</a></p>
+    </div>
+
+    <div class="pager">
+      <a href="3.html">
+        <small>← 이전</small>
+        5-4. Subgraph — 그래프를 통째로 노드에 접어 넣기
+      </a>
+      <a href="../index.html" class="to-index">📚 목차</a>
+      <span class="disabled">
+        <small>완결</small>
+        🎓 LangGraph 강의 전 과정 완주!
+      </span>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── 자체 포함 Python 문법 강조기 (외부 라이브러리·인터넷 불필요) ── -->
+<script>
+(function () {
+  var KEYWORDS = {'from':1,'import':1,'as':1,'def':1,'return':1,'class':1,'if':1,'elif':1,'else':1,'for':1,'while':1,'in':1,'not':1,'and':1,'or':1,'is':1,'with':1,'lambda':1,'pass':1,'break':1,'continue':1,'try':1,'except':1,'finally':1,'raise':1,'yield':1,'global':1,'nonlocal':1,'assert':1,'del':1,'async':1,'await':1,'None':1,'True':1,'False':1};
+  var BUILTINS = {'print':1,'len':1,'range':1,'int':1,'float':1,'str':1,'list':1,'dict':1,'set':1,'tuple':1,'bool':1,'self':1,'super':1,'isinstance':1,'enumerate':1,'zip':1,'map':1,'filter':1,'open':1,'type':1};
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function span(cls, s){ return '<span class="'+cls+'">'+esc(s)+'</span>'; }
+  function highlight(src){
+    var out='', i=0, n=src.length, expectName=false, m;
+    while(i<n){
+      var ch=src[i], rest=src.slice(i);
+      if(ch==='#'){ m=rest.match(/^#[^\n]*/); out+=span('tok-com',m[0]); i+=m[0].length; continue; }              // 주석
+      if((m=rest.match(/^("""[\s\S]*?"""|'''[\s\S]*?''')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 삼중따옴표 문자열
+      if((m=rest.match(/^("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')/))){ out+=span('tok-str',m[0]); i+=m[0].length; continue; } // 일반 문자열
+      if(ch==='!' && (i===0 || src[i-1]==='\n')){ m=rest.match(/^![^\n]*/); out+=span('tok-shell',m[0]); i+=m[0].length; continue; } // 셸 명령
+      if((m=rest.match(/^@[A-Za-z_]\w*/))){ out+=span('tok-dec',m[0]); i+=m[0].length; continue; }                 // 데코레이터
+      if((m=rest.match(/^\d[\d_]*\.?\d*/))){ out+=span('tok-num',m[0]); i+=m[0].length; continue; }                // 숫자
+      if((m=rest.match(/^[A-Za-z_]\w*/))){                                                                         // 식별자
+        var w=m[0];
+        if(expectName){ out+=span('tok-fn',w); expectName=false; }
+        else if(KEYWORDS[w]){ out+=span('tok-kw',w); if(w==='def'||w==='class') expectName=true; }
+        else if(BUILTINS[w]){ out+=span('tok-bi',w); }
+        else { out+=esc(w); }
+        i+=w.length; continue;
+      }
+      out+=esc(ch); i++;                                                                                           // 그 외 문자
+    }
+    return out;
+  }
+  function run(){
+    var blocks=document.querySelectorAll('pre.code-block > code');
+    for(var k=0;k<blocks.length;k++){ blocks[k].innerHTML=highlight(blocks[k].textContent); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
+</script>
+
+</body>
+</html>
