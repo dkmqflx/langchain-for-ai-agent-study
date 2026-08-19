@@ -228,6 +228,10 @@ agent = create_agent(
           <strong>사실은 코드로 세고, 판단만 LLM에게 맡긴다</strong> — 가드레일에서 본 "싼 것 먼저" 원칙의 다른 얼굴입니다.
           <code>sources</code>와 <code>confident</code>는 요약·판단이라 LLM 몫이고, <code>used_tools</code>는 사실이라 우리 몫입니다.
         </p>
+        <p>
+          <strong><code>ChatReply</code>에 칸을 정의해 뒀으니 모델은 <code>answer</code>·<code>sources</code>·<code>confident</code>를 반드시 채워서 보냅니다.</strong>
+          <code>ask()</code>는 그걸 꺼내 돌려주기만 하면 됩니다 — 안 꺼내면 채워져 와도 아무도 못 봅니다.
+        </p>
       </div>
 
       <h3><code>ask()</code> 고치기 — 차단된 경우를 잊지 마세요</h3>
@@ -238,7 +242,7 @@ agent = create_agent(
       </p>
       <div class="filename">agent.py — ask() 교체</div>
 <pre><code>def ask(message: str, session_id: str = "default") -> dict:
-    """질문 하나를 처리해 {answer, sources, used_tools, blocked} 형태로 돌려준다."""
+    """질문 하나를 처리해 {answer, sources, confident, used_tools, blocked} 형태로 돌려준다."""
     result = agent.invoke(
         {"messages": [{"role": "user", "content": message}]},
         {"configurable": {"thread_id": session_id}},
@@ -247,30 +251,96 @@ agent = create_agent(
 
     # 이번 턴에 쓴 도구만 센다. messages에는 지난 대화까지 다 들어 있으므로
     # '마지막 사용자 발화' 이후 구간만 봐야 이번 턴의 도구가 나온다.
+    #   예) [Human, AI, Tool, Human, AI, Tool] → last_human=3, 그 뒤 3개가 이번 턴
+    # 주의: last_human에 담기는 건 '메시지'가 아니라 그 메시지의 '번호(인덱스)'다.
+    # 마지막 사용자 발화의 내용을 읽으려는 게 아니라, messages[last_human:] 슬라이싱의
+    # 시작점으로 쓰려고 위치만 구하는 것이다.
     last_human = max(i for i, m in enumerate(messages) if m.type == "human")
+    # ToolStrategy는 '이 형식으로 제출하라'는 도구(=ChatReply)를 내부적으로 하나 더 만든다.
+    # 그건 우리가 쥐여 준 도구가 아니므로 뺀다 — STEP 8의 채점 대상은 진짜 도구뿐이다.
     used_tools = [
         call["name"]
-        for m in messages[last_human:]
+        for m in messages[last_human:]           # 이번 턴 구간만 훑고
+        # tool_calls는 AIMessage에만 있다. m.tool_calls로 바로 꺼내면 Human에서 터지니
+        # getattr(..., None)으로 안전하게 본다. 도구를 안 쓴 AI는 []라서 같이 걸러진다.
         if getattr(m, "tool_calls", None)
-        for call in m.tool_calls
+        for call in m.tool_calls                 # 한 메시지가 도구를 여러 개 부를 수도 있다
+        if call["name"] != ChatReply.__name__
     ]
 
-    # 가드레일에 막혔으면 structured_response가 없다 → .get()으로 안전하게 꺼낸다
+    # 가드레일에 막히면 모델을 아예 호출하지 않고 끝난다(jump_to="end").
+    # 모델이 안 돌았으니 structured_response도 없다 → []로 꺼내면 KeyError, .get()으로 받는다.
     reply = result.get("structured_response")
     if reply is None:
         return {
             "answer": messages[-1].content,   # 가드레일이 넣어 둔 거절 문구
             "sources": [],
+            "confident": False,               # 근거로 확인한 게 아니라 문 앞에서 돌려보낸 것
             "used_tools": [],
             "blocked": True,
         }
 
+    # 막힌 경우와 정상인 경우 모두 같은 모양의 dict를 돌려준다.
+    # 호출하는 쪽은 blocked만 보면 되고 예외 처리를 따로 하지 않아도 된다(STEP 8 채점이 쉬워진다).
     return {
         "answer": reply.answer,
         "sources": reply.sources,
+        "confident": reply.confident,   # ChatReply에 정의해 둔 칸을 그대로 꺼낸다
         "used_tools": used_tools,
         "blocked": False,
     }</code></pre>
+
+      <div class="callout callout-analogy">
+        <strong>🔍 <code>used_tools</code> 한 줄씩 뜯어보기 — 여기가 이 파일에서 제일 안 읽히는 곳입니다</strong>
+        <p style="margin-top:6px">
+          <code>result["messages"]</code>에는 <strong>이번 턴만이 아니라 그 방의 전체 대화</strong>가 들어 있습니다.
+          그래서 그냥 세면 지난 턴에 쓴 도구까지 딸려 옵니다. <code>last_human</code>은 <em>가장 최근 사람 발화의 위치</em>를 찾아
+          그 뒤만 잘라 보기 위한 것입니다 — <code>enumerate</code>로 (번호, 메시지) 쌍을 만들고, 사람 발화의 번호만 남긴 뒤
+          <code>max</code>로 가장 큰 번호를 고르는 거죠.
+        </p>
+        <p>
+          컴프리헨션은 첫 줄만 결과이고 나머지는 평범한 for/if입니다. 반복문으로 쓰면 정확히 이것과 같아요.
+        </p>
+<pre style="margin-top:8px"><code>used_tools = []
+for m in messages[last_human:]:          # 이번 턴 구간만 훑는다
+    if getattr(m, "tool_calls", None):   # tool_calls가 있고 비어있지 않은 메시지만
+        for call in m.tool_calls:        # 한 메시지가 도구를 여러 개 부를 수도 있다
+            if call["name"] != ChatReply.__name__:
+                used_tools.append(call["name"])</code></pre>
+        <p style="margin-top:8px">
+          <code>getattr(m, "tool_calls", None)</code>을 쓰는 이유는 <strong><code>tool_calls</code>가 AIMessage에만 있기</strong> 때문입니다.
+          <code>m.tool_calls</code>라고 바로 쓰면 Human 메시지에서 <code>AttributeError</code>로 터집니다.
+          덤으로 도구를 안 쓴 AI 메시지는 <code>[]</code>라서 <code>if</code>에서 자연스럽게 걸러집니다.
+        </p>
+      </div>
+
+      <div class="callout callout-info">
+        <strong>🎭 <code>ChatReply</code>는 '가짜 도구'입니다 — 그래서 <code>used_tools</code>에서 뺍니다</strong>
+        <p style="margin-top:6px">
+          LLM에게 "이런 형식으로 답해"라고 <em>말로 부탁하면</em> 안 지킵니다. 그래서 <code>ToolStrategy</code>는
+          <strong><code>ChatReply</code> 클래스를 도구 정의로 바꿔 모델에게 쥐여 줍니다.</strong>
+          모델은 답할 준비가 되면 그 도구를 '호출'하면서 <code>answer</code>·<code>sources</code>·<code>confident</code> 칸을 채우고,
+          랭체인은 그 호출을 가로채 <code>structured_response</code>에 담아 줍니다.
+          <strong>도구 호출이 모델이 "정해진 모양의 JSON"을 만들 수 있는 유일한 통로</strong>라서, 구조화 출력이 그 통로를 빌려 쓰는 겁니다.
+        </p>
+        <p>그래서 <code>messages</code>에는 이렇게 남습니다.</p>
+<pre style="margin-top:8px"><code>Human   "오늘 며칠이야?"
+AI      tool_calls=[{"name": "get_today", "args": {}}]        ← 진짜 도구
+Tool    "2026-08-19"
+AI      tool_calls=[{"name": "ChatReply", "args": {           ← 가짜 도구
+            "answer": "오늘은 2026년 8월 19일입니다",
+            "sources": [], "confident": true}}]
+Tool    (구조화 결과)</code></pre>
+        <p style="margin-top:8px">
+          거르지 않으면 <code>used_tools == ["get_today", "ChatReply"]</code>가 되지만, 실제로 <strong>일을 시키려고 부른 도구는 <code>get_today</code> 하나뿐</strong>입니다.
+          <code>get_today</code>는 부르면 진짜 파이썬 함수가 돌아 바깥 정보를 가져오지만, <code>ChatReply</code>는 <strong>아무것도 실행되지 않습니다</strong> — 답을 정해진 서식에 옮겨 적어 제출하는 것뿐이죠.
+          게다가 <strong>모든 정상 응답에 무조건 한 번씩 끼기 때문에 세어 봐야 정보가 0</strong>입니다. STEP 8의 "올바른 도구를 골랐는가" 채점에는 노이즈일 뿐이라 미리 뺍니다.
+        </p>
+        <p>
+          <code>ChatReply.__name__</code>은 그냥 문자열 <code>"ChatReply"</code>입니다. <code>!= "ChatReply"</code>라고 써도 똑같이 동작하지만,
+          나중에 클래스 이름을 바꾸면 문자열은 조용히 안 맞게 되고 필터가 샙니다. <code>.__name__</code>은 이름 변경을 자동으로 따라갑니다.
+        </p>
+      </div>
 
       <div class="callout callout-result">
         <strong>✅ 검증 게이트</strong>
@@ -286,15 +356,16 @@ uv run python agent.py
   나 &gt; 요즘 어디에 투자하면 돈 벌어?
 #    → 투자 권유 거절 문구
 
-# 2) 정상 질문은 통과하고, 형식이 채워지는가
+# 2) 정상 질문은 통과하고, ChatReply에 정의한 대로 채워져 오는가
   나 &gt; 신용카드 분실 시 회원 책임은?
-#    → {'answer': '...', 'sources': ['03_신용카드...pdf p.40'], 'used_tools': ['search_internal_docs'], 'blocked': False}
-#      sources 가 비어 있지 않아야 한다 ← 이게 STEP 8의 '형식 준수' 채점 대상
+#    → {'answer': '...', 'sources': ['03_신용카드...pdf p.40'], 'confident': True,
+#       'used_tools': ['search_internal_docs'], 'blocked': False}
+#      answer · sources · confident 세 칸이 ChatReply 정의 그대로 온다 ← STEP 8의 '형식 준수' 채점 대상
 
 # 3) 모르는 걸 모른다고 하는가
   나 &gt; 우리 회사 2026년 신규 카드 상품 혜택이 뭐야?
-#    → confident=False 에 해당하는 답(모른다/확인 불가)이 나와야 한다.
-#      그럴듯하게 지어내면 프롬프트를 손봐야 한다는 신호다.</code></pre>
+#    → 'confident': False   ← ChatReply의 정의 "모르거나 확인하지 못했으면 false" 그대로
+#      지어내면 confident=True 인데 sources 가 비어 있다. 프롬프트를 고쳐야 한다는 신호.</code></pre>
       </div>
 
       <div class="callout callout-warn">

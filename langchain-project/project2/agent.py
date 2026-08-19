@@ -116,7 +116,7 @@ agent = create_agent(
 
 
 def ask(message: str, session_id: str = "default") -> dict:
-    """질문 하나를 처리해 {answer, sources, used_tools, blocked} 형태로 돌려준다.
+    """질문 하나를 처리해 {answer, sources, confident, used_tools, blocked} 형태로 돌려준다.
 
     session_id가 같으면 앞 대화가 이어진다. 두 번째 인자(config)의 thread_id가
     '대화방 번호'다. checkpointer를 달아 놓고 이 값을 안 넘기면 에러가 난다 —
@@ -130,30 +130,41 @@ def ask(message: str, session_id: str = "default") -> dict:
 
     # 이번 턴에 쓴 도구만 센다. messages에는 지난 대화까지 다 들어 있으므로
     # '마지막 사용자 발화' 이후 구간만 봐야 이번 턴의 도구가 나온다.
+    #   예) [Human, AI, Tool, Human, AI, Tool] → last_human=3, 그 뒤 3개가 이번 턴
+    # 주의: last_human에 담기는 건 '메시지'가 아니라 그 메시지의 '번호(인덱스)'다.
+    # 마지막 사용자 발화의 내용을 읽으려는 게 아니라, messages[last_human:] 슬라이싱의
+    # 시작점으로 쓰려고 위치만 구하는 것이다.
     last_human = max(i for i, m in enumerate(messages) if m.type == "human")
     # ToolStrategy는 '이 형식으로 제출하라'는 도구(=ChatReply)를 내부적으로 하나 더 만든다.
     # 그건 우리가 쥐여 준 도구가 아니므로 뺀다 — STEP 8의 채점 대상은 진짜 도구뿐이다.
     used_tools = [
         call["name"]
-        for m in messages[last_human:]
+        for m in messages[last_human:]           # 이번 턴 구간만 훑고
+        # tool_calls는 AIMessage에만 있다. m.tool_calls로 바로 꺼내면 Human에서 터지니
+        # getattr(..., None)으로 안전하게 본다. 도구를 안 쓴 AI는 []라서 같이 걸러진다.
         if getattr(m, "tool_calls", None)
-        for call in m.tool_calls
+        for call in m.tool_calls                 # 한 메시지가 도구를 여러 개 부를 수도 있다
         if call["name"] != ChatReply.__name__
     ]
 
-    # 가드레일에 막혔으면 structured_response가 없다 → .get()으로 안전하게 꺼낸다
+    # 가드레일에 막히면 모델을 아예 호출하지 않고 끝난다(jump_to="end").
+    # 모델이 안 돌았으니 structured_response도 없다 → []로 꺼내면 KeyError, .get()으로 받는다.
     reply = result.get("structured_response")
     if reply is None:
         return {
             "answer": messages[-1].content,   # 가드레일이 넣어 둔 거절 문구
             "sources": [],
+            "confident": False,               # 근거로 확인한 게 아니라 문 앞에서 돌려보낸 것
             "used_tools": [],
             "blocked": True,
         }
 
+    # 막힌 경우와 정상인 경우 모두 같은 모양의 dict를 돌려준다.
+    # 호출하는 쪽은 blocked만 보면 되고 예외 처리를 따로 하지 않아도 된다(STEP 8 채점이 쉬워진다).
     return {
         "answer": reply.answer,
         "sources": reply.sources,
+        "confident": reply.confident,   # ChatReply에 정의해 둔 칸을 그대로 꺼낸다
         "used_tools": used_tools,
         "blocked": False,
     }
