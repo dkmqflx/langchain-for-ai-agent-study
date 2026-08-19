@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project 2 · 관측 가능한 Agent API 서비스 — 단계별 실행 가이드</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 2 · Agent API</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html" class="current">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · Tool 3종</a>
+      <a href="./2.html">STEP 2 · P1을 Tool로</a>
+      <a href="./3.html">STEP 3 · Memory(세션)</a>
+      <a href="./4.html">STEP 4 · Guardrails+구조화</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · Multi-LLM</a>
+      <a href="./8.html">STEP 8 · 프롬프트 A/B 평가</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../index.html#p3">다음: P3 평가 하네스</a>
+      <a href="../../../langchain/docs/02.agent-basic.html">02. Agent 기초 교재</a>
+      <a href="../../../langchain/docs/03.advanced-agent.html">03. Advanced Agent 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <h1>Project 2 · 관측 가능한 Agent API 서비스</h1>
+    <p class="doc-meta">
+      <span class="badge badge-yellow">🟡 중급</span> &nbsp;·&nbsp; ⏱ 1~2주
+      &nbsp;·&nbsp; 스택: <span class="badge badge-gray">LangChain 1.x Agent</span> <span class="badge badge-gray">FastAPI</span>
+      <span class="badge badge-gray">Langfuse</span> <span class="badge badge-purple">Multi-LLM</span> <span class="badge badge-purple">LLM-as-judge</span>
+    </p>
+
+    <p class="lead">
+      02·03에서 배운 <strong>Tool · Memory · Middleware · Guardrails · Structured Output</strong>을 흩어진 노트북 셀에서 꺼내
+      <strong>하나의 Agent</strong>로 조립합니다(STEP 1~4). 그 Agent를 <strong>FastAPI로 서빙</strong>하고,
+      <strong>Langfuse로 전 실행을 추적</strong>하고, <strong>모델을 설정으로 갈아끼우고</strong>,
+      마지막으로 <strong>프롬프트 A vs B를 숫자로 채점</strong>합니다(STEP 5~8).
+      P1에서 만든 RAG는 버리지 않습니다 — 이 Agent의 <strong>도구 하나</strong>로 그대로 꽂힙니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>📖 이 문서 사용법</strong>
+      각 STEP은 <strong>🎯 목표 → 🧠 개념(왜) → 🛠 할 일(코드) → ✅ 검증 게이트 → 🎓 배우는 것</strong> 순서입니다.
+      <strong>검증 게이트를 통과하지 못하면 다음 STEP으로 넘어가지 마세요.</strong> Agent는 RAG보다 움직이는 부품이 많아서,
+      한 STEP을 건너뛰면 "어디서 잘못됐는지" 찾는 데 몇 배의 시간이 듭니다.
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>⚙️ P1과 무엇이 다른가 — "정해진 길" vs "스스로 고르는 길"</strong>
+      <p style="margin-top:6px">
+        P1의 RAG는 <strong>길이 하나뿐인 파이프라인</strong>이었습니다. 질문이 들어오면 무조건 검색하고, 무조건 답을 만들었죠.
+        순서가 코드에 박혀 있으니 예측 가능하고 디버깅도 쉽습니다.
+      </p>
+      <p>
+        Agent는 다릅니다. <strong>"어떤 도구를 쓸지, 몇 번 쓸지, 아예 안 쓸지"를 LLM이 매번 스스로 정합니다.</strong>
+        "오늘 며칠이야?"엔 날짜 도구만, "약관에서 분실 책임 찾아줘"엔 P1 검색만, "그거 계산해서 알려줘"엔 두 개를 연달아 씁니다.
+        같은 코드가 질문에 따라 다르게 흐른다는 뜻이고, 그래서 <strong>관측(STEP 6)과 평가(STEP 8)가 선택이 아니라 필수</strong>가 됩니다.
+        길이 하나면 눈으로 따라갈 수 있지만, 길이 매번 달라지면 기록을 남기지 않는 한 무슨 일이 있었는지 알 방법이 없으니까요.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 버전 주의 (한 번만 읽어두기)</strong>
+      이 가이드는 <strong>LangChain 1.x</strong> 기준입니다. Agent 관련 API(<code>create_agent</code>·미들웨어 훅 이름·
+      <code>ToolStrategy</code>)는 1.0에서 새로 정리된 것이라 <strong>0.x 시절 블로그 글과 import 경로가 다릅니다.</strong>
+      <code>ImportError</code>가 나면 에러 메시지의 모듈명을 그대로 공식 문서에서 검색하세요.
+      Langfuse·ddgs 같은 외부 패키지도 마이너 버전에서 인자 이름이 바뀝니다 — <strong>에러를 읽고 고치는 것까지가 이 프로젝트의 훈련</strong>입니다.
+    </div>
+
+    <h2 id="dod">✅ 완성 정의 (Definition of Done)</h2>
+    <p>아래가 모두 충족되면 이 프로젝트는 "완성"입니다. STEP들이 이 목록을 하나씩 채워 나갑니다.</p>
+    <ul>
+      <li>Agent가 <strong>도구 4종</strong>(날짜·계산·웹검색·<strong>P1 문서검색</strong>)을 질문에 따라 <strong>스스로 골라</strong> 쓴다 <span class="badge badge-gray">STEP 1~2</span></li>
+      <li><code>POST /chat</code>에 같은 <code>session_id</code>로 두 번 보내면 <strong>두 번째가 첫 번째를 기억</strong>한다 <span class="badge badge-gray">STEP 3·5</span></li>
+      <li>금지 주제 질문은 <strong>LLM에 닿기 전에 차단</strong>되고, 차단 사유가 기록된다 <span class="badge badge-gray">STEP 4·6</span></li>
+      <li>모든 대화가 Langfuse에 <strong>도구 호출별 span 트리 + 토큰·비용·지연</strong>으로 남는다 <span class="badge badge-gray">STEP 6</span></li>
+      <li><strong>설정 한 줄</strong>로 OpenAI ↔ Gemini를 교체할 수 있고, 둘의 비용·지연을 비교한 표가 있다 <span class="badge badge-gray">STEP 7</span></li>
+      <li>케이스 10~20개로 <strong>프롬프트 A vs B 점수표</strong>(도구 선택 정확도·형식 준수·답변 품질)가 나온다 <span class="badge badge-gray">STEP 8</span></li>
+      <li><strong>README</strong>에 문제정의·아키텍처·지표·배운 점이 정리돼 있다 <span class="badge badge-gray">STEP 9</span></li>
+    </ul>
+
+    <h3>아키텍처 한눈에 보기</h3>
+    <div class="arch">
+      <div class="arch-flow">
+
+        <div class="arch-node">
+          <div class="ico">💬</div>
+          <div><div class="nd-title">사용자 메시지</div><div class="nd-sub"><code>POST /chat</code> · <code>{ message, session_id }</code></div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 4</b> · 입력 Guardrail — 금지 주제면 여기서 즉시 종료(LLM 호출 0회)</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🧠</div>
+          <div><div class="nd-title">Agent (LLM)</div><div class="nd-sub">"이 질문엔 어떤 도구가 필요한가?"를 스스로 판단</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl">필요한 도구만 골라 호출 · 여러 번 반복 가능</div>
+          <div class="arch-enh">
+            <span class="enh-chip">📅 STEP 1 · 오늘 날짜</span>
+            <span class="enh-chip">🧮 STEP 1 · 계산</span>
+            <span class="enh-chip">🌐 STEP 1 · 웹 검색</span>
+            <span class="enh-chip">📚 STEP 2 · P1 문서검색</span>
+          </div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🔧</div>
+          <div><div class="nd-title">도구 실행 결과</div><div class="nd-sub">ToolMessage로 Agent에게 되돌아감 → 필요하면 또 도구를 부른다</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 4</b> · <code>ToolStrategy(ChatReply)</code> — 답변을 정해진 형식으로 강제</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node">
+          <div class="ico">📦</div>
+          <div><div class="nd-title">구조화된 응답</div><div class="nd-sub">JSON &#123; answer, sources, used_tools &#125;</div></div>
+        </div>
+
+      </div>
+
+      <div class="arch-cross-label">가로지르는 관심사 — 파이프라인 전체에 적용</div>
+      <div class="arch-cross">
+        <div class="cross-card">
+          <div class="ico">🧵</div>
+          <div><div class="cc-title">STEP 3 · Memory</div><div class="cc-sub"><code>session_id</code> → <code>thread_id</code>로 대화 맥락 유지</div></div>
+        </div>
+        <div class="cross-card">
+          <div class="ico">🔭</div>
+          <div><div class="cc-title">STEP 6 · Langfuse</div><div class="cc-sub">도구 호출별 span · 토큰 · 비용 · 지연 · 차단 로그</div></div>
+        </div>
+        <div class="cross-card">
+          <div class="ico">🔀</div>
+          <div><div class="cc-title">STEP 7 · Multi-LLM</div><div class="cc-sub">OpenAI ↔ Gemini를 설정·요청 단위로 교체</div></div>
+        </div>
+        <div class="cross-card green">
+          <div class="ico">📏</div>
+          <div><div class="cc-title">STEP 8 · 프롬프트 평가</div><div class="cc-sub"><code>eval_cases.json</code>으로 프롬프트 A/B를 채점·비교</div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 id="p1-link">🔗 P1과의 관계 — 왜 굳이 HTTP로 부르는가</h3>
+    <p>
+      P2의 Agent는 P1의 RAG를 <strong>도구 하나로</strong> 씁니다. 이때 P1의 <code>rag.py</code>를 <code>import</code>하지 않고
+      <strong><code>POST http://localhost:8000/query</code>를 호출</strong>합니다. 조금 번거로워 보이지만 이유가 분명합니다.
+    </p>
+    <table>
+      <thead><tr><th style="width:22%">비교</th><th style="width:39%">코드 import</th><th>HTTP 호출 <span class="badge badge-green">이 가이드</span></th></tr></thead>
+      <tbody>
+        <tr><td>의존성</td><td>P1의 무거운 짐(Chroma·리랭커 모델·PDF)이 P2에도 전부 설치돼야 함</td><td>P2는 <code>requests</code>만 있으면 됨. Agent 서버가 가볍게 뜬다</td></tr>
+        <tr><td>고장 범위</td><td>P1이 임포트 시점에 죽으면 P2도 안 뜬다</td><td>P1이 죽어도 P2는 살아 있고, 그 도구만 "지금 사용 불가"로 응답</td></tr>
+        <tr><td>배포</td><td>두 프로젝트가 한 몸이라 항상 같이 배포</td><td>각자 배포·각자 스케일. <strong>실무의 기본 모양</strong></td></tr>
+        <tr><td>P3에서</td><td>P1·P2를 따로 평가하기 어려움</td><td>둘 다 HTTP 창구가 있어 <strong>같은 방식으로 평가</strong>된다</td></tr>
+      </tbody>
+    </table>
+    <div class="callout callout-info">
+      <strong>💡 이력서에 남는 문장</strong>
+      "RAG 검색을 독립 서비스로 두고, Agent가 이를 도구로 호출하도록 분리해
+      <strong>검색 컴포넌트를 여러 서비스에서 재사용</strong>할 수 있게 설계했다." — 이게 토스 공고의 "재사용 컴포넌트" 서사입니다.
+      P1을 그냥 복사해 붙였다면 나올 수 없는 문장이에요.
+    </div>
+
+    <h3>🧭 시작 전 준비 — P1이 돌아가야 합니다</h3>
+    <p>
+      STEP 2부터는 P1 서버가 켜져 있어야 합니다. 터미널 하나를 P1 전용으로 열어 두세요.
+      P1을 아직 안 만들었거나 서버를 못 띄우겠다면 STEP 2를 건너뛰고 STEP 3으로 가도 됩니다 —
+      도구 3종(날짜·계산·웹검색)만으로도 STEP 3~8은 전부 진행됩니다.
+    </p>
+    <div class="filename">터미널 A — P1 전용 (계속 켜 둠)</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project/project1
+uv run uvicorn main:app --reload        # http://localhost:8000 에서 대기</code></pre>
+
+    <hr />
+
+    <h2 id="steps">📚 단계별 문서</h2>
+
+    <p>STEP 0부터 순서대로 진행하세요. 각 문서 맨 아래의 <strong>이전/다음</strong> 링크로 이어서 볼 수 있습니다.</p>
+
+    <div class="phase-label">1부 · 랭체인으로 Agent 만들기</div>
+    <div class="steplist">
+      <div class="steplist-item">
+        <div class="steplist-num">0</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./0.html">프로젝트 셋업 &amp; 준비물</a>
+          <p>환경·의존성·키 준비 + P1 연결 확인</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">1</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./1.html">Agent 코어 ① — Tool 3종과 첫 Agent</a><span class="sl-tag">🟢 랭체인 집중</span>
+          <p>날짜·계산·웹검색을 @tool로, create_agent로 조립</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">2</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./2.html">Agent 코어 ② — P1의 RAG를 Tool로 장착</a><span class="sl-tag">🟢 랭체인 집중</span>
+          <p>docstring 하나가 라우팅을 결정한다</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">3</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./3.html">Memory — 세션별 멀티턴 대화</a><span class="sl-tag">🟢 랭체인 집중</span>
+          <p>checkpointer + thread_id</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">4</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./4.html">Guardrails + Structured Output</a><span class="sl-tag">🟢 랭체인 집중</span>
+          <p>미들웨어로 막고, 형식을 강제한다</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-label">2부 · 서비스화 층 — 서빙 · 관측 · 라우팅 · 평가</div>
+    <div class="steplist">
+      <div class="steplist-item">
+        <div class="steplist-num">5</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./5.html">FastAPI로 서빙 (/chat + 스트리밍)</a>
+          <p>Agent를 HTTP API로</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">6</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./6.html">Langfuse로 관측성 붙이기</a>
+          <p>도구 호출 트리·비용·차단 로그</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">7</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./7.html">Multi-LLM Provider 추상화</a>
+          <p>Model Router의 축소판</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">8</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./8.html">프롬프트 A/B 평가 하네스 (LLM-as-judge)</a>
+          <p>프롬프트 수정을 숫자로 증명</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-label">3부 · 마무리</div>
+    <div class="steplist">
+      <div class="steplist-item">
+        <div class="steplist-num">9</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./9.html">마무리 — README &amp; 포트폴리오화</a>
+          <p>이력서에 쓸 형태로 마감</p>
+        </div>
+      </div>
+    </div>
+
+    <h2>🗂 최종 파일 구조 — 파일 하나가 STEP 하나</h2>
+<pre><code>project2/
+├── docs/                # 이 가이드
+├── tools.py             # STEP 1, 2  — 도구 4종 정의
+├── agent.py             # STEP 3, 4, 6, 7 — Agent 조립(메모리·가드레일·관측·모델선택)
+├── providers.py         # STEP 7 — 모델 이름 → 모델 객체 팩토리
+├── prompts.py           # STEP 8 — 시스템 프롬프트 A / B
+├── main.py              # STEP 5 — FastAPI (/chat, /chat/stream, /health)
+├── eval_cases.json      # STEP 8 — 평가 케이스 10~20개
+├── evaluate.py          # STEP 8 — 채점 하네스 (결정론적 + LLM-as-judge)
+├── .env
+└── README.md            # STEP 9</code></pre>
+
+    <div class="pager">
+      <a class="prev" href="../../index.html"><small>← 로드맵</small> 실무 프로젝트 3선</a>
+      <a class="next" href="./0.html"><small>여기서 시작 →</small> STEP 0 · 셋업</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

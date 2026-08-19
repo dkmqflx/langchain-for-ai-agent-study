@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 3 · Memory — 세션별 멀티턴 대화 — Project 2</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 2 · Agent API</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · Tool 3종</a>
+      <a href="./2.html">STEP 2 · P1을 Tool로</a>
+      <a href="./3.html" class="current">STEP 3 · Memory(세션)</a>
+      <a href="./4.html">STEP 4 · Guardrails+구조화</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · Multi-LLM</a>
+      <a href="./8.html">STEP 8 · 프롬프트 A/B 평가</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../index.html#p3">다음: P3 평가 하네스</a>
+      <a href="../../../langchain/docs/02.agent-basic.html">02. Agent 기초 교재</a>
+      <a href="../../../langchain/docs/03.advanced-agent.html">03. Advanced Agent 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 2 · 관측 가능한 Agent API 서비스</a> &nbsp;›&nbsp; STEP 3</p>
+
+    <section class="step" id="step3">
+      <div class="step-head">
+        <div class="step-num">3</div>
+        <h2>Memory — 세션별 멀티턴 대화</h2>
+        <span class="badge badge-green">🟢 랭체인 집중</span> <span class="badge badge-gray">⏱ 1시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        <code>checkpointer</code>와 <code>thread_id</code>를 붙여, <strong>같은 세션이면 앞 대화를 기억하고
+        다른 세션이면 완전히 남남</strong>인 Agent를 만든다.
+      </p>
+
+      <div class="label">🧠 개념</div>
+      <h3>LLM에게는 "기억"이 없다 — 매 요청이 첫 요청이다</h3>
+      <p>
+        이 사실을 정확히 잡고 가야 나머지가 다 이해됩니다. LLM API는 <strong>완전히 무상태(stateless)</strong>예요.
+        방금 나눈 대화도, 1초 전에 부른 도구도 기억하지 못합니다. 매 호출이 서로 아무 관계 없는 남남입니다.
+      </p>
+      <p>
+        그럼 ChatGPT는 어떻게 앞 얘기를 기억할까요? 답은 시시할 만큼 단순합니다 —
+        <strong>지난 대화를 통째로 다시 보냅니다.</strong> "기억"은 모델의 능력이 아니라 <strong>보내는 쪽의 살림</strong>이에요.
+      </p>
+      <div class="callout callout-analogy">
+        <strong>🧑‍⚕️ 비유 — 매번 처음 보는 의사</strong>
+        <p style="margin-top:6px">
+          LLM은 <strong>기억을 하루도 못 하지만 실력은 최고인 의사</strong>입니다. 오늘 진료실에 들어가면 어제 나를 본 걸 전혀 모릅니다.
+          그래서 <strong>간호사(=우리 코드)가 그동안의 진료 기록을 통째로 들고 들어가</strong> 책상에 올려놓습니다.
+          의사는 그걸 쭉 읽고 "아, 지난주에 이 약을 드렸군요" 하고 이어서 진료합니다.
+        </p>
+        <p>
+          여기서 <strong><code>checkpointer</code>는 진료 기록 보관함</strong>이고, <strong><code>thread_id</code>는 환자 번호</strong>입니다.
+          번호가 같으면 같은 차트를 꺼내 오고, 번호가 다르면 백지 차트로 시작합니다.
+          그리고 차트가 두꺼워질수록 읽는 시간(=토큰 비용)이 늘어난다는 것도 그대로예요.
+        </p>
+      </div>
+
+      <h3>두 번째 질문에서 실제로 모델에 가는 것</h3>
+      <p>"신용카드 분실 책임은?" → "그럼 그건 언제까지 신고해야 해?" 라고 물었을 때입니다.</p>
+<pre><code>[1번째 요청] 모델에게 보내는 것
+  SystemMessage : 너는 정확성을 최우선으로 하는 업무 비서다...
+  HumanMessage  : 신용카드 분실 책임은?
+
+[2번째 요청] 모델에게 보내는 것  ← checkpointer가 앞의 4줄을 꺼내 앞에 붙여 준다
+  SystemMessage : 너는 정확성을 최우선으로 하는 업무 비서다...
+  HumanMessage  : 신용카드 분실 책임은?
+  AIMessage     : (tool_calls: search_internal_docs)
+  ToolMessage   : 회원은 분실 사실을 안 날부터... [근거] 03_신용카드... p.40
+  AIMessage     : 약관 제40조에 따르면 회원은...
+  HumanMessage  : 그럼 그건 언제까지 신고해야 해?      ← '그건'이 뭔지 위를 읽어야 안다</code></pre>
+
+      <div class="callout callout-info">
+        <strong>💡 Agent에서 메모리가 특히 중요한 이유 — 대명사가 도구 인자로 들어간다</strong>
+        <p style="margin-top:6px">
+          일반 챗봇이라면 "그건"을 못 알아들어도 답이 어색해질 뿐입니다. Agent는 다릅니다.
+          앞 대화가 없으면 LLM이 <code>search_internal_docs(question="그건 언제까지 신고해야 해?")</code>라고
+          <strong>대명사가 든 채로 검색어를 만들어 도구를 부릅니다.</strong> 그런 검색어로는 P1이 아무것도 못 찾죠.
+        </p>
+        <p>
+          STEP 2에서 <code>search_internal_docs</code>의 docstring에
+          <em>"대명사는 앞 대화를 참고해 구체적인 말로 바꿔서 넘긴다"</em>라고 적어 둔 게 이걸 대비한 것이었습니다.
+          <strong>메모리가 있어야 그 지시를 따를 수 있습니다</strong> — 참고할 앞 대화가 있어야 하니까요.
+        </p>
+      </div>
+
+      <div class="label">🛠 할 일</div>
+
+      <h3>① <code>agent.py</code> — checkpointer 달기</h3>
+      <p>고칠 곳은 세 군데, 실질적으로는 <strong>두 줄</strong>입니다.</p>
+      <div class="filename">agent.py</div>
+<pre><code>from langgraph.checkpoint.memory import InMemorySaver   # ← 추가
+
+# 대화 기록 보관함. Agent에게 '수첩과 펜'을 쥐여 주는 것과 같다.
+# InMemorySaver는 이름 그대로 '메모리(RAM)에' 저장한다 → 서버를 끄면 전부 사라진다.
+checkpointer = InMemorySaver()
+
+agent = create_agent(
+    model="openai:gpt-5-mini",
+    tools=[get_today, calculate, web_search, search_internal_docs],
+    system_prompt=SYSTEM_PROMPT,
+    checkpointer=checkpointer,                          # ← 추가
+)
+
+def ask(message: str, session_id: str = "default"):
+    """질문 하나를 Agent에 던진다. session_id가 같으면 앞 대화가 이어진다.
+
+    두 번째 인자(config)의 thread_id가 '대화방 번호'다.
+    이 값을 안 넘기면 checkpointer가 있어도 에러가 난다 — 어느 차트를 꺼낼지 모르니까.
+    """
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": message}]},
+        {"configurable": {"thread_id": session_id}},     # ← 추가
+    )
+    return result["messages"]</code></pre>
+
+      <div class="callout callout-warn">
+        <strong>⚠️ 매번 보내는 건 마지막 한 마디뿐이다</strong>
+        <p style="margin-top:6px">
+          <code>invoke</code>에 넘기는 <code>messages</code>는 여전히 <strong>새 질문 하나</strong>뿐이라는 점을 놓치지 마세요.
+          지난 대화를 우리가 직접 이어 붙이는 게 아니라, <strong><code>thread_id</code>를 보고 checkpointer가 알아서 앞에 붙여 줍니다.</strong>
+          그래서 우리 코드에는 대화 기록을 담는 리스트가 어디에도 없어요. 이 살림을 대신해 주는 게 checkpointer의 존재 이유입니다.
+        </p>
+      </div>
+
+      <h3>② 대화해 보기 — 간단한 대화 루프</h3>
+      <p>멀티턴은 한 방 실행으로는 확인이 안 됩니다. 이어서 말을 걸 수 있게 <code>__main__</code>을 바꿉니다.</p>
+      <div class="filename">agent.py — 맨 아래 __main__ 교체</div>
+<pre><code>if __name__ == "__main__":
+    import sys
+
+    # 실행할 때 세션 이름을 줄 수 있다:  uv run python agent.py 나의세션
+    session = sys.argv[1] if len(sys.argv) &gt; 1 else "demo"
+    print(f"세션 '{session}' — 빈 줄을 입력하면 종료합니다.")
+
+    seen = 0                                  # 지금까지 화면에 찍은 메시지 개수
+    while True:
+        try:
+            msg = input("\n나 &gt; ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not msg:
+            break
+
+        messages = ask(msg, session)          # 항상 '대화 전체'가 돌아온다
+        new, seen = messages[seen:], len(messages)   # 이번 턴에 새로 생긴 것만 골라 찍는다
+
+        for m in new:
+            if m.type == "human":
+                continue                      # 내가 방금 친 말은 다시 안 찍는다
+            if getattr(m, "tool_calls", None):
+                print(f"  🔧 {[c['name'] for c in m.tool_calls]}")
+            elif m.type == "tool":
+                print(f"  ↩︎ ({m.name}) {m.content[:80]}...")
+            elif m.content:
+                print(f"\n🤖 {m.content}")</code></pre>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        <p style="margin-top:6px">두 가지를 확인합니다 — <strong>기억하는가</strong>, 그리고 <strong>세션이 섞이지 않는가</strong>.</p>
+<pre style="margin-top:8px"><code># 1) 같은 세션에서 대명사가 통하는가
+uv run python agent.py sessionA
+  나 &gt; 신용카드 분실하면 회원 책임은 어디까지야?
+  나 &gt; 그럼 그건 언제까지 신고해야 해?
+#      → '그건'을 카드 분실로 알아듣고, 도구 인자에도 구체적인 검색어가 들어가야 한다
+#        (🔧 표시 아래 tool_calls 인자를 눈으로 확인해 보세요)
+
+# 2) 다른 세션은 남남인가  ← 서비스에서는 이게 더 중요하다
+uv run python agent.py sessionB
+  나 &gt; 방금 무슨 얘기 했지?
+#      → "이전 대화 내용이 없습니다" 류의 답이 나와야 한다.
+#        여기서 sessionA 얘기가 새어 나오면 서비스에서는 '남의 대화 유출' 사고다.</code></pre>
+      </div>
+
+      <div class="callout callout-danger">
+        <strong>🚨 <code>InMemorySaver</code>는 학습용입니다 — 프로덕션에서 터지는 세 가지</strong>
+        <p style="margin-top:6px">
+          이름이 정직합니다. <strong>메모리(RAM)에 저장</strong>하니까요. 배포하면 이런 일이 벌어집니다.
+        </p>
+        <ul style="margin-top:6px">
+          <li><strong>서버를 재시작하면 모든 대화가 증발합니다.</strong> 코드 한 줄만 고쳐도 전 사용자의 대화가 날아가요.</li>
+          <li><strong>워커를 여러 개 띄우면 기억이 갈라집니다.</strong> 1번 요청은 A 프로세스, 2번 요청은 B 프로세스가 받으면 B는 앞 대화를 모릅니다.</li>
+          <li><strong>메모리가 계속 찹니다.</strong> 대화가 쌓이기만 하고 지워지지 않아 언젠가 서버가 죽습니다.</li>
+        </ul>
+        <p style="margin-top:6px">
+          해법은 <strong>바깥 저장소를 쓰는 checkpointer</strong>입니다 — SQLite나 Postgres 기반 구현체가 있어요
+          (<code>langgraph-checkpoint-sqlite</code>, <code>langgraph-checkpoint-postgres</code>).
+          <strong>이 프로젝트에서는 바꾸지 않아도 됩니다.</strong> 다만 STEP 9의 README에
+          "현재 InMemorySaver, 운영 시 Postgres checkpointer로 교체 필요"라고 적어 두세요.
+          한계를 알고 쓰는 것과 모르고 쓰는 것의 차이가 면접에서 갈립니다.
+        </p>
+      </div>
+
+      <div class="callout callout-warn">
+        <strong>⚠️ 대화가 길어지면 비용이 조용히 불어난다</strong>
+        <p style="margin-top:6px">
+          기억의 정체가 "지난 대화를 통째로 다시 보내는 것"이었죠. 그 말은 <strong>10번째 질문의 입력 토큰이
+          1번째의 몇 배</strong>라는 뜻입니다. 게다가 Agent는 <code>ToolMessage</code>까지 쌓여서 일반 챗봇보다 훨씬 빨리 불어납니다
+          — P1 검색 결과 하나가 수천 토큰이니까요.
+        </p>
+        <p>
+          랭체인에는 대화가 길어지면 앞부분을 자동 요약해 주는 <code>SummarizationMiddleware</code>가 있습니다.
+          지금 붙이지 않아도 됩니다 — <strong>STEP 6에서 Langfuse로 토큰이 실제로 어떻게 불어나는지 눈으로 본 다음</strong>
+          필요하다고 판단되면 그때 넣으세요. 문제를 확인하고 도구를 고르는 순서가 반대면 안 됩니다.
+        </p>
+      </div>
+
+      <div class="label">🎓 배우는 것</div>
+      <p>
+        <strong>"기억"이 모델의 능력이 아니라 애플리케이션의 살림</strong>이라는 것. <code>thread_id</code>로 세션을 격리하는
+        방식과, 그게 곧 <strong>사용자 간 데이터 분리</strong>라는 보안 문제이기도 하다는 것.
+        그리고 학습용 부품(<code>InMemorySaver</code>)의 한계를 <strong>구체적인 실패 시나리오로 설명할 수 있게</strong> 되는 것 —
+        이건 그대로 면접 답변이 됩니다.
+      </p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./2.html"><small>← 이전</small> STEP 2 · P1의 RAG를 Tool로</a>
+      <a class="next" href="./4.html"><small>다음 →</small> STEP 4 · Guardrails + Structured Output</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

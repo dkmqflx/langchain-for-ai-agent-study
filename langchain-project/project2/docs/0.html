@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 0 · 프로젝트 셋업 &amp; 준비물 — Project 2</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 2 · Agent API</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html" class="current">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · Tool 3종</a>
+      <a href="./2.html">STEP 2 · P1을 Tool로</a>
+      <a href="./3.html">STEP 3 · Memory(세션)</a>
+      <a href="./4.html">STEP 4 · Guardrails+구조화</a>
+      <a href="./5.html">STEP 5 · FastAPI 서빙</a>
+      <a href="./6.html">STEP 6 · Langfuse 관측</a>
+      <a href="./7.html">STEP 7 · Multi-LLM</a>
+      <a href="./8.html">STEP 8 · 프롬프트 A/B 평가</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../index.html#p3">다음: P3 평가 하네스</a>
+      <a href="../../../langchain/docs/02.agent-basic.html">02. Agent 기초 교재</a>
+      <a href="../../../langchain/docs/03.advanced-agent.html">03. Advanced Agent 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 2 · 관측 가능한 Agent API 서비스</a> &nbsp;›&nbsp; STEP 0</p>
+
+    <section class="step new-step" id="step0">
+      <div class="step-head">
+        <div class="step-num">0</div>
+        <h2>프로젝트 셋업 &amp; 준비물</h2>
+        <span class="badge badge-yellow">신규(환경)</span> <span class="badge badge-gray">⏱ 30분</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>독립 실행되는 <code>project2/</code> 환경을 만들고, <strong>P1 서버와 통신이 되는지</strong>까지 확인해 "빈 캔버스"를 준비한다.</p>
+
+      <div class="label">🧠 개념</div>
+      <p>
+        P1과 <strong>같은 폴더에 섞지 않고 별도 프로젝트로 나누는 이유</strong>가 이 STEP의 핵심입니다.
+        P2는 P1의 검색 결과만 필요할 뿐, P1의 무거운 짐(Chroma DB·리랭커 모델·PDF 파서)까지 짊어질 이유가 없습니다.
+        두 서비스가 <strong>HTTP라는 얇은 창구</strong>로만 만나면, 각자 가볍게 뜨고 각자 고쳐도 서로 안 깨집니다.
+        지금 폴더를 나누는 이 결정이 STEP 2에서 "왜 import가 아니라 requests인가"의 답이 됩니다.
+      </p>
+
+      <div class="label">🛠 할 일</div>
+      <p>다섯 조각으로 나눠 하나씩 보고, <a href="#full-code">맨 아래에 이어 붙인 전체 명령어</a>를 그대로 복사해 쓰면 됩니다.</p>
+
+      <div class="callout callout-info">
+        <strong>🧭 다섯 조각 한눈에</strong>
+        <p style="margin-top:6px">
+          <b>①</b> 가상환경 만들기 &nbsp;→&nbsp; <b>②</b> 의존성 설치(세 묶음) &nbsp;→&nbsp;
+          <b>③</b> 폴더 구조 잡기 &nbsp;→&nbsp; <b>④</b> <code>.env</code>로 키 준비 &nbsp;→&nbsp;
+          <b>⑤</b> P1 서버 띄우고 연결 확인
+        </p>
+      </div>
+
+      <h3>① 가상환경 만들기</h3>
+      <p>
+        이 가이드가 들어 있는 <code>project2/</code> 폴더에서 시작합니다. 폴더는 이미 있으니 만들 필요는 없고,
+        그 안에 <strong>이 프로젝트 전용 파이썬 환경</strong>만 새로 깔면 됩니다.
+        P1과 환경을 나눠야 "P2는 무슨 패키지로 도는가"가 <code>pyproject.toml</code> 하나로 정확히 드러납니다.
+      </p>
+      <div class="filename">터미널 B — P2 작업용</div>
+<pre><code># 이 가이드가 들어 있는 폴더로 이동 (docs/의 부모)
+cd ~/Documents/langchain-study/langchain-project/project2
+
+# 지금 폴더(.)를 파이썬 프로젝트로 초기화한다. P1 때와 같은 명령이다:
+#   pyproject.toml   → 이 프로젝트가 쓰는 패키지 목록
+#   .python-version  → 쓸 파이썬 버전
+#   .gitignore       → 깃에 올리지 않을 파일 목록 (.env 등)
+#   .venv/           → P2 전용 파이썬 환경 (P1과 섞이지 않는 칸막이)
+uv init .</code></pre>
+
+      <h3>② 의존성 설치 — 필요한 시점별로 세 묶음</h3>
+      <p>
+        한 번에 다 깔지만, <strong>어느 패키지가 어느 STEP에서 쓰이는지</strong> 알고 넘어가세요.
+        나중에 <code>ImportError</code>가 났을 때 "아 이건 STEP 7용이었지" 하고 바로 짚을 수 있습니다.
+      </p>
+      <div class="filename">터미널 B</div>
+<pre><code># 1묶음 · Agent 코어 (STEP 1~4에서 사용)
+#   langgraph → checkpointer(InMemorySaver)가 여기 들어 있다. langchain이 내부적으로 쓰지만
+#               우리가 직접 import 하므로 명시적으로 적어 둔다(의존성은 '쓰는 쪽이 선언'이 원칙)
+#   ddgs      → DuckDuckGo 검색. API 키가 필요 없어 바로 쓸 수 있다
+#   requests  → STEP 2에서 P1의 HTTP 창구를 두드릴 때 쓴다
+uv add langchain langchain-openai langgraph python-dotenv ddgs requests
+
+# 2묶음 · 서빙 · 관측 (STEP 5~6에서 사용)
+#   "uvicorn[standard]" 의 따옴표는 필수 — 없으면 셸이 [ ]를 파일이름 패턴으로 오해한다
+uv add fastapi "uvicorn[standard]" langfuse
+
+# 3묶음 · Multi-LLM · 평가 (STEP 7~8에서 사용)
+uv add langchain-google-genai pandas</code></pre>
+      <table>
+        <thead>
+          <tr><th style="width:34%">패키지</th><th style="width:16%">쓰이는 곳</th><th>역할</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>langchain</code> · <code>langchain-openai</code></td><td><span class="badge badge-gray">1~4</span></td><td><code>create_agent</code>·<code>@tool</code>·미들웨어 + OpenAI 모델 연결</td></tr>
+          <tr><td><code>langgraph</code></td><td><span class="badge badge-gray">3</span></td><td><code>InMemorySaver</code> — 대화 세션을 저장하는 checkpointer</td></tr>
+          <tr><td><code>ddgs</code></td><td><span class="badge badge-gray">1</span></td><td>DuckDuckGo 웹 검색 (API 키 불필요)</td></tr>
+          <tr><td><code>requests</code></td><td><span class="badge badge-gray">2</span></td><td>P1의 <code>POST /query</code> 호출</td></tr>
+          <tr><td><code>python-dotenv</code></td><td><span class="badge badge-gray">전체</span></td><td><code>.env</code>의 키를 환경변수로 로드</td></tr>
+          <tr><td><code>fastapi</code> · <code>uvicorn</code></td><td><span class="badge badge-gray">5</span></td><td>HTTP API 서버</td></tr>
+          <tr><td><code>langfuse</code></td><td><span class="badge badge-gray">6</span></td><td>도구 호출·토큰·비용·지연 추적 대시보드</td></tr>
+          <tr><td><code>langchain-google-genai</code></td><td><span class="badge badge-gray">7</span></td><td>Gemini 모델 연결 (Multi-LLM의 두 번째 축)</td></tr>
+          <tr><td><code>pandas</code></td><td><span class="badge badge-gray">8</span></td><td>평가 결과 집계·비교표 출력</td></tr>
+        </tbody>
+      </table>
+
+      <h3>③ 폴더 구조 잡기 — 파일 하나가 STEP 하나</h3>
+      <p>
+        지금은 <strong>빈 파일만 만들어 두고</strong> STEP마다 채웁니다.
+        P1과 달리 <code>data/</code>·<code>chroma_db/</code>가 없다는 점에 주목하세요 —
+        <strong>문서와 벡터DB는 전부 P1이 들고 있고, P2는 그걸 물어보기만 합니다.</strong>
+        P2가 이렇게 가벼운 것 자체가 서비스를 분리한 대가로 얻은 이득입니다.
+      </p>
+<pre><code>project2/
+├── docs/                # 이 가이드
+├── tools.py             # STEP 1, 2  — 도구 4종 정의
+├── agent.py             # STEP 3, 4, 6, 7 — Agent 조립
+├── providers.py         # STEP 7 — 모델 이름 → 모델 객체 팩토리
+├── prompts.py           # STEP 8 — 시스템 프롬프트 A / B
+├── main.py              # STEP 5 — FastAPI
+├── eval_cases.json      # STEP 8 — 평가 케이스
+├── evaluate.py          # STEP 8 — 채점 하네스
+├── .env
+└── README.md            # STEP 9</code></pre>
+
+      <h3>④ <code>.env</code> — 키 준비</h3>
+      <p>
+        P1에서 쓰던 <code>.env</code>를 그대로 복사해 오고, 두 줄만 더합니다.
+        Langfuse 키는 이미 P1에서 발급받았으니 <strong>같은 값을 그대로</strong> 쓰면 됩니다 —
+        같은 Langfuse 프로젝트에 P1·P2 트레이스가 함께 쌓여서, 나중에 "이 대화에서 P1 검색이 몇 번 일어났나"를 한 화면에서 볼 수 있습니다.
+      </p>
+      <div class="filename">.env</div>
+<pre><code>OPENAI_API_KEY=sk-...
+
+# P1에서 쓰던 값 그대로 복사
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+
+# STEP 2 — P1 서버 주소. 코드에 박지 않고 설정으로 빼 둔다
+#          (나중에 P1을 다른 서버에 올려도 이 한 줄만 바꾸면 된다)
+P1_API_URL=http://localhost:8000
+
+# STEP 7 — Gemini. 학습용 .env에는 GEMINI_API_KEY로 저장돼 있을 텐데,
+#          langchain-google-genai가 찾는 이름은 GOOGLE_API_KEY다. 같은 값을 이 이름으로 넣어 준다.
+GOOGLE_API_KEY=AIza...</code></pre>
+      <div class="callout callout-warn">
+        <strong>⚠️ 키 이름이 안 맞아 생기는 흔한 사고</strong>
+        <p style="margin-top:6px">
+          Gemini 키를 분명히 <code>.env</code>에 넣었는데 STEP 7에서 "API key not found"가 나는 일이 자주 있습니다.
+          원인은 대개 <strong>변수 이름</strong>이에요 — 라이브러리는 정해진 이름(<code>GOOGLE_API_KEY</code>)만 찾습니다.
+          "키가 없다"는 에러를 보면 <strong>키가 진짜 없는 건지, 이름이 다른 건지</strong>부터 확인하는 습관을 들이세요.
+        </p>
+        <p>
+          <code>.gitignore</code>에 <code>.env</code>가 있는지도 꼭 확인하세요. <code>uv init</code>이 보통 넣어 주지만, 없으면 직접 한 줄 추가합니다.
+        </p>
+      </div>
+
+      <h3>⑤ P1 서버 띄우고 연결 확인</h3>
+      <p>
+        STEP 2부터 P1이 필요합니다. <strong>터미널을 두 개</strong> 씁니다 —
+        하나는 P1 서버를 계속 띄워 두는 용도, 다른 하나는 P2를 만드는 용도.
+        이 "서버 여러 개를 동시에 띄워 두고 서로 부르게 하는" 감각 자체가 실무 환경 그대로입니다.
+      </p>
+      <div class="filename">터미널 A — P1 전용 (닫지 말고 계속 켜 둠)</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project/project1
+uv run uvicorn main:app --reload</code></pre>
+      <div class="filename">터미널 B — 연결 확인</div>
+<pre><code># P1이 살아 있는지 물어본다. {"status":"ok"} 가 나오면 성공
+curl http://localhost:8000/health</code></pre>
+      <div class="callout callout-info">
+        <strong>💡 P1이 없어도 STEP 3부터는 진행됩니다</strong>
+        <p style="margin-top:6px">
+          P1을 아직 안 만들었다면 STEP 2만 건너뛰세요. 도구 3종(날짜·계산·웹검색)만으로도
+          메모리·가드레일·서빙·관측·Multi-LLM·평가는 전부 그대로 학습할 수 있습니다.
+          나중에 P1이 준비되면 <code>tools.py</code>에 도구 하나만 추가하면 됩니다 — <strong>그게 도구 구조의 장점이에요.</strong>
+        </p>
+      </div>
+
+      <div class="label" id="full-code">📄 전체 명령어 (①~③ 한 번에)</div>
+      <div class="filename">터미널 B</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project/project2
+
+uv init .
+
+# Agent 코어 (STEP 1~4)
+uv add langchain langchain-openai langgraph python-dotenv ddgs requests
+# 서빙·관측 (STEP 5~6)
+uv add fastapi "uvicorn[standard]" langfuse
+# Multi-LLM·평가 (STEP 7~8)
+uv add langchain-google-genai pandas
+
+touch tools.py agent.py providers.py prompts.py main.py evaluate.py eval_cases.json .env README.md</code></pre>
+
+      <div class="callout callout-result">
+        <strong>✅ 검증 게이트</strong>
+        <p style="margin-top:6px">둘 다 통과해야 STEP 1로 넘어갑니다.</p>
+<pre style="margin-top:8px"><code># 1) 패키지가 모두 설치됐는가
+uv run python -c "import langchain, langgraph, ddgs, fastapi, langfuse; print('ok')"
+# → ok
+
+# 2) P1 서버와 통신이 되는가  (STEP 2를 건너뛸 거라면 이건 생략 가능)
+curl http://localhost:8000/health
+# → {"status":"ok"}</code></pre>
+      </div>
+
+      <div class="label">🎓 배우는 것</div>
+      <p>
+        서비스를 <strong>독립된 단위로 나누는 감각</strong>. 환경·의존성·키를 프로젝트별로 격리하고,
+        서비스 간 통신을 코드가 아니라 <strong>설정(<code>P1_API_URL</code>)</strong>으로 다루는 방식.
+        "라이브러리가 찾는 환경변수 이름"이라는, 문서에 잘 안 적히지만 실무에서 30분씩 잡아먹는 함정도 하나 배웠습니다.
+      </p>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./index.html"><small>← 이전</small> 개요 · 완성 정의</a>
+      <a class="next" href="./1.html"><small>다음 →</small> STEP 1 · Tool 3종과 첫 Agent</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>
