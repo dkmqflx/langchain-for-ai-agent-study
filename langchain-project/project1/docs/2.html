@@ -101,7 +101,7 @@ vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_
 # k=4 → 질문 하나당 가장 유사한 청크를 4개 가져온다. (크면 문맥은 풍부해지지만 노이즈·비용↑)
 retriever = vs.as_retriever(search_kwargs={"k": 4})
 
-llm = init_chat_model("gpt-5-mini")                    # 검색된 문맥을 읽고 답변 문장을 만들어 낼 LLM</code></pre>
+llm = init_chat_model("gpt-5-mini", reasoning_effort="low")   # 검색된 문맥을 읽고 답변 문장을 만들어 낼 LLM</code></pre>
       <p>
         <code>as_retriever()</code>가 하는 일은 "벡터DB"를 <strong>"질문을 넣으면 관련 청크를 주는 물건"</strong>으로 감싸는 것입니다.
         <code>k=4</code>는 매번 4개를 가져오라는 뜻이고요. 이 숫자가 크면 문맥이 풍부해지는 대신 노이즈와 비용이 늘고,
@@ -280,7 +280,7 @@ emb = OpenAIEmbeddings(model="text-embedding-3-small")
 # 이미 인덱싱된 벡터DB를 연다(새로 저장하지 않고 읽기 전용). collection·경로는 STEP 1과 동일하게
 vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_function=emb)
 retriever = vs.as_retriever(search_kwargs={"k": 4})        # 질문당 가장 유사한 청크 4개를 가져오는 검색기
-llm = init_chat_model("gpt-5-mini")                        # 답변을 생성할 LLM
+llm = init_chat_model("gpt-5-mini", reasoning_effort="low")   # 답변을 생성할 LLM
 
 # 프롬프트: system=규칙(문서 밖 내용은 지어내지 말 것 = 환각 억제), human=질문 + 검색된 문맥
 PROMPT = ChatPromptTemplate.from_messages([

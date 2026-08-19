@@ -33,7 +33,12 @@ load_dotenv()                                              # .env의 OPENAI_API_
 emb = OpenAIEmbeddings(model="text-embedding-3-small")
 # 이미 인덱싱된 벡터DB를 연다(새로 저장하지 않고 읽기 전용). collection·경로는 STEP 1과 동일하게
 vs = Chroma(collection_name="p1_docs", persist_directory="chroma_db", embedding_function=emb)
-llm = init_chat_model("gpt-5-mini")                        # 답변을 생성할 LLM
+# gpt-5-mini는 추론(reasoning) 모델이다 — 답을 내기 전에 속으로 먼저 생각하고, 그 생각도
+# 토큰으로 과금되고 시간도 쓴다. 기본값(medium)으로 재 보니 출력 토큰 1455개 중 896개(62%)가
+# 사용자가 볼 수 없는 추론이었고, 생성에만 30초가 걸렸다(검색은 1초).
+# RAG의 마지막 단계는 '검색된 문맥을 근거로 정리하기'라 깊은 추론이 필요 없다 → low로 낮춘다.
+# minimal은 쓰지 않는다. 더 빠르지만 문맥에 답이 있는데도 "문서에서 찾을 수 없습니다"를 뱉었다.
+llm = init_chat_model("gpt-5-mini", reasoning_effort="low")   # 답변을 생성할 LLM
 
 # ═══════════════════════════════════════════════════════════════════
 # STEP 6 · 관측성(Langfuse): 모든 질의의 검색·생성·토큰·비용·지연을 대시보드로 추적한다.
