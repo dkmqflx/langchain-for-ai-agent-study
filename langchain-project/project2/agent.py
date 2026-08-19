@@ -6,7 +6,7 @@
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 
-from tools import get_today, calculate, web_search   # STEP 1에서 만든 도구들
+from tools import get_today, calculate, web_search, search_internal_docs   # ← search_internal_docs 추가(STEP 2)
 
 load_dotenv()                                        # .env의 OPENAI_API_KEY 로드
 
@@ -17,13 +17,16 @@ SYSTEM_PROMPT = """너는 정확성을 최우선으로 하는 업무 비서다.
 규칙:
 1. 오늘 날짜·현재 시각이 필요하면 반드시 get_today를 호출한다. 날짜를 추측하지 않는다.
 2. 숫자 계산은 반드시 calculate를 호출한다. 암산하지 않는다.
-3. 최신 정보가 필요하면 web_search를 호출하고, 답변에 출처 URL을 함께 적는다.
-4. 도구로도 확인할 수 없는 내용은 모른다고 말한다. 지어내지 않는다."""
+3. 약관·규정·계약 조건에 관한 질문은 web_search보다 search_internal_docs를 먼저 쓴다.
+   우리 문서에 있는 내용을 인터넷에서 찾으면 틀린 답이 나온다.
+4. search_internal_docs의 결과를 쓸 때는 답변에 [근거]의 문서명과 쪽수를 반드시 적는다.
+5. 최신 정보가 필요하면 web_search를 호출하고, 답변에 출처 URL을 함께 적는다.
+6. 도구로도 확인할 수 없는 내용은 모른다고 말한다. 지어내지 않는다."""
 
 # 모델은 "provider:model" 문자열로도 넘길 수 있다. STEP 7에서 이 부분을 갈아끼운다.
 agent = create_agent(
     model="openai:gpt-5-mini",
-    tools=[get_today, calculate, web_search],
+    tools=[get_today, calculate, web_search, search_internal_docs],   # ← 추가
     system_prompt=SYSTEM_PROMPT,
 )
 
