@@ -58,43 +58,32 @@
 
       <div class="label">🛠 할 일</div>
       <p>
-        만들 파일은 <code>main.py</code> 하나입니다. <strong>RAG 로직은 한 줄도 새로 안 씁니다</strong> —
-        이미 완성된 <code>answer()</code>를 HTTP로 감싸기만 해요. 네 조각으로 나눠 보고,
+        만들 파일은 <code>schemas.py</code>·<code>main.py</code> 두 개입니다.
+        <strong>RAG 로직은 한 줄도 새로 안 씁니다</strong> — 이미 완성된 <code>answer()</code>를 HTTP로 감싸기만 해요.
+        먼저 <strong>주고받을 데이터의 모양</strong>을 적고, 그다음 <strong>창구</strong>를 엽니다. 네 조각으로 나눠 보고,
         <a href="#full-code">맨 아래 전체 코드</a>를 복사하세요.
       </p>
 
       <div class="callout callout-info">
         <strong>🧭 네 조각 한눈에</strong>
         <p style="margin-top:6px">
-          <b>①</b> 앱 만들고 <code>answer</code> 가져오기 &nbsp;→&nbsp; <b>②</b> 주고받을 데이터 모양 선언
+          <b>①</b> 주고받을 데이터 모양 선언(<code>schemas.py</code>) &nbsp;→&nbsp; <b>②</b> 앱 만들고 <code>answer</code> 가져오기
           &nbsp;→&nbsp; <b>③</b> <code>/health</code> &nbsp;→&nbsp; <b>④</b> <code>/query</code>
         </p>
       </div>
 
-      <h3>① 앱 만들고 <code>answer</code> 가져오기</h3>
-      <div class="filename">main.py</div>
-<pre><code>from typing import Literal          # 값을 '이 목록 중 하나'로 좁히는 타입 표기 (②에서 씀)
-from fastapi import FastAPI          # 파이썬 함수를 HTTP 창구로 바꿔 주는 웹 프레임워크
-from pydantic import BaseModel       # 주고받을 데이터의 '모양(스키마)'을 선언하는 클래스
-from rag import answer               # STEP 2~4에서 만든 RAG 함수를 그대로 가져다 쓴다
-
-# 앱 객체 — 앞으로 만들 창구(엔드포인트)들이 여기에 등록된다.
-# title은 서버를 켠 뒤 http://localhost:8000/docs 에 자동 생성되는 문서 페이지의 제목이 된다.
-app = FastAPI(title="P1 RAG Search Service")</code></pre>
+      <h3>① 주고받을 데이터의 "모양" 선언하기</h3>
       <p>
-        <code>from rag import answer</code> — 이 한 줄이 STEP 2~4를 <strong>통째로 재사용</strong>합니다.
-        검색기를 <code>mode</code> 문자열로 갈아끼울 수 있게 만들어 둔 덕분에, API 쪽은 그저 함수를 부르기만 하면 돼요.
-        <code>title</code>은 잠시 뒤 자동 생성되는 문서 페이지의 제목이 됩니다.
-      </p>
-
-      <h3>② 주고받을 데이터의 "모양" 선언하기</h3>
-      <p>
-        API는 낯선 사람이 아무 JSON이나 보낼 수 있는 창구입니다. 그래서 먼저 <strong>계약서</strong>를 씁니다 —
+        API는 낯선 사람이 아무 JSON이나 보낼 수 있는 창구입니다. 그래서 창구를 열기 <em>전에</em> <strong>계약서</strong>부터 씁니다 —
         <em>"요청은 이런 모양이어야 하고, 응답은 이런 모양으로 주겠다."</em>
         이걸 <strong>스키마</strong>라 하고, <code>pydantic</code>의 <code>BaseModel</code>로 선언합니다.
+        선언은 <code>schemas.py</code>라는 파일에 모아 둡니다 (왜 따로 두는지는 아래 💡에서).
       </p>
-      <div class="filename">main.py (이어서)</div>
-<pre><code># 요청 스키마 — 사용자가 보내야 하는 JSON의 모양
+      <div class="filename">schemas.py</div>
+<pre><code>from typing import Literal        # 값을 '이 목록 중 하나'로 좁히는 타입 표기
+from pydantic import BaseModel    # 주고받을 데이터의 '모양(스키마)'을 선언하는 클래스
+
+# 요청 스키마 — 사용자가 보내야 하는 JSON의 모양
 class QueryIn(BaseModel):
     question: str          # 반드시 있어야 한다. 없으면 FastAPI가 자동으로 422 에러로 거절한다
     # 기본값이 있으니 안 보내도 된다. 보내면 검색 구성을 골라 실험할 수 있다.
@@ -147,6 +136,36 @@ class QueryOut(BaseModel):
         </p>
       </div>
 
+      <div class="callout callout-info">
+        <strong>💡 스키마를 왜 <code>main.py</code>가 아니라 <code>schemas.py</code>에 뒀을까요?</strong>
+        <p style="margin-top:6px">
+          솔직히 말하면 <strong>지금 규모에선 어디 둬도 됩니다.</strong> 모델이 셋뿐이고 쓰는 곳도 <code>main.py</code> 하나니까요.
+          그럼에도 나누는 이유는 <em>앞으로</em>에 있습니다. 엔드포인트가 늘어나면 스키마는 창구 코드보다 훨씬 빨리 불어나고,
+          테스트·클라이언트 코드 등 <strong>여러 곳에서 같이 참조되는 부품</strong>이 됩니다.
+        </p>
+        <p style="margin-top:6px">
+          <b>계약서(<code>schemas.py</code>)와 창구(<code>main.py</code>)를 나눠 둔다</b>고 기억하세요.
+          "이 API가 뭘 받고 뭘 주지?"는 계약서만 열면 되고, "그래서 무슨 일을 하지?"는 창구만 보면 됩니다.
+          <code>main.py</code>에는 이제 <strong>엔드포인트 두 개와 그 안의 세 줄</strong>만 남습니다.
+        </p>
+      </div>
+
+      <h3>② 앱 만들고 <code>answer</code> 가져오기</h3>
+      <div class="filename">main.py</div>
+<pre><code>from fastapi import FastAPI                # 파이썬 함수를 HTTP 창구로 바꿔 주는 웹 프레임워크
+from schemas import QueryIn, QueryOut      # ①에서 선언한 요청·응답의 '모양'을 가져다 쓴다
+from rag import answer                     # STEP 2~4에서 만든 RAG 함수를 그대로 가져다 쓴다
+
+# 앱 객체 — 앞으로 만들 창구(엔드포인트)들이 여기에 등록된다.
+# title은 서버를 켠 뒤 http://localhost:8000/docs 에 자동 생성되는 문서 페이지의 제목이 된다.
+app = FastAPI(title="P1 RAG Search Service")</code></pre>
+      <p>
+        <code>from rag import answer</code> — 이 한 줄이 STEP 2~4를 <strong>통째로 재사용</strong>합니다.
+        검색기를 <code>mode</code> 문자열로 갈아끼울 수 있게 만들어 둔 덕분에, API 쪽은 그저 함수를 부르기만 하면 돼요.
+        <code>Citation</code>은 <code>QueryOut</code> 안에만 쓰이므로 여기서 따로 가져올 필요가 없습니다 —
+        <strong>쓰는 것만 가져온다</strong>가 import의 기본입니다.
+      </p>
+
       <h3>③ <code>/health</code> — 서버가 살아있는지 묻는 창구</h3>
       <div class="filename">main.py (이어서)</div>
 <pre><code># @app.get("/health") = "누가 GET 방식으로 /health 주소를 찾아오면 아래 함수를 실행해라"는 등록표.
@@ -187,21 +206,16 @@ def query(body: QueryIn):                              # body: QueryIn → 들�
       </div>
 
       <div class="label" id="full-code">📄 전체 코드 (위 네 조각을 이어 붙인 것)</div>
-      <div class="filename">main.py</div>
+      <div class="filename">schemas.py</div>
 <pre><code># ═══════════════════════════════════════════════════════════════════
-# STEP 5 · FastAPI 서빙: answer()를 HTTP API(POST /query)로 노출한다.
-# pydantic 모델로 요청/응답 '스키마'를 선언 → 잘못된 입력은 자동 거부, /docs에 문서가 자동 생성.
-# 이 순간 '노트북 코드'가 '서비스'가 된다.
+# STEP 5 · 스키마(schema): API가 주고받을 데이터의 '모양'만 모아 둔 파일.
+# 로직은 한 줄도 없다 — "요청은 이런 모양이어야 하고, 응답은 이런 모양으로 주겠다"는 계약서다.
 # ═══════════════════════════════════════════════════════════════════
 from typing import Literal              # 값을 '이 목록 중 하나'로 좁히는 타입 표기
-from fastapi import FastAPI
 from pydantic import BaseModel          # 요청/응답의 형태(스키마)를 선언하는 클래스
-from rag import answer                  # STEP 2~4에서 만든 핵심 함수 그대로 재사용
-
-app = FastAPI(title="P1 RAG Search Service")   # 앱 객체. title은 /docs 문서 제목에 표시됨
 
 class QueryIn(BaseModel):               # 요청 본문 스키마
-    question: str
+    question: str                       # 반드시 있어야 한다. 없으면 FastAPI가 422로 자동 거절
     # 그냥 str로 두면 "hybird" 같은 오타도 통과해 rag.py까지 흘러가 500이 된다.
     # 허용 목록으로 좁혀 두면 오타는 내 코드가 실행되기 전에 422로 거절되고, /docs에는 드롭다운으로 표시된다.
     mode: Literal["baseline", "hybrid", "rerank"] = "rerank"   # 검색 구성도 API로 고를 수 있게(실험용)
@@ -212,7 +226,20 @@ class Citation(BaseModel):              # 근거 1건의 스키마
 
 class QueryOut(BaseModel):              # 응답 스키마: 답변 + 근거 목록
     answer: str
-    citations: list[Citation]
+    citations: list[Citation]</code></pre>
+
+      <div class="filename">main.py</div>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 5 · FastAPI 서빙: answer()를 HTTP API(POST /query)로 노출한다.
+# 주고받을 데이터의 '스키마'는 schemas.py에 선언해 두고, 여기서는 '창구'만 연다.
+# 스키마 덕분에 잘못된 입력은 자동 거부되고, /docs에 문서가 자동 생성된다.
+# 이 순간 '노트북 코드'가 '서비스'가 된다.
+# ═══════════════════════════════════════════════════════════════════
+from fastapi import FastAPI             # 파이썬 함수를 HTTP 창구로 바꿔 주는 웹 프레임워크
+from schemas import QueryIn, QueryOut   # 요청·응답의 '모양' — 선언은 schemas.py 한곳에 모아 둔다
+from rag import answer                  # STEP 2~4에서 만든 핵심 함수 그대로 재사용
+
+app = FastAPI(title="P1 RAG Search Service")   # 앱 객체. title은 /docs 문서 제목에 표시됨
 
 @app.get("/health")                     # 헬스체크: 서버가 살아있는지 확인하는 운영 기본 엔드포인트
 def health():

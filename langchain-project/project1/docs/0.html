@@ -139,7 +139,8 @@ uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas</code></pre>
 ├── chroma_db/           # 벡터DB 저장소 (자동 생성)
 ├── ingest.py            # STEP 1
 ├── rag.py               # STEP 2, 3, 4, 6
-├── main.py              # STEP 5
+├── schemas.py           # STEP 5 (요청·응답 스키마)
+├── main.py              # STEP 5 (FastAPI 엔드포인트)
 ├── eval_data.json       # STEP 7 (골든셋)
 ├── evaluate.py          # STEP 7
 ├── .env
@@ -193,7 +194,7 @@ uv add rank-bm25 sentence-transformers
 uv add fastapi "uvicorn[standard]" langfuse ragas datasets pandas
 
 mkdir -p data
-touch ingest.py rag.py main.py evaluate.py .env README.md</code></pre>
+touch ingest.py rag.py schemas.py main.py evaluate.py .env README.md</code></pre>
 
       <div class="callout callout-result">
         <strong>✅ 검증 게이트</strong>
