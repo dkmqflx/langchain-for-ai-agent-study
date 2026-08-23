@@ -185,9 +185,26 @@ agent = create_agent(
         select_provider,                 # ← 추가
         PIIMiddleware("credit_card", strategy="mask", apply_to_input=True),
         PIIMiddleware("email", strategy="redact", apply_to_input=True),
+        ToolCallLimitMiddleware(run_limit=8, exit_behavior="continue"),
     ],
-    response_format=ToolStrategy(ChatReply),
+    response_format=ProviderStrategy(ChatReply),   # ← Gemini 2.5에서는 문제가 된다 (아래 경고)
 )</code></pre>
+      <div class="callout callout-warn">
+        <strong>⚠️ Gemini 2.5는 <code>ProviderStrategy</code>를 못 씁니다 — STEP 4의 함정이 여기서 돌아옵니다</strong>
+        <p style="margin-top:6px">
+          랭체인 소스(<code>agents/factory.py</code>의 <code>_supports_provider_strategy</code>)에 "Gemini 3 미만은 도구와 구조화 출력을 동시에 지원하지 않는다"는
+          예외가 명시돼 있습니다. 그래서 모델을 <code>gemini-2.5-flash</code>로 바꾼 요청은 위 줄 그대로는 실패하거나, 랭체인이 <code>ToolStrategy</code>로 되돌립니다 —
+          그 순간 <a href="./4.html">STEP 4 🚨 함정</a>(답을 찾고도 검색을 계속 부르는 루프)이 Gemini 쪽에서만 다시 생깁니다.
+        </p>
+        <p>
+          이 STEP을 구현할 때 <strong>실측으로</strong> 고르세요. 후보는 둘입니다. ① Gemini 3 계열(<code>gemini-3-flash</code> 등)을 쓴다 — 예외 목록 밖이라 <code>ProviderStrategy</code>가 그대로 통한다.
+          ② <code>response_format=ChatReply</code>처럼 <strong>클래스만 넘긴다</strong>(= <code>AutoStrategy</code>). 그러면 랭체인이 요청마다 모델을 보고 고른다 —
+          OpenAI는 Provider, Gemini 2.5는 Tool로. 이때 Gemini 쪽은 <code>ToolCallLimitMiddleware</code>가 유일한 방어선이므로
+          STEP 4 검증 게이트 4)(후속 질문이 끝나는가)를 Gemini로도 반드시 돌려 보세요.
+          ※ 미들웨어에서 <code>request.override(response_format=ToolStrategy(...))</code>로 바꾸는 건 안 됩니다 —
+          처음을 <code>ProviderStrategy</code>로 만들면 가짜 도구가 등록되지 않아 <code>ValueError</code>가 납니다. 전략 전환은 <code>create_agent</code> 시점에 정해야 합니다.
+        </p>
+      </div>
 
       <div class="filename">agent.py — ask()에 provider 인자 추가</div>
 <pre><code>def ask(message: str, session_id: str = "default", provider: str | None = None) -> dict:

@@ -118,13 +118,14 @@
       <h3>⑤ 한계 · 다음 — 알고 있다는 걸 보여 주는 칸</h3>
       <p>
         감추는 칸이 아니라 <strong>"한계를 알고 쓴다"를 증명하는 칸</strong>입니다.
-        이 프로젝트에는 STEP을 지나오며 이미 짚어 둔 한계가 셋 있습니다. 그대로 옮기면 됩니다.
+        이 프로젝트에는 STEP을 지나오며 이미 짚어 둔 한계가 넷 있습니다. 그대로 옮기면 됩니다.
       </p>
       <table>
         <thead><tr><th style="width:26%">한계</th><th style="width:34%">지금 상태</th><th>운영이라면</th></tr></thead>
         <tbody>
           <tr><td><b>대화 저장</b></td><td><code>InMemorySaver</code> — 재시작하면 전부 소실, 워커 여러 개면 기억이 갈라짐</td><td>Postgres 기반 checkpointer로 교체</td></tr>
           <tr><td><b>세션 소유권</b></td><td>클라이언트가 보낸 <code>session_id</code>를 그대로 신뢰 — 남의 대화를 읽을 수 있음</td><td>인증 토큰에서 사용자 확인 후 서버가 세션 키 생성</td></tr>
+          <tr><td><b>세션 동시성</b></td><td>같은 <code>session_id</code>로 요청이 겹치면 쓰다 만 기록을 읽어 OpenAI 400 (STEP 5에서 실제 발생)</td><td>세션당 잠금, 또는 클라이언트가 응답 전 재요청 차단</td></tr>
           <tr><td><b>채점자 신뢰도</b></td><td>LLM judge 점수를 사람 라벨과 대조해 보지 않음</td><td>일치율 측정 후 judge 프롬프트 보정 <span class="badge badge-gray">→ P3</span></td></tr>
         </tbody>
       </table>
@@ -144,7 +145,9 @@
 - 도구 4종: get_today / calculate / web_search / **search_internal_docs (P1 RAG 서비스를 HTTP 호출)**
 - 메모리: session_id → thread_id (checkpointer)
 - 가드레일: 키워드 기반 입력 차단(LLM 호출 0회) + PII 마스킹
-- 출력: ToolStrategy(ChatReply) 로 { answer, sources, confident } 형식 강제
+- 출력: ProviderStrategy(ChatReply) 로 { answer, sources, confident } 형식 강제
+  (ToolStrategy는 tool_choice="any" 강제 → 후속 질문에서 검색 루프. 실측 후 교체)
+- 안전망: ToolCallLimitMiddleware — 요청당 도구 호출 8회 상한
 - 가로지르는 층: Langfuse(트레이싱·비용) / Multi-LLM(get_model) / 프롬프트 평가 하네스
 
 ### 설계 결정
@@ -188,6 +191,7 @@
 ## 한계 / 다음
 - 대화 저장이 InMemorySaver — 재시작 시 소실, 다중 워커에서 기억 분리. 운영 시 Postgres checkpointer 필요
 - session_id를 클라이언트가 지정 — 인증 붙여 서버가 세션 소유권을 검증해야 함
+- 같은 session_id 동시 요청 미보호 — 겹치면 쓰다 만 기록을 읽어 400. 세션당 잠금 필요
 - LLM judge의 신뢰도를 사람 라벨과 대조하지 않음 → P3에서 일치율 측정
 - 도구 추가는 tools.py에 함수 하나 + 목록 한 줄. 사내 API 등으로 그대로 확장 가능</code></pre>
 

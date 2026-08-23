@@ -4,8 +4,10 @@
 # ═══════════════════════════════════════════════════════════════════
 from dotenv import load_dotenv
 from langchain.agents import create_agent
-from langchain.agents.middleware import before_agent, PIIMiddleware   # ← 추가(STEP 4)
-from langchain.agents.structured_output import ToolStrategy           # ← 추가(STEP 4)
+from langchain.agents.middleware import (                             # ← 추가(STEP 4)
+    before_agent, PIIMiddleware, ToolCallLimitMiddleware,
+)
+from langchain.agents.structured_output import ProviderStrategy       # ← 추가(STEP 4)
 from langchain.messages import AIMessage                              # ← 추가(STEP 4)
 from langgraph.checkpoint.memory import InMemorySaver   # ← 추가(STEP 3)
 from pydantic import BaseModel, Field                                 # ← 추가(STEP 4)
@@ -71,6 +73,10 @@ def input_guardrail(state, runtime):
                 return {
                     "messages": [AIMessage(content=REFUSALS[category])],
                     "jump_to": "end",     # 모델 호출 없이 여기서 끝낸다
+                    # 직전 턴의 구조화 답변을 지운다. 랭체인은 이 값을 '모델 노드가 돌 때' 비우는데,
+                    # 우리는 모델 앞에서 끝내 버리니 안 지우면 지난 턴 답이 이번 턴 답인 양 새어 나온다.
+                    # (같은 세션에서 정상 질문 → 차단 질문 순서로 불러야 드러나는 버그. STEP 5에서 발견)
+                    "structured_response": None,
                 }
 
     return None                            # None = "이상 없음, 평소대로 진행하라"
@@ -110,8 +116,20 @@ agent = create_agent(
         #    사용자가 실수로 붙여넣은 번호가 OpenAI 서버까지 가는 걸 막는다.
         PIIMiddleware("credit_card", strategy="mask", apply_to_input=True),
         PIIMiddleware("email", strategy="redact", apply_to_input=True),
+        # ③ 요청 하나당 도구 호출 상한. 평소엔 1~3번이면 끝나므로 8이면 넉넉하다.
+        #    넘으면 도구 대신 "한도 초과" 결과를 돌려주고(continue), 모델은 그때까지
+        #    모은 것으로 답을 마무리한다 → 한 요청이 몇 분씩 도는 사고를 막는 안전망.
+        ToolCallLimitMiddleware(run_limit=8, exit_behavior="continue"),
     ],
-    response_format=ToolStrategy(ChatReply),                          # ← 추가(STEP 4)
+    # 구조화 출력 전략. ToolStrategy가 아니라 ProviderStrategy인 이유가 중요하다.
+    #  - ToolStrategy: 'ChatReply를 제출하라'는 가짜 도구를 만들고, 매 스텝 반드시 도구를
+    #    하나 부르도록(tool_choice="any") 모델을 묶는다. 그러면 모델은 '그냥 답하기'를 못 하고
+    #    답을 찾은 뒤에도 검색을 또 부르는 루프에 빠진다 (STEP 5 멀티턴에서 실제로 발생).
+    #  - ProviderStrategy: OpenAI의 네이티브 JSON 스키마 모드를 쓴다. 도구 호출을 강제하지
+    #    않으니 "더 부를 도구가 없다 → 형식에 맞춰 답한다"는 자연스러운 종료가 살아 있다.
+    #  ※ 모델 회사가 '도구 + 구조화 출력 동시 지원'을 해야 쓸 수 있다. OpenAI는 된다.
+    #    Gemini 2.5는 안 되므로 STEP 7에서 이 줄을 다시 만난다.
+    response_format=ProviderStrategy(ChatReply),                      # ← 추가(STEP 4)
 )
 
 
@@ -135,8 +153,8 @@ def ask(message: str, session_id: str = "default") -> dict:
     # 마지막 사용자 발화의 내용을 읽으려는 게 아니라, messages[last_human:] 슬라이싱의
     # 시작점으로 쓰려고 위치만 구하는 것이다.
     last_human = max(i for i, m in enumerate(messages) if m.type == "human")
-    # ToolStrategy는 '이 형식으로 제출하라'는 도구(=ChatReply)를 내부적으로 하나 더 만든다.
-    # 그건 우리가 쥐여 준 도구가 아니므로 뺀다 — STEP 8의 채점 대상은 진짜 도구뿐이다.
+    # ProviderStrategy는 답을 모델의 본문(JSON)으로 받으므로 messages에 남는 tool_calls는
+    # 전부 우리가 쥐여 준 진짜 도구다 — 따로 거를 게 없다. STEP 8의 채점 대상이 이것.
     used_tools = [
         call["name"]
         for m in messages[last_human:]           # 이번 턴 구간만 훑고
@@ -144,7 +162,6 @@ def ask(message: str, session_id: str = "default") -> dict:
         # getattr(..., None)으로 안전하게 본다. 도구를 안 쓴 AI는 []라서 같이 걸러진다.
         if getattr(m, "tool_calls", None)
         for call in m.tool_calls                 # 한 메시지가 도구를 여러 개 부를 수도 있다
-        if call["name"] != ChatReply.__name__
     ]
 
     # 가드레일에 막히면 모델을 아예 호출하지 않고 끝난다(jump_to="end").
