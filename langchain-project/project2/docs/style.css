@@ -302,3 +302,44 @@
       border-radius: 8px; padding: 7px 20px;
     }
     .rgs-eq .op { color: var(--text-secondary); }
+
+    /* ── 입문자용 재작성(STEP 5~9)에서 쓰는 부품 ───────────────────── */
+    /* 접기 블록: 본 흐름에서 빼 둔 '전체 코드'·'더 알아보기' */
+    details { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin: 14px 0; padding: 0 16px; }
+    details summary { cursor: pointer; font-weight: 700; font-size: 14px; padding: 11px 0; color: var(--text); list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::before { content: "▸ "; color: var(--text-secondary); }
+    details[open] summary::before { content: "▾ "; }
+    details[open] summary { border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+    details > :last-child { margin-bottom: 14px; }
+    details.more { background: var(--analogy-bg); border-color: var(--analogy-border); }
+
+    /* 코드 조각 제목: [번호] 제목 — 하는 일 한 줄 */
+    .piece { display: flex; align-items: baseline; gap: 10px; margin: 24px 0 4px; flex-wrap: wrap; }
+    .piece .pn { flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 2px 9px; }
+    .piece h4 { margin: 0; font-size: 15px; }
+    .piece small { color: var(--text-secondary); font-size: 13px; }
+
+    /* 가로 흐름 그림 */
+    .hflow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+    .hbox { flex: 1; min-width: 130px; border: 1px solid var(--border); background: var(--code-bg); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+    .hbox b { display: block; font-size: 13px; margin-bottom: 3px; }
+    .hbox span { color: var(--text-secondary); font-size: 12px; line-height: 1.45; display: block; }
+    .hbox.hi { background: var(--info-bg); border-color: var(--info-border); }
+    .hbox.ok { background: var(--result-bg); border-color: var(--result-border); }
+    .hbox.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+    .hbox.dim { border-style: dashed; color: var(--text-secondary); }
+    .harrow { align-self: center; color: var(--text-secondary); font-size: 18px; flex-shrink: 0; }
+
+    /* 트리 그림(Langfuse 트레이스 등) */
+    .tree { font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px; line-height: 1.7; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; white-space: pre; }
+    .tree .t-root { font-weight: 700; }
+    .tree .t-llm { color: #0b4a8f; }
+    .tree .t-tool { color: #1b5e20; }
+    .tree .t-note { color: var(--text-secondary); }
+
+    /* 검증 체크리스트 */
+    .checklist { list-style: none; padding-left: 0; margin: 8px 0; }
+    .checklist li { padding: 7px 0 7px 30px; position: relative; border-bottom: 1px dashed var(--border); }
+    .checklist li::before { content: "☐"; position: absolute; left: 6px; top: 6px; color: var(--text-secondary); }
+    .checklist li code { white-space: nowrap; }
