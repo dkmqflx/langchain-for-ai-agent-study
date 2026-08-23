@@ -49,114 +49,178 @@
 
       <div class="label">🎯 목표</div>
       <p>
-        케이스 10~20개로 <strong>프롬프트 A와 B를 자동 채점</strong>해, "이 프롬프트 수정이 실제로 나아졌는가"를
-        <strong>표에 있는 숫자로</strong> 증명한다.
+        프롬프트를 고쳤을 때 <strong>"정말 나아졌나?"를 숫자로</strong> 답합니다.
+        질문 10~20개를 고정해 두고, 프롬프트 A와 B로 각각 돌려 자동으로 채점해 표 하나를 얻습니다.
       </p>
 
-      <div class="label">🧠 개념 ①</div>
-      <h3>프롬프트 수정은 <em>항상</em> 나아 보입니다</h3>
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>같은 코스에서 스톱워치로 재야 비교가 된다</h3>
       <p>
-        프롬프트를 고치고, 질문 두세 개 던져 보고, "오 훨씬 낫네" 하고 배포한 적 있으신가요?
-        문제는 그 판단이 거의 언제나 <strong>틀린 방식으로 만들어진다</strong>는 겁니다.
+        프롬프트를 고치고 질문 두세 개 던져 보면 <strong>항상 나아 보입니다.</strong> 내가 고친 부분이 잘 드러나는 질문만 골랐고, 내가 고쳤다는 걸 아니까요.
+        그래서 질문을 <strong>미리 정해 두고(코스)</strong>, 매번 <strong>같은 기준으로 점수를 매깁니다(스톱워치)</strong>. 코스가 고정돼야 A와 B를 비교할 수 있어요.
       </p>
-      <ul>
-        <li><strong>표본이 두세 개</strong>입니다. 그것도 내가 방금 고친 부분이 잘 드러나는 질문들로만 골랐죠.</li>
-        <li><strong>내가 고친 걸 압니다.</strong> 사람은 자기가 손댄 쪽을 더 좋게 읽습니다. 눈을 가리지 않은 실험이에요.</li>
-        <li><strong>망가진 곳은 안 봅니다.</strong> 한 곳을 좋게 만든 프롬프트가 다른 곳을 부수는 일은 아주 흔한데, 그 "다른 곳"을 질문하지 않았습니다.</li>
-      </ul>
-      <div class="callout callout-analogy">
-        <strong>🏃 비유 — 스톱워치 없는 훈련</strong>
-        <p style="margin-top:6px">
-          자세를 바꾸고 나서 "오늘 훨씬 가볍게 뛴 것 같은데?"는 데이터가 아닙니다. 컨디션 좋은 날엔 뭘 해도 가볍거든요.
-          <strong>매번 같은 코스에서 스톱워치로 재야</strong> 자세 변경이 효과가 있었는지 알 수 있습니다.
-        </p>
-        <p>
-          <code>eval_cases.json</code>이 그 <strong>고정된 코스</strong>이고, 채점 하네스가 <strong>스톱워치</strong>입니다.
-          코스를 고정해 두는 게 핵심이에요 — 매번 다른 질문으로 재면 아무것도 비교할 수 없습니다.
-        </p>
+
+      <div class="hflow">
+        <div class="hbox"><b>📋 eval_cases.json</b><span>질문 N개 + 기대하는 것<br>(고정된 코스)</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox hi"><b>🤖 Agent 실행</b><span>프롬프트 A로 N번<br>프롬프트 B로 N번</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox"><b>📏 점수 3가지</b><span>도구 선택 · 형식 · 답변 품질<br>(스톱워치)</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>📊 표</b><span>A vs B<br>갈린 케이스 목록</span></div>
       </div>
 
-      <div class="label">🧠 개념 ②</div>
-      <h3>세 가지를 따로 잽니다 — 그리고 두 개는 공짜입니다</h3>
-      <p>
-        "답변 품질"을 뭉뚱그려 LLM에게 채점시키는 건 비싸고, 흔들리고, 왜 그 점수인지 알기 어렵습니다.
-        <strong>코드로 정확히 셀 수 있는 것부터 분리해 내세요.</strong>
-      </p>
+      <p>점수는 세 가지를 <strong>따로</strong> 잽니다. 둘은 코드로 세니 공짜고, 하나만 LLM에게 맡깁니다.</p>
       <table>
-        <thead><tr><th style="width:24%">무엇을</th><th style="width:26%">어떻게</th><th style="width:12%">비용</th><th>재는 것</th></tr></thead>
+        <thead><tr><th style="width:24%">점수</th><th>어떻게</th><th style="width:14%">비용</th><th>재는 것</th></tr></thead>
         <tbody>
-          <tr>
-            <td><b>① 도구 선택 정확도</b></td>
-            <td><code>expect_tool</code> vs 실제 <code>used_tools</code></td>
-            <td><span class="badge badge-green">0원</span></td>
-            <td>약관 질문에 문서검색을 썼는가. 인사에 도구를 안 썼는가</td>
-          </tr>
-          <tr>
-            <td><b>② 형식 준수</b></td>
-            <td><code>sources</code>가 비었나 · <code>blocked</code>가 기대와 같나</td>
-            <td><span class="badge badge-green">0원</span></td>
-            <td>근거를 달았는가. 막아야 할 걸 막았는가</td>
-          </tr>
-          <tr>
-            <td><b>③ 답변 품질</b></td>
-            <td>LLM-as-judge (1~5점)</td>
-            <td><span class="badge badge-yellow">호출 1회</span></td>
-            <td>내용이 기준(rubric)에 맞는가. 사람만 판단할 수 있던 것</td>
-          </tr>
+          <tr><td><b>① 도구 선택</b></td><td>기대한 도구가 <code>used_tools</code>에 있나</td><td>0원</td><td>약관 질문에 문서 검색을 썼나, 인사에 도구를 안 썼나</td></tr>
+          <tr><td><b>② 형식</b></td><td><code>sources</code>가 비었나 · <code>blocked</code>가 기대와 같나</td><td>0원</td><td>근거를 달았나, 막을 걸 막았나</td></tr>
+          <tr><td><b>③ 답변 품질</b></td><td>다른 LLM에게 "이 기준으로 1~5점" 부탁</td><td>호출 1회</td><td>내용이 맞나 — 사람만 판단할 수 있던 것</td></tr>
         </tbody>
       </table>
-      <div class="callout callout-info">
-        <strong>💡 STEP 4에서 본 원칙이 그대로 다시 나옵니다</strong>
-        <p style="margin-top:6px">
-          가드레일에서 "싸고 확실한 검사를 앞에"라고 했었죠. 채점도 똑같습니다.
-          <strong>①·②는 공짜인 데다 결과가 흔들리지 않습니다</strong> — 몇 번을 돌려도 같은 답이 나와요.
-          ③만 LLM에게 맡깁니다. 이렇게 나눠 두면 점수가 떨어졌을 때
-          <strong>"도구를 잘못 골라서인지, 근거를 안 달아서인지, 내용이 부실해서인지"</strong>가 바로 보입니다.
-          하나로 뭉친 점수는 떨어져도 왜 떨어졌는지 알려 주지 않습니다.
-        </p>
-      </div>
-
-      <h3>LLM-as-judge — 채점 기준을 프롬프트로 준 채점자</h3>
       <p>
-        별게 아닙니다. <strong>"이 기준으로 이 답변을 1~5점으로 매겨 줘"라고 다른 LLM에게 부탁하는 것</strong>이에요.
-        다만 채점자를 제대로 세우려면 세 가지를 지켜야 합니다.
+        ③이 <strong>LLM-as-judge</strong>입니다. 별게 아니에요 — 채점 기준(<code>rubric</code>)을 케이스마다 적어 두고, 답변과 함께 채점자 모델에게 넘겨 점수와 이유를 받습니다.
+        셋을 나눠 두면 점수가 떨어졌을 때 <strong>도구를 잘못 골라서인지, 근거를 안 달아서인지, 내용이 부실해서인지</strong>가 바로 보입니다.
       </p>
-      <ul>
-        <li><strong>기준을 케이스마다 준다.</strong> "좋은 답인가?"는 채점 기준이 아닙니다. "무엇이 들어 있어야 하는가"를 적어야 해요.</li>
-        <li><strong>점수의 뜻을 못 박는다.</strong> 척도 설명이 없으면 판단이 흔들리고, 대체로 뭉뚱그려 중간 점수만 나옵니다.</li>
-        <li><strong>이유를 함께 쓰게 한다.</strong> 이유를 적게 하면 채점이 더 정확해지고, 우리도 점수를 검증할 수 있습니다.</li>
-      </ul>
-      <div class="callout callout-warn">
-        <strong>⚠️ 채점자는 자기 답에 후합니다 (self-preference bias)</strong>
-        <p style="margin-top:6px">
-          같은 모델이 답도 쓰고 채점도 하면, 자기 문체로 쓰인 답에 점수를 더 줍니다. 사람도 그러죠.
-          그래서 <strong>가능하면 채점자와 피평가자를 다른 모델로</strong> 두는 게 좋습니다 —
-          STEP 7에서 provider를 갈아끼울 수 있게 만들어 뒀으니 어렵지 않습니다.
-        </p>
-        <p>
-          그리고 더 근본적인 질문 — <strong>"이 채점자를 믿어도 되나?"</strong> 이건 <strong>사람이 직접 매긴 소수 케이스와
-          judge 점수의 일치율</strong>을 재서 확인합니다. 그 작업이 P3의 주제이고, 여기서는 씨앗만 뿌려 둡니다:
-          <strong>돌려 본 뒤 케이스 3~5개는 직접 읽고 "나라면 몇 점?"을 적어 보세요.</strong>
-        </p>
-      </div>
 
-      <div class="label">🛠 할 일</div>
+      <div class="label">🛠 할 일 — 파일 넷</div>
 
-      <h3>① <code>prompts.py</code> — 가설이 있는 A/B</h3>
+      <div class="piece"><span class="pn">①</span><h4>prompts.py — A와 B</h4><small>— B는 A에서 두 군데만 바꾼다</small></div>
+<pre><code># [가설] B는 근거(sources)를 더 자주 채우고, 불필요한 도구 호출을 줄일 것이다.
+SYSTEM_A = """(STEP 1에서 쓰던 프롬프트 그대로)"""
+
+SYSTEM_B = """...규칙 1~3은 A와 같음...
+4. 도구를 사용했다면 sources에 근거를 반드시 담는다.
+   사내 문서는 "문서명 p.쪽수", 웹은 전체 URL 형식으로 적는다. 빈 목록으로 두지 않는다.   ← 구체화
+5. (A와 같음)
+6. 도구로도 확인할 수 없는 내용은 모른다고 말하고 confident를 false로 둔다. 지어내지 않는다.
+7. 인사, 잡담, 너 자신에 대한 질문에는 도구를 호출하지 않는다.                              ← 신설
+   도구를 부를지 애매하면 '이 질문에 답하려면 내가 모르는 사실이 필요한가?'를 먼저 자문한다."""
+
+PROMPTS = {"A": SYSTEM_A, "B": SYSTEM_B}</code></pre>
       <p>
-        <strong>가설 없는 A/B는 그냥 도박입니다.</strong> "무엇을 왜 고쳤고, 그래서 어느 숫자가 오를 것이다"를
-        먼저 적어 두세요. 그래야 결과를 해석할 수 있습니다.
+        바꾸기 전에 <strong>"무엇을 왜 바꿨고, 그래서 어느 숫자가 오를 것이다"</strong>를 맨 위에 적습니다. 그래야 결과를 해석할 수 있어요.
+        B가 두 군데만 고친 이유도 그겁니다 — 열 군데를 고치고 점수가 오르면 어느 수정 덕분인지 모릅니다.
       </p>
-      <div class="filename">prompts.py</div>
-<pre><code># ═══════════════════════════════════════════════════════════════════
-# STEP 8 · 프롬프트 A/B
-#
+
+      <div class="piece"><span class="pn">②</span><h4>agent.py — 프롬프트를 요청마다 갈아끼울 구멍</h4><small>— STEP 7에서 모델을 바꾼 것과 똑같은 모양</small></div>
+<pre><code>@dataclass
+class Context:
+    provider: str | None = None
+    system_prompt: str | None = None       # ← 칸 하나 추가
+
+
+@wrap_model_call
+def override_prompt(request, handler):     # ← 미들웨어 하나 추가 (create_agent의 middleware 목록에도)
+    sp = getattr(request.runtime.context, "system_prompt", None)
+    if sp:
+        request = request.override(system_prompt=sp)
+    return handler(request)
+
+
+def ask(message, session_id="default", provider=None, system_prompt=None):   # ← 인자 하나 추가
+    ...
+        context=Context(provider=provider, system_prompt=system_prompt),      # ← 상자에 담아 넘김</code></pre>
+      <p>이제 모델과 프롬프트를 <strong>요청 단위로</strong> 바꿀 수 있습니다. 손잡이가 두 개 생긴 셈이고, 코드를 안 고쳐도 실험이 됩니다.</p>
+
+      <div class="piece"><span class="pn">③</span><h4>eval_cases.json — 코스 만들기</h4><small>— 여기가 제일 오래 걸리고 제일 값진 부분</small></div>
+<pre><code>{
+  "id": "doc-01",
+  "question": "신용카드를 분실하면 회원의 책임은 어디까지인가요?",
+  "expect_tool": "search_internal_docs",     // 어떤 도구를 써야 하나 (안 써야 하면 null)
+  "expect_sources": true,                    // 근거를 달아야 하나
+  "expect_blocked": false,                   // 막혀야 하나
+  "rubric": "분실 신고 시점을 기준으로 책임 범위가 달라진다는 점을 약관 근거와 함께 설명해야 한다."
+}</code></pre>
+      <p>케이스 하나는 이 여섯 칸입니다. <code>rubric</code>은 <strong>"무엇이 들어 있어야 하는가"</strong>를 적는 칸이지 모범답안이 아닙니다. 종류를 골고루 담는 게 개수보다 중요해요.</p>
+      <table>
+        <thead><tr><th>종류</th><th style="width:12%">개수</th><th>왜</th></tr></thead>
+        <tbody>
+          <tr><td>사내 문서 질문</td><td>5~6</td><td>주력 기능. 답이 문서에 있으니 기준을 정확히 쓸 수 있다</td></tr>
+          <tr><td>계산 · 날짜</td><td>3~4</td><td>어떤 도구를 써야 하는지 명확하다</td></tr>
+          <tr><td>웹 검색</td><td>2</td><td>사내 문서와 헷갈리기 쉬운 지점</td></tr>
+          <tr><td>도구가 필요 없는 질문</td><td>2</td><td>이게 없으면 "다 부르는 Agent"가 만점을 받는다</td></tr>
+          <tr><td>차단돼야 할 질문</td><td>2</td><td>프롬프트를 고치다 가드레일이 뚫리지 않았는지</td></tr>
+        </tbody>
+      </table>
+
+      <div class="piece"><span class="pn">④</span><h4>evaluate.py — 채점기</h4><small>— 다섯 조각. 한 조각씩 보면 어렵지 않다</small></div>
+
+      <div class="filename">④-1 채점자 준비 — "1~5점과 이유"를 정해진 모양으로 받는다</div>
+<pre><code>class Judgement(BaseModel):
+    score: int = Field(description="1~5점", ge=1, le=5)
+    reason: str = Field(description="그 점수를 준 이유 한 문장")
+
+judge = init_chat_model("openai:gpt-5-mini").with_structured_output(Judgement)   # 이 형식으로만 답하게
+
+JUDGE_TEMPLATE = """너는 엄격한 채점자다. 아래 답변을 채점 기준에 따라 1~5점으로 평가하라.
+[질문] {question}
+[채점 기준] {rubric}
+[답변] {answer}
+[제시된 근거] {sources}
+
+5 = 기준을 완전히 충족 / 4 = 사소한 누락 / 3 = 절반쯤 / 2 = 대체로 빗나감 / 1 = 틀렸거나 지어냄
+지어낸 내용이 하나라도 있으면 다른 게 아무리 좋아도 1점이다."""
+
+def judge_answer(case, result) -> Judgement:
+    return judge.invoke(JUDGE_TEMPLATE.format(question=case["question"], rubric=case["rubric"],
+                                              answer=result["answer"], sources=result["sources"] or "(없음)"))</code></pre>
+      <p>점수의 뜻을 못 박아 두지 않으면 채점자는 뭉뚱그려 중간 점수만 줍니다. 이유를 같이 받는 건 나중에 <strong>왜 그 점수인지</strong> 우리가 읽기 위해서예요.</p>
+
+      <div class="filename">④-2 케이스 하나 실행 — 세션을 케이스마다 다르게</div>
+<pre><code>def run_case(case, label, system_prompt) -> dict:
+    result = ask(case["question"],
+                 session_id=f"eval-{label}-{case['id']}",   # 같으면 앞 케이스 대화가 뒤에 섞인다
+                 system_prompt=system_prompt)</code></pre>
+
+      <div class="filename">④-3 점수 ①② — 코드로 센다</div>
+<pre><code>    expect = case.get("expect_tool")
+    used = result["used_tools"]
+    tool_ok = (expect in used) if expect else (len(used) == 0)      # 기대가 없으면 '안 썼는가'
+
+    sources_ok = bool(result["sources"]) if case.get("expect_sources") else True
+    block_ok = result["blocked"] == case.get("expect_blocked", False)
+    format_ok = sources_ok and block_ok</code></pre>
+
+      <div class="filename">④-4 점수 ③ — 차단 케이스는 내용 채점을 건너뛴다</div>
+<pre><code>    if case.get("expect_blocked"):
+        score, reason = (5 if block_ok else 1), "차단 케이스(내용 채점 생략)"   # 막는 게 정답인 답의 '내용'은 채점할 게 없다
+    else:
+        verdict = judge_answer(case, result)
+        score, reason = verdict.score, verdict.reason
+
+    return {"id": case["id"], "prompt": label,
+            "tool_ok": tool_ok, "format_ok": format_ok, "score": score,
+            "expect_tool": expect, "used_tools": ",".join(used) or "-",
+            "blocked": result["blocked"], "reason": reason}</code></pre>
+
+      <div class="filename">④-5 전체 실행 — 돌리고, 표로 모으고, 갈린 케이스를 찾는다</div>
+<pre><code>def main():
+    cases = json.load(open("eval_cases.json", encoding="utf-8"))
+    rows = [run_case(case, label, sp) for label, sp in PROMPTS.items() for case in cases]
+
+    df = pd.DataFrame(rows)
+    df.to_csv("eval_results.csv", index=False, encoding="utf-8-sig")      # 케이스별 원본은 파일로
+
+    summary = df.groupby("prompt").agg(                                  # 프롬프트별 평균 = 표
+        도구선택_정확도=("tool_ok", "mean"),                               # True를 1로 세니 평균이 곧 비율
+        형식준수율=("format_ok", "mean"),
+        답변품질_평균=("score", "mean"),
+    ).round(3)
+    print(summary.to_string())
+
+    pivot = df.pivot(index="id", columns="prompt", values="score")       # A와 B가 갈린 케이스
+    print(pivot[pivot["A"] != pivot["B"]].to_string())
+
+    langfuse.flush()                                                     # 짧은 스크립트는 이게 없으면 기록이 사라진다</code></pre>
+
+      <details>
+        <summary>전체 코드 한 번에 보기 — prompts.py · agent.py 변경 · eval_cases.json(8개) · evaluate.py</summary>
+<pre><code># ═══════════════ prompts.py ═══════════════
 # [가설] B는 A보다 (1) 근거(sources)를 더 자주 채우고, (2) 불필요한 도구 호출을 줄인다.
-#        근거 형식을 예시로 못 박고, '도구를 쓰지 말아야 할 때'를 명시했기 때문이다.
-#        → 그러므로 '형식 준수'와 '도구 선택 정확도'가 오를 것이다. 답변 품질은 비슷할 것이다.
-# ═══════════════════════════════════════════════════════════════════
+#        → '형식 준수'와 '도구 선택 정확도'가 오를 것이다. 답변 품질은 비슷할 것이다.
 
-# A · 현재 운영 중인 프롬프트 (STEP 2에서 쓰던 것 그대로)
 SYSTEM_A = """너는 정확성을 최우선으로 하는 업무 비서다.
 
 규칙:
@@ -167,8 +231,6 @@ SYSTEM_A = """너는 정확성을 최우선으로 하는 업무 비서다.
 5. 최신 정보가 필요하면 web_search를 호출하고, 답변에 출처 URL을 함께 적는다.
 6. 도구로도 확인할 수 없는 내용은 모른다고 말한다. 지어내지 않는다."""
 
-
-# B · 개선안 — 바꾼 곳은 두 군데뿐이다 (7번 신설, 4번을 예시까지 구체화)
 SYSTEM_B = """너는 정확성을 최우선으로 하는 업무 비서다.
 
 규칙:
@@ -182,27 +244,14 @@ SYSTEM_B = """너는 정확성을 최우선으로 하는 업무 비서다.
 7. 인사, 잡담, 너 자신에 대한 질문에는 도구를 호출하지 않는다.
    도구를 부를지 애매하면 '이 질문에 답하려면 내가 모르는 사실이 필요한가?'를 먼저 자문한다."""
 
-PROMPTS = {"A": SYSTEM_A, "B": SYSTEM_B}</code></pre>
+PROMPTS = {"A": SYSTEM_A, "B": SYSTEM_B}
 
-      <div class="callout callout-info">
-        <strong>💡 A/B는 한 번에 한 가지만 바꾸세요</strong>
-        <p style="margin-top:6px">
-          B에서 열 군데를 고치고 점수가 올랐다면, <strong>어느 수정 덕분인지 알 수 없습니다.</strong>
-          위 B는 두 군데(근거 형식 구체화 · 도구 미사용 규칙)만 건드렸고, 그래서 결과를 해석할 수 있어요.
-          더 엄밀하게 하려면 하나씩만 바꾼 C, D를 만들어 붙이면 됩니다 — 하네스가 있으니 케이스는 그대로 재사용됩니다.
-        </p>
-      </div>
 
-      <h3>② <code>agent.py</code> — 프롬프트를 요청마다 갈아끼울 구멍 내기</h3>
-      <p>
-        평가하려면 같은 Agent를 프롬프트만 바꿔 돌려야 합니다. STEP 7에서 모델을 갈아끼운 방식을
-        <strong>그대로</strong> 씁니다 — <code>Context</code>에 칸을 하나 늘리고 미들웨어를 하나 더 다는 게 전부예요.
-      </p>
-      <div class="filename">agent.py — 추가·수정</div>
-<pre><code>@dataclass
+# ═══════════════ agent.py — 추가·수정 ═══════════════
+@dataclass
 class Context:
     provider: str | None = None
-    system_prompt: str | None = None      # ← 추가
+    system_prompt: str | None = None
 
 
 @wrap_model_call
@@ -213,46 +262,21 @@ def override_prompt(request, handler):
         request = request.override(system_prompt=sp)
     return handler(request)
 
+# create_agent(...)의 middleware 목록에 override_prompt 추가
 
-# create_agent의 middleware 목록에 override_prompt 추가
-# ask()에도 인자를 하나 늘린다:
 def ask(message: str, session_id: str = "default",
         provider: str | None = None, system_prompt: str | None = None) -> dict:
     ...
         result = agent.invoke(
             {"messages": [{"role": "user", "content": message}]},
             {"configurable": {"thread_id": session_id}, "callbacks": [langfuse_handler]},
-            context=Context(provider=provider, system_prompt=system_prompt),   # ← 수정
+            context=Context(provider=provider, system_prompt=system_prompt),
         )
-    ...</code></pre>
-      <div class="callout callout-analogy">
-        <strong>🎛 미들웨어 하나 = 실험 축 하나</strong>
-        <p style="margin-top:6px">
-          이제 <strong>모델</strong>과 <strong>프롬프트</strong>를 요청 단위로 바꿀 수 있게 됐습니다.
-          손잡이 두 개가 생긴 셈이고, 조합해서 "A×openai / A×gemini / B×openai / B×gemini"를 재는 것도 가능하죠.
-          <strong>실험 가능한 시스템이란 결국 이런 손잡이가 밖으로 나와 있는 시스템</strong>입니다.
-          코드를 고쳐야만 바뀌는 값은 실험할 수 없어요.
-        </p>
-      </div>
+    ...
 
-      <h3>③ <code>eval_cases.json</code> — 고정된 코스 만들기</h3>
-      <p>
-        <strong>여기가 이 STEP에서 가장 오래 걸리고, 가장 값진 부분입니다.</strong> 코드는 복사하면 되지만
-        케이스는 여러분의 문서에서 직접 만들어야 하니까요. 10~20개를 목표로 하되,
-        <strong>골고루</strong> 담는 게 개수보다 중요합니다.
-      </p>
-      <table>
-        <thead><tr><th style="width:26%">종류</th><th style="width:12%">개수</th><th>왜 필요한가</th></tr></thead>
-        <tbody>
-          <tr><td>사내 문서 질문</td><td>5~6</td><td>주력 기능. 정답이 문서에 있으니 채점 기준을 정확히 쓸 수 있다</td></tr>
-          <tr><td>계산 · 날짜</td><td>3~4</td><td>도구 선택이 명확해 채점이 흔들리지 않는다</td></tr>
-          <tr><td>웹 검색</td><td>2</td><td>사내 문서와 헷갈리기 쉬운 지점</td></tr>
-          <tr><td><b>도구가 필요 없는 질문</b></td><td>2</td><td><b>안 부르는 판단</b>을 잰다. 이게 없으면 "다 부르는 Agent"가 만점을 받는다</td></tr>
-          <tr><td><b>차단돼야 할 질문</b></td><td>2</td><td>가드레일이 살아 있는지 매번 확인. 프롬프트를 고치다 뚫리는 일이 있다</td></tr>
-        </tbody>
-      </table>
-      <div class="filename">eval_cases.json</div>
-<pre><code class="nohl">[
+
+# ═══════════════ eval_cases.json — 본보기 8개. data/ 문서를 읽고 15개쯤으로 늘리세요 ═══════════════
+[
   {
     "id": "doc-01",
     "question": "신용카드를 분실하면 회원의 책임은 어디까지인가요?",
@@ -317,23 +341,11 @@ def ask(message: str, session_id: str = "default",
     "expect_blocked": true,
     "rubric": "투자 권유를 거절해야 한다."
   }
-]</code></pre>
-      <p>
-        위 8개는 <strong>본보기</strong>입니다. 여러분의 <code>data/</code> 문서를 읽으면서
-        <strong>답을 문서에서 직접 확인할 수 있는 질문</strong>으로 15개쯤까지 늘리세요.
-        <code>rubric</code>은 "무엇이 들어 있어야 하는가"를 적는 칸이지, 모범답안을 적는 칸이 아닙니다.
-      </p>
+]
 
-      <h3>④ <code>evaluate.py</code> — 채점 하네스</h3>
-      <div class="filename">evaluate.py</div>
-<pre><code># ═══════════════════════════════════════════════════════════════════
-# STEP 8 · 프롬프트 A/B 채점: 같은 케이스를 프롬프트별로 돌려 세 가지를 잰다.
-#   ① 도구 선택 정확도 (코드로 계산 · 공짜)
-#   ② 형식 준수        (코드로 계산 · 공짜)
-#   ③ 답변 품질        (LLM-as-judge · 케이스당 호출 1회)
-#
-# 실행: uv run python evaluate.py
-# ═══════════════════════════════════════════════════════════════════
+
+# ═══════════════ evaluate.py ═══════════════
+# STEP 8 · 프롬프트 A/B 채점. 실행: uv run python evaluate.py
 import json
 
 import pandas as pd
@@ -349,17 +361,13 @@ load_dotenv()
 langfuse = get_client()
 
 
-# ── 채점자(judge) 준비 ────────────────────────────────────────────
+# ── 채점자(judge) 준비 ──
 class Judgement(BaseModel):
     """채점 결과의 형식. 점수만 받지 않고 이유까지 받는다."""
     score: int = Field(description="1~5점", ge=1, le=5)
     reason: str = Field(description="그 점수를 준 이유 한 문장")
 
-# with_structured_output = '이 형식으로만 답하라'고 모델을 묶는 것.
-# 채점 결과를 문자열에서 파싱할 필요가 없어진다.
-#
-# 채점자는 피평가 모델과 다르게 두는 편이 낫다(자기 답에 후한 경향).
-# 여기서는 학습 편의상 같은 계열을 쓰되, gemini로 바꿔 보고 점수가 달라지는지 확인해 보세요.
+# 채점자는 피평가 모델과 다르게 두는 편이 낫다(자기 답에 후한 경향). gemini로 바꿔 보고 비교해 보세요.
 judge = init_chat_model("openai:gpt-5-mini").with_structured_output(Judgement)
 
 JUDGE_TEMPLATE = """너는 엄격한 채점자다. 아래 답변을 채점 기준에 따라 1~5점으로 평가하라.
@@ -396,10 +404,9 @@ def judge_answer(case: dict, result: dict) -> Judgement:
     return judge.invoke(prompt)
 
 
-# ── 케이스 하나 채점 ──────────────────────────────────────────────
+# ── 케이스 하나 채점 ──
 def run_case(case: dict, label: str, system_prompt: str) -> dict:
-    # 세션을 케이스마다 다르게 준다. 같으면 앞 케이스의 대화가 뒤 케이스에 섞여
-    # '2번 문제를 1번 답을 보고 푸는' 꼴이 된다 — 채점이 통째로 무의미해진다.
+    # 세션을 케이스마다 다르게 준다. 같으면 앞 케이스의 대화가 뒤 케이스에 섞인다.
     result = ask(
         case["question"],
         session_id=f"eval-{label}-{case['id']}",
@@ -417,7 +424,6 @@ def run_case(case: dict, label: str, system_prompt: str) -> dict:
     format_ok = sources_ok and block_ok
 
     # ③ 답변 품질: 차단이 기대된 케이스는 내용 채점을 하지 않는다.
-    #    막는 게 정답인 질문의 '답변 내용'을 채점하는 건 말이 안 되고, 호출만 낭비다.
     if case.get("expect_blocked"):
         score, reason = (5 if block_ok else 1), "차단 케이스(내용 채점 생략)"
     else:
@@ -432,7 +438,7 @@ def run_case(case: dict, label: str, system_prompt: str) -> dict:
     }
 
 
-# ── 전체 실행 ────────────────────────────────────────────────────
+# ── 전체 실행 ──
 def main():
     cases = json.load(open("eval_cases.json", encoding="utf-8"))
     rows = []
@@ -466,17 +472,17 @@ def main():
         print("\n[A와 B의 점수가 갈린 케이스]")
         print(diff.to_string())
 
-    langfuse.flush()   # 스크립트가 끝나기 전에 기록을 모두 전송한다 (STEP 6 경고 참고)
+    langfuse.flush()   # 스크립트가 끝나기 전에 기록을 모두 전송한다 (STEP 6 참고)
 
 
 if __name__ == "__main__":
     main()</code></pre>
+      </details>
 
-      <div class="callout callout-result">
-        <strong>✅ 검증 게이트</strong>
-<pre style="margin-top:8px"><code>uv run python evaluate.py
+      <div class="label">✅ 검증</div>
+<pre><code>uv run python evaluate.py        # 처음엔 케이스 3개로 줄여 하네스가 도는지부터 확인
 
-# 기대 출력
+# 기대 출력 (숫자는 예시)
 # ====================================================
 #         도구선택_정확도  형식준수율  답변품질_평균
 # prompt
@@ -489,51 +495,46 @@ if __name__ == "__main__":
 # id
 # none-01   3    5
 # web-01    4    3</code></pre>
-        <p style="margin-top:8px">통과 조건은 <strong>"점수가 올랐다"가 아닙니다.</strong> 아래 셋입니다.</p>
-        <ul>
-          <li><strong>표가 숫자로 나온다</strong> — 세 지표가 프롬프트별로 출력됨</li>
-          <li><strong>갈린 케이스를 설명할 수 있다</strong> — <code>eval_results.csv</code>에서 그 케이스의 <code>reason</code>을 읽고 "왜 이렇게 됐는지" 한 문장으로 말할 수 있어야 한다</li>
-          <li><strong>차단 케이스가 A·B 둘 다 통과한다</strong> — 프롬프트를 고쳤는데 가드레일이 뚫렸다면 즉시 고쳐야 한다</li>
-        </ul>
-      </div>
+      <ul class="checklist">
+        <li><b>표가 숫자로 나온다</b> — 세 지표가 프롬프트별로</li>
+        <li><b>갈린 케이스를 설명할 수 있다</b> — <code>eval_results.csv</code>에서 그 케이스의 <code>reason</code>을 읽고 "왜 이렇게 됐는지" 한 문장으로 말할 수 있다</li>
+        <li><b>차단 케이스가 A·B 둘 다 통과한다</b> — 프롬프트를 고쳐도 가드레일은 그대로</li>
+      </ul>
+      <p>
+        통과 조건은 "B가 이겼다"가 아닙니다. <strong>B가 져도 정상이고, 그게 수확입니다.</strong> 규칙 7("애매하면 자문하라")이 필요한 도구까지 주저하게 만들었을 수 있죠.
+        그러면 그 케이스의 <code>reason</code>을 읽고 7번만 다시 손본 C를 돌리면 됩니다. 하네스가 없었다면 B를 배포하고 몇 주 뒤에야 알았을 일입니다.
+      </p>
 
-      <div class="callout callout-danger">
-        <strong>🚨 B가 졌다면? 그게 정상이고, 그게 수확입니다</strong>
-        <p style="margin-top:6px">
-          "규칙을 더 자세히 썼는데 점수가 떨어졌다"는 흔한 일입니다. 규칙 7번("애매하면 자문하라")이
-          <strong>필요한 도구까지 주저하게 만들었을 수도</strong> 있죠. 그럼 그 케이스의 <code>reason</code>을 읽고
-          7번만 다시 손봐서 C를 만들어 돌리면 됩니다.
-        </p>
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>"나아졌다"는 느낌이 아니라 고정된 코스 + 같은 스톱워치로 증명한다.</strong>
+        셀 수 있는 건 코드로 세고, 판단이 필요한 것만 LLM에게 맡긴다.
+      </p>
+
+      <details class="more">
+        <summary>더 알아보기 — 채점자를 믿어도 되나 / 비용 / 한 번에 하나만</summary>
+
+        <h3>채점자는 자기 답에 후합니다</h3>
         <p>
-          <strong>여기서 진짜로 얻은 것은 "B가 더 낫다"가 아니라 "이제 알 수 있게 됐다"입니다.</strong>
-          하네스가 없었다면 B를 배포하고 몇 주 뒤에야 뭔가 이상하다고 느꼈을 테니까요.
-          이력서에 쓸 문장도 점수 자체가 아니라 이쪽입니다 —
-          <em>"프롬프트 변경의 영향을 15개 케이스로 자동 채점해, 배포 전에 회귀를 잡는 체계를 만들었다."</em>
+          같은 모델이 답도 쓰고 채점도 하면 자기 문체에 점수를 더 줍니다. 가능하면 채점자를 다른 모델로 두세요 — STEP 7 덕분에 <code>init_chat_model("google_genai:...")</code> 한 줄이면 됩니다.
+          더 근본적으로는 <strong>"이 채점자를 믿어도 되나?"</strong>를 사람이 직접 매긴 점수와 비교해 확인해야 하는데, 그건 P3의 주제입니다.
+          여기서는 씨앗만 — 돌려 본 뒤 케이스 3~5개는 직접 읽고 "나라면 몇 점?"을 적어 보세요.
         </p>
-      </div>
 
-      <div class="callout callout-warn">
-        <strong>⚠️ 비용과 시간 — 한 번 돌리면 얼마나 드나</strong>
-        <p style="margin-top:6px">
-          케이스 15개 × 프롬프트 2개 = 30번의 Agent 실행 + 채점 호출 약 26번.
-          Agent 실행 하나가 모델을 2~3번 부르니 <strong>대략 110회 안팎</strong>이고,
-          사내 문서 케이스는 P1까지 부르므로 <strong>전체 5~15분</strong> 걸립니다.
-          처음엔 케이스 3개로 줄여 돌려서 하네스가 제대로 도는지부터 확인하세요 —
-          15개를 다 돌리고 나서 버그를 발견하는 것만큼 아까운 게 없습니다.
+        <h3>한 번 돌리면 얼마나 드나</h3>
+        <p>
+          케이스 15개 × 프롬프트 2개 = Agent 실행 30번 + 채점 약 26번. Agent 하나가 모델을 2~3번 부르니 <strong>대략 110회, 5~15분</strong>입니다.
+          그래서 처음엔 케이스 3개로 줄여 돌립니다 — 15개를 다 돌리고 나서 버그를 발견하는 것만큼 아까운 게 없어요.
         </p>
-      </div>
 
-      <div class="label">🎓 배우는 것</div>
-      <p>
-        <strong>"나아졌다"를 증명하는 방법.</strong> 고정된 케이스셋(코스)을 만들고, 잴 수 있는 것을 층으로 나누고,
-        판단이 필요한 것만 LLM에게 맡기는 설계. 그리고 <strong>실험 가능한 시스템의 조건</strong> —
-        바꾸고 싶은 것(모델·프롬프트)이 코드 바깥으로 나와 있어야 한다는 것.
-      </p>
-      <p>
-        여기서 만든 하네스는 <strong>P3에서 그대로 자랍니다</strong>:
-        채점자를 믿을 수 있는지 사람 라벨과 대조하고(judge 신뢰도), 지난 실행과 비교해 회귀를 잡고,
-        Langfuse에 점수를 남겨 추이를 봅니다. <strong>P2에서 부속이었던 평가가 P3에서 주인공이 됩니다.</strong>
-      </p>
+        <h3>한 번에 한 가지만 바꾸기</h3>
+        <p>
+          더 엄밀하게 하려면 B의 두 수정을 하나씩 떼어 C, D를 만들어 붙이면 됩니다. 하네스가 있으니 케이스는 그대로 재사용돼요.
+          모델(STEP 7)과 프롬프트(STEP 8), 손잡이가 둘이니 "A×openai / B×gemini" 같은 조합도 잴 수 있습니다.
+          <strong>실험 가능한 시스템이란 바꾸고 싶은 것이 코드 밖으로 나와 있는 시스템</strong>입니다.
+        </p>
+      </details>
+
     </section>
 
     <div class="pager">
