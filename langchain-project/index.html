@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LangGraph 학습 전 실무 프로젝트 3선 — 토스플레이스 · 토스 · 카카오헬스케어 AI Engineer 대비</title>
+  <title>LangGraph 학습 전 실무 프로젝트 3선 — AI Engineer 포트폴리오 로드맵</title>
   <style>
     :root {
       --bg: #f8f9fa;
@@ -13,19 +13,12 @@
       --text-secondary: #586069;
       --accent: #0366d6;
       --green: #28a745;
-      --yellow: #f9a825;
       --purple: #6f42c1;
       --red: #d32f2f;
       --info-bg: #e8f4fd;
-      --info-border: #0366d6;
       --warn-bg: #fff8e1;
       --warn-border: #f9a825;
-      --danger-bg: #fce8e8;
-      --danger-border: #d32f2f;
       --analogy-bg: #f5f1fb;
-      --analogy-border: #6f42c1;
-      --result-bg: #f1f8f2;
-      --result-border: #28a745;
       --code-bg: #f6f8fa;
     }
 
@@ -33,114 +26,90 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      font-size: 15px;
-      line-height: 1.7;
-      color: var(--text);
-      background: var(--bg);
+      font-size: 15px; line-height: 1.7;
+      color: var(--text); background: var(--bg);
     }
 
     /* Layout */
     .page-wrapper { display: flex; min-height: 100vh; }
-
     nav {
-      position: fixed;
-      top: 0; left: 0;
-      width: 250px; height: 100vh;
-      overflow-y: auto;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      padding: 24px 16px;
-      font-size: 13px;
+      position: fixed; top: 0; left: 0;
+      width: 250px; height: 100vh; overflow-y: auto;
+      background: var(--surface); border-right: 1px solid var(--border);
+      padding: 24px 16px; font-size: 13px;
     }
     nav .nav-title {
-      font-weight: 700; font-size: 12px;
-      text-transform: uppercase; letter-spacing: 0.08em;
-      color: var(--text-secondary); margin-bottom: 12px;
+      font-weight: 700; font-size: 12px; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 12px;
     }
     nav a {
       display: block; padding: 5px 8px; border-radius: 4px;
-      color: var(--text-secondary); text-decoration: none;
-      line-height: 1.4; transition: background 0.1s;
+      color: var(--text-secondary); text-decoration: none; line-height: 1.4;
     }
     nav a:hover { background: var(--bg); color: var(--accent); }
-    nav a.current { color: var(--text); font-weight: 700; background: var(--bg); }
     nav .nav-section { margin-top: 16px; }
-
-    main {
-      margin-left: 250px; max-width: 900px;
-      padding: 48px 48px 80px; width: 100%;
-    }
+    main { margin-left: 250px; max-width: 900px; padding: 48px 48px 80px; width: 100%; }
 
     /* Typography */
     h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
     h2 { font-size: 19px; font-weight: 700; margin: 40px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
     h3 { font-size: 16px; font-weight: 700; margin: 24px 0 10px; }
     p  { margin-bottom: 12px; }
-    a { color: var(--accent); text-decoration: none; }
+    a  { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     strong { font-weight: 600; }
     ul, ol { margin: 8px 0 14px 22px; }
     li { margin-bottom: 5px; }
-
+    code {
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace; font-size: 12.5px;
+      background: var(--code-bg); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    }
     .doc-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 28px; }
     .lead {
-      font-size: 16px; color: var(--text);
-      background: var(--surface); border: 1px solid var(--border);
+      font-size: 16px; background: var(--surface); border: 1px solid var(--border);
       border-radius: 8px; padding: 18px 20px; margin-bottom: 8px;
     }
 
     /* Callouts */
-    .callout {
-      border-left: 4px solid; border-radius: 0 6px 6px 0;
-      padding: 14px 18px; margin: 16px 0; font-size: 14px;
-    }
-    .callout-info    { background: var(--info-bg); border-color: var(--info-border); }
-    .callout-warn    { background: var(--warn-bg); border-color: var(--warn-border); }
-    .callout-danger  { background: var(--danger-bg); border-color: var(--danger-border); }
-    .callout-analogy { background: var(--analogy-bg); border-color: var(--analogy-border); }
-    .callout-result  { background: var(--result-bg); border-color: var(--result-border); }
+    .callout { border-left: 4px solid; border-radius: 0 6px 6px 0; padding: 14px 18px; margin: 16px 0; font-size: 14px; }
+    .callout-info    { background: var(--info-bg);    border-color: var(--accent); }
+    .callout-warn    { background: var(--warn-bg);    border-color: var(--warn-border); }
+    .callout-analogy { background: var(--analogy-bg); border-color: var(--purple); }
     .callout p:last-child { margin-bottom: 0; }
     .callout > strong:first-child { display: block; margin-bottom: 4px; }
 
-    /* Badges */
+    /* Badges & chips */
     .badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 2px 8px; border-radius: 12px; font-size: 12px;
-      font-weight: 600; white-space: nowrap;
+      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
     }
     .badge-green  { background: #e8f5e9; color: #1b5e20; }
     .badge-yellow { background: #fff8e1; color: #8a6d00; }
     .badge-red    { background: #fce8e8; color: #b71c1c; }
-    .badge-blue   { background: #e8f4fd; color: #0b4a8f; }
-    .badge-purple { background: #f0e9fb; color: #4a2a86; }
     .badge-gray   { background: #eef1f4; color: #444d56; }
-
-    code {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-      font-size: 12.5px; background: var(--code-bg);
-      border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px;
+    .stack { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+    .chip {
+      display: inline-block; font-size: 12px; font-weight: 600; color: var(--text);
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px;
     }
+    .chip.new { background: #fff8e1; border-color: #f0d98a; color: #8a6d00; }
 
     /* Tables */
     table {
-      width: 100%; border-collapse: collapse; margin: 14px 0 18px;
-      font-size: 13.5px; background: var(--surface);
-      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+      width: 100%; border-collapse: collapse; margin: 14px 0 18px; font-size: 13.5px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
     }
     th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
     th { background: var(--code-bg); font-weight: 700; font-size: 12.5px; }
     tr:last-child td { border-bottom: none; }
-    td code { font-size: 12px; }
 
-    /* Roadmap list */
+    /* Roadmap cards */
     .roadmap { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 4px; }
     .roadmap-item {
       display: flex; gap: 14px; align-items: flex-start;
-      border: 1px solid var(--border); border-radius: 8px;
-      background: var(--surface); padding: 14px 16px;
-      transition: border-color 0.1s, box-shadow 0.1s;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 14px 16px;
     }
-    .roadmap-item:hover { border-color: var(--accent); box-shadow: 0 1px 6px rgba(3,102,214,0.08); }
+    .roadmap-item:hover { border-color: var(--accent); }
     .roadmap-num {
       flex-shrink: 0; width: 44px; height: 44px; border-radius: 8px;
       background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
@@ -149,9 +118,8 @@
     .roadmap-num.p2 { background: var(--purple); }
     .roadmap-num.p3 { background: var(--red); }
     .roadmap-num.gg { background: var(--green); }
-    .roadmap-body { min-width: 0; flex: 1; }
-    a.rm-title, .rm-title { font-size: 15px; font-weight: 700; color: var(--text); }
-    a.rm-title:hover { color: var(--accent); text-decoration: none; }
+    .roadmap-body { flex: 1; min-width: 0; }
+    .rm-title { font-size: 15px; font-weight: 700; color: var(--text); }
     .roadmap-body p { font-size: 13px; color: var(--text-secondary); margin: 3px 0 0; }
     .rm-tag {
       display: inline-block; font-size: 11px; font-weight: 600; color: var(--text-secondary);
@@ -160,51 +128,27 @@
     }
 
     /* Project card */
-    .project {
-      border: 1px solid var(--border); border-radius: 10px;
-      background: var(--surface); padding: 6px 24px 22px; margin: 18px 0 26px;
-    }
+    .project { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 6px 24px 22px; margin: 18px 0 26px; }
     .project.p1 { border-top: 4px solid var(--accent); }
     .project.p2 { border-top: 4px solid var(--purple); }
     .project.p3 { border-top: 4px solid var(--red); }
     .project h2 { border-bottom: none; margin: 18px 0 6px; }
     .project-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
 
-    /* Stack chips */
-    .stack { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
-    .chip {
-      display: inline-block; font-size: 12px; font-weight: 600;
-      background: var(--code-bg); border: 1px solid var(--border);
-      border-radius: 6px; padding: 3px 9px; color: var(--text);
-    }
-    .chip.new { background: #fff8e1; border-color: #f0d98a; color: #8a6d00; }
-
-    /* Checklist milestones */
+    /* Step checklist */
     .check { list-style: none; margin: 8px 0 6px; padding: 0; }
     .check li {
       position: relative; padding: 8px 12px 8px 34px; margin-bottom: 8px;
-      border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
-      font-size: 13.5px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 13.5px;
     }
-    .check li::before {
-      content: "☐"; position: absolute; left: 11px; top: 7px;
-      font-size: 15px; color: var(--accent); font-weight: 700;
-    }
-    .check .verify {
-      display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-secondary);
-    }
-    .check .verify b { color: var(--green); font-weight: 700; }
+    .check li::before { content: "☐"; position: absolute; left: 11px; top: 7px; font-size: 15px; color: var(--accent); font-weight: 700; }
+    .check .step { color: var(--text-secondary); font-size: 12px; margin-right: 6px; }
+    .check .verify { display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-secondary); }
+    .check .verify b { color: var(--green); }
 
     hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
-
-    .pager {
-      display: flex; justify-content: space-between; gap: 12px;
-      margin-top: 40px; font-size: 14px;
-    }
-    .pager a {
-      border: 1px solid var(--border); border-radius: 8px;
-      padding: 12px 16px; background: var(--surface); flex: 1;
-    }
+    .pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 40px; font-size: 14px; }
+    .pager a { border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; background: var(--surface); flex: 1; }
     .pager a:hover { border-color: var(--accent); text-decoration: none; }
     .pager .next { text-align: right; }
     .pager small { display: block; color: var(--text-secondary); font-size: 12px; }
@@ -224,15 +168,14 @@
     <div class="nav-title">실무 프로젝트 3선</div>
     <div class="nav-section">
       <div class="nav-title">이 페이지</div>
-      <a href="#goal">🎯 목표와 전략</a>
+      <a href="#overview">한눈에 보기</a>
       <a href="#why">왜 이 3개인가</a>
-      <a href="#stack">공통 스택 3종</a>
       <a href="#roadmap">프로젝트 로드맵</a>
       <a href="#p1">P1 · RAG 검색 서비스</a>
       <a href="#p2">P2 · Agent API 서비스</a>
       <a href="#p3">P3 · 평가·관측성 하네스</a>
       <a href="#next">다음 단계: LangGraph</a>
-      <a href="#resume">이력서 서술 팁</a>
+      <a href="#resume">이력서 팁</a>
     </div>
     <div class="nav-section">
       <div class="nav-title">선행 학습 (완료)</div>
@@ -240,6 +183,10 @@
       <a href="../langchain/docs/02.agent-basic.html">02. Agent 기초</a>
       <a href="../langchain/docs/03.advanced-agent.html">03. Advanced Agent</a>
       <a href="../langchain/docs/04.rag.html">04. RAG</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">다음 학습</div>
+      <a href="../langgraph-project/index.html">LangGraph 실무 프로젝트 3선</a>
     </div>
     <div class="nav-section">
       <div class="nav-title">지원 공고</div>
@@ -251,125 +198,81 @@
 
   <main>
 
-    <h1 id="goal">LangGraph 학습 전, 실무 프로젝트 3선</h1>
+    <h1 id="overview">LangGraph 학습 전, 실무 프로젝트 3선</h1>
     <p class="doc-meta">
-      목표: <strong>AI Engineer</strong> &nbsp;·&nbsp; 타깃: <strong>토스플레이스(1순위)</strong> · 토스 · 카카오헬스케어
-      &nbsp;·&nbsp; 스택: <span class="badge badge-yellow">FastAPI</span> <span class="badge badge-yellow">Langfuse</span> <span class="badge badge-yellow">RAGAS</span>
+      대상: LangChain 01~04를 마친 사람 &nbsp;·&nbsp; 기간: 약 5~6주 &nbsp;·&nbsp; 목적: AI Engineer 지원 포트폴리오
       &nbsp;·&nbsp; 난이도: <span class="badge badge-green">🟢</span> → <span class="badge badge-yellow">🟡</span> → <span class="badge badge-red">🔴</span>
     </p>
 
     <p class="lead">
-      LangChain 학습(01 입문 · 02 Agent 기초 · 03 Advanced Agent · 04 RAG)을 마친 상태에서,
-      <strong>LangGraph로 넘어가기 전에</strong> 실무에서 마주칠 프로젝트 3개를 직접 만들어 보는 로드맵입니다.
-      세 프로젝트는 각각 <strong>RAG · Agent · 평가·관측성</strong>을 하나씩 총정리하며,
-      난이도가 오르는 순서로 배치됩니다. Multi-Agent는 이 셋을 재료로 <strong>LangGraph의 첫 프로젝트</strong>로 이어집니다.
+      LangChain 기초 과정(01 입문 · 02 Agent 기초 · 03 Advanced Agent · 04 RAG)을 마치면 "돌아가는 데모"는 만들 수 있습니다.
+      이 페이지는 그 데모를 <strong>서비스로 띄우고, 품질을 숫자로 재고, 실행을 추적하는</strong> 수준까지 끌어올리는
+      프로젝트 3개(RAG → Agent → 평가)의 로드맵입니다. 세 개가 끝나면 LangGraph로 넘어갑니다.
     </p>
 
-    <div class="callout callout-info">
-      <strong>🎯 핵심 전략 — "튜토리얼"과 "실무 프로젝트"의 차이를 만든다</strong>
-      LangChain은 AI 로직을 <em>만드는</em> 도구입니다. 하지만 두 공고가 공통으로 요구하는 것은 그걸
-      <strong>서비스로 띄우고(FastAPI) · 정량 평가하고(RAGAS) · 실행을 추적하는(Langfuse)</strong> 능력입니다.
-      그래서 3개 프로젝트 모두 이 세 가지를 얇게 얹습니다. 이 층이 있어야 "튜토리얼을 따라 했다"가 아니라
-      "실험 → 서빙 → 운영 → 개선을 해봤다"는 이력서 문장이 나옵니다.
-    </div>
-
-    <h2 id="why">왜 이 3개인가 — 공고 요구 → 학습 갭 → 프로젝트</h2>
-
-    <p>세 공고를 한 줄로 요약하면 이렇습니다.</p>
-    <ul>
-      <li><strong>토스플레이스 Server Developer (AI Platform) — 1순위</strong> — Model Router · MCP Gateway · RAG · Long-term Memory를 <strong>0에서부터 플랫폼으로</strong> 구축하는 신설 팀. SaaS + 셀프호스팅(vLLM) 모델을 함께 서빙·라우팅. (토스 AI Platform과 요구가 거의 같고, <strong>게이트웨이/서버 구축</strong> 비중이 더 큼 — 이 서사는 LangGraph 이후의 <a href="#next">Gateway 승격</a> 단계가 정면 대응)</li>
-      <li><strong>토스 AI Platform</strong> — RAG · Agent를 <strong>재사용 가능한 플랫폼</strong>으로 만들고, <strong>정량 평가</strong>하고, <strong>실험→서빙→운영</strong>하는 팀. (Multi-LLM Provider 운영, ML 시스템 설계 면접)</li>
-      <li><strong>카카오헬스케어 AI</strong> — 의료 도메인에서 <strong>RAG 정확도 · Multi-Agent · Workflow Orchestration</strong>을 제품화하는 팀. (LangChain/LangGraph, Tool Calling, <strong>Langfuse 추적</strong>, 프롬프트/평가 명시)</li>
-    </ul>
-
-    <p>두 공고가 겹치는 요구를 축으로 정리하면:</p>
-    <table>
-      <thead>
-        <tr><th style="width:16%">공통 축</th><th style="width:34%">토스 · 토스플레이스 요구</th><th style="width:34%">카카오헬스케어 요구</th><th style="width:16%">담는 프로젝트</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><strong>RAG</strong></td><td>Retrieval·Generation·Vector Search를 재사용 컴포넌트로</td><td>의료 정보 검색 <strong>정확도</strong> RAG 파이프라인 구축·고도화</td><td><span class="badge badge-blue">P1</span></td></tr>
-        <tr><td><strong>Agent</strong></td><td>Prompt·Tool·Context 기반 Agent 시스템</td><td>LLM Agent, Tool Calling, Sub-Agent</td><td><span class="badge badge-purple">P2</span></td></tr>
-        <tr><td><strong>정량 평가</strong></td><td><strong>Agent 성능을 정량 평가하는 기반을 플랫폼으로 제공</strong></td><td>평가 체계 구축, 프롬프트 개선, 반복 개선</td><td><span class="badge badge-red">P3</span> (+P1·P2)</td></tr>
-        <tr><td><strong>관측성</strong></td><td>실험→서빙→<strong>운영</strong> 흐름 도구화</td><td>실행 <strong>추적·로깅</strong> (Langfuse 명시)</td><td><span class="badge badge-red">P3</span> (+P1·P2)</td></tr>
-        <tr><td><strong>서빙</strong></td><td>서비스에서 안정적으로 작동하는 서빙</td><td>실제 서비스에 탑재 가능한 형태로 개발</td><td>P1·P2</td></tr>
-        <tr><td><strong>Multi-LLM</strong></td><td>OpenAI·Anthropic·GCP·vLLM 선택·운영 — <strong>Model Router</strong>(토스플레이스 핵심)의 출발점</td><td>LLM API 이해</td><td><span class="badge badge-purple">P2</span></td></tr>
-        <tr><td><strong>Multi-Agent</strong></td><td>정형화되지 않은 요소 구조화·확장</td><td><strong>Multi-Agent 구조 설계, Workflow Orchestration</strong></td><td><span class="badge badge-gray">LangGraph 단계 →</span></td></tr>
-        <tr><td><strong>Gateway</strong></td><td><strong>Model Router · MCP Gateway 구축</strong> (토스플레이스 1순위 핵심)</td><td>—</td><td><span class="badge badge-gray">LangGraph 이후 →</span></td></tr>
-      </tbody>
-    </table>
-
-    <h3>이미 학습한 것 vs. 갭</h3>
-    <table>
-      <thead><tr><th style="width:50%">✅ 이미 학습 (LangChain 01~04)</th><th style="width:50%">🔲 공고가 원하지만 아직 안 한 것</th></tr></thead>
-      <tbody>
-        <tr><td>Tool · Memory · Middleware · Guardrails · Structured Output</td><td>FastAPI로 <strong>API 서빙</strong></td></tr>
-        <tr><td>RAG 파이프라인 (Load→Split→Embed→Store→Retrieve)</td><td><strong>정량 평가</strong> (RAGAS · LLM-as-judge)</td></tr>
-        <tr><td>Agentic RAG · Hybrid RAG</td><td>실행 <strong>추적·비용·지연 관측</strong> (Langfuse)</td></tr>
-        <tr><td>Long-term Memory · Runtime & State 개념</td><td><strong>Multi-LLM Provider</strong> 추상화·스위칭</td></tr>
-        <tr><td>평가를 "부속 단계"로만 사용</td><td><strong>회귀·품질 게이트를 갖춘 평가 인프라</strong> (P3의 주제)</td></tr>
-        <tr><td>단일 Agent 설계</td><td><strong>Multi-Agent 오케스트레이션</strong> → LangGraph 첫 프로젝트로 이월</td></tr>
-      </tbody>
-    </table>
-
+    <!-- ============ WHY ============ -->
+    <h2 id="why">왜 이 3개인가</h2>
+    <p>
+      지원하려는 세 공고(토스플레이스 · 토스 · 카카오헬스케어)는 표현만 다를 뿐 같은 것을 묻습니다.
+      "AI 로직을 만들 줄 아느냐"가 아니라, 만든 것을 <strong>서비스에 올리고(서빙)</strong>,
+      <strong>품질을 지표로 관리하고(평가)</strong>, <strong>안에서 무슨 일이 벌어지는지 볼 수 있느냐(관측성)</strong>입니다.
+      LangChain 과정에서 배운 것은 앞쪽 "만들기"이고, 뒤쪽 세 가지는 아직 비어 있습니다.
+    </p>
     <div class="callout callout-analogy">
-      <strong>🧭 왜 하필 이 순서인가</strong>
-      P1은 04 RAG 챕터를, P2는 02·03 Agent 챕터를 각각 "돌아가는 것 → 측정·운영되는 것"으로 승격시킵니다.
-      P3는 그 둘을 <strong>대상 시스템으로 삼아</strong> 프롬프트·모델·검색 설정을 바꿀 때마다 품질을 자동 측정하는
-      <strong>평가·관측성 인프라</strong>를 만듭니다. 이 인프라는 이후 LangGraph로 만들 모든 것의 <strong>품질 게이트</strong>로 그대로 재사용됩니다.
-      Multi-Agent는 LangGraph의 첫 프로젝트로 미룹니다 — 그게 Multi-Agent의 제자리이기 때문입니다.
+      <strong>🍳 비유</strong>
+      레시피대로 한 접시를 만드는 법(LangChain)은 배웠지만, 식당을 열려면 주문 창구(FastAPI), 손님 평가표(RAGAS·LLM-as-judge),
+      주방 CCTV(Langfuse)가 필요합니다. 세 프로젝트는 이 셋을 하나씩 붙이는 연습입니다.
     </div>
 
-    <h2 id="stack">모든 프로젝트에 공통으로 얹는 스택 3종</h2>
     <table>
-      <thead><tr><th style="width:14%">도구</th><th style="width:30%">역할</th><th style="width:30%">공고 근거</th><th style="width:26%">배우는 데 드는 시간</th></tr></thead>
+      <thead><tr><th style="width:14%">비어 있는 능력</th><th style="width:18%">쓰는 도구</th><th style="width:40%">한 줄 설명</th><th style="width:28%">공고 근거</th></tr></thead>
       <tbody>
-        <tr><td><span class="chip">FastAPI</span></td><td>LangChain 앱을 HTTP API로 서빙</td><td>토스 "실험→서빙→운영" / 카카오 "서비스 탑재"</td><td>반나절 (엔드포인트 몇 개)</td></tr>
-        <tr><td><span class="chip">Langfuse</span></td><td>추론·Tool 호출·토큰/비용·지연 추적</td><td>카카오가 <strong>이름을 명시</strong> / 토스 "운영"</td><td>1~2시간 (콜백 연동)</td></tr>
-        <tr><td><span class="chip">RAGAS</span></td><td>RAG/답변 품질 정량 평가 지표</td><td>양쪽 모두 "정량 평가 / 평가 체계"</td><td>반나절 (평가셋 + 실행)</td></tr>
+        <tr><td><strong>서빙</strong></td><td><span class="chip">FastAPI</span></td><td>Python 함수를 HTTP API로 열어 주는 웹 프레임워크. 엔드포인트 몇 개면 충분</td><td>토스 "실험→서빙→운영" · 카카오 "서비스 탑재"</td></tr>
+        <tr><td><strong>관측성</strong></td><td><span class="chip">Langfuse</span></td><td>LLM 호출·Tool 호출·토큰·비용·지연을 요청 단위 트리로 기록해 주는 대시보드</td><td>카카오가 이름을 명시 · 토스 "운영"</td></tr>
+        <tr><td><strong>평가</strong></td><td><span class="chip">RAGAS</span> <span class="chip">LLM-as-judge</span></td><td>RAG 답변 품질을 지표(faithfulness · context recall 등)로 채점 / LLM이 답변을 채점표대로 점수화</td><td>토스 "정량 평가 기반을 플랫폼으로" · 카카오 "평가 체계"</td></tr>
+        <tr><td><strong>Multi-LLM</strong></td><td><span class="chip">직접 구현</span></td><td>OpenAI ↔ Anthropic을 설정 하나로 갈아 끼우는 추상화. 토스플레이스 <strong>Model Router</strong>의 축소판</td><td>토스 "Multi-LLM Provider 운영" (우대)</td></tr>
       </tbody>
     </table>
     <div class="callout callout-warn">
       <strong>⚠️ 새 프레임워크 공부가 아닙니다</strong>
-      세 도구는 "LangChain 앱을 감싸는 얇은 층"이라 각각 반나절이면 익힙니다.
-      뼈대는 전부 이미 배운 LangChain(Tool·Memory·Guardrails·RAG)이고, 그 위에 서빙·추적·평가만 붙는 구조예요.
+      뼈대는 전부 이미 배운 LangChain(Tool · Memory · Guardrails · RAG)이고, 위 도구는 그걸 감싸는 얇은 층입니다.
+      각각 반나절이면 익힙니다. Multi-Agent는 일부러 뺐습니다 — 그 제자리는 LangGraph이기 때문입니다.
     </div>
 
+    <!-- ============ ROADMAP ============ -->
     <h2 id="roadmap">프로젝트 로드맵</h2>
+    <p>
+      각 프로젝트는 LangChain 과정의 한 챕터를 총정리하면서 위 도구를 얹습니다. P1은 04 RAG, P2는 02·03 Agent를 각각
+      "돌아가는 것 → 측정·운영되는 것"으로 승격시키고, P3는 그 둘을 시험 대상으로 삼는 평가 인프라를 만듭니다.
+      P3가 P1·P2를 필요로 하므로 순서는 고정입니다.
+    </p>
     <div class="roadmap">
       <div class="roadmap-item">
         <div class="roadmap-num">P1</div>
         <div class="roadmap-body">
           <a class="rm-title" href="#p1">프로덕션급 RAG 문서 검색 서비스</a><span class="rm-tag">🟢 입문·복습 · 1~2주</span>
-          <p>04 RAG 총정리 → FastAPI로 서빙 + RAGAS로 검색 품질 정량 평가 + Hybrid/Reranker로 개선.</p>
+          <p>내 문서에 질문하면 근거와 함께 답하는 API. 검색 품질을 세 구성으로 비교해 숫자로 개선한다.</p>
         </div>
       </div>
       <div class="roadmap-item">
         <div class="roadmap-num p2">P2</div>
         <div class="roadmap-body">
           <a class="rm-title" href="#p2">관측 가능한 Agent API 서비스</a><span class="rm-tag">🟡 중급 · 1~2주</span>
-          <p>02·03 Agent 총정리 → API 서빙 + Langfuse 전 추적 + Multi-LLM 스위칭 + 프롬프트 A/B 평가. (P1을 Tool로 재사용)</p>
+          <p>도구·메모리·가드레일을 갖춘 Agent를 API로. 실행 전체를 추적하고, LLM을 갈아 끼우고, 프롬프트를 채점한다.</p>
         </div>
       </div>
       <div class="roadmap-item">
         <div class="roadmap-num p3">P3</div>
         <div class="roadmap-body">
           <a class="rm-title" href="#p3">LLM/Agent 평가·관측성 하네스</a><span class="rm-tag">🔴 심화·인프라 · 2주</span>
-          <p>P1·P2를 대상 시스템으로, 프롬프트·모델·검색을 바꿀 때마다 품질을 자동 측정·비교·회귀 감지. 토스 "평가 플랫폼" 정면 대응.</p>
+          <p>P1·P2를 시험 대상으로, 설정을 바꿀 때마다 품질을 자동 측정하고 나빠지면 잡아내는 회귀 테스트 인프라.</p>
         </div>
       </div>
       <div class="roadmap-item">
         <div class="roadmap-num gg">▶</div>
         <div class="roadmap-body">
           <a class="rm-title" href="#next">다음 단계 — LangGraph</a><span class="rm-tag">이후 학습</span>
-          <p>Multi-Agent 오케스트레이터를 LangGraph의 첫 프로젝트로. P1·P2는 노드로, P3는 품질 게이트로 그대로 재사용.</p>
-        </div>
-      </div>
-      <div class="roadmap-item">
-        <div class="roadmap-num gg">▶▶</div>
-        <div class="roadmap-body">
-          <a class="rm-title" href="#next">그 후 — LLM Gateway / Model Router 승격</a><span class="rm-tag">토스플레이스 1순위 직격</span>
-          <p>P2의 Multi-LLM 추상화를 독립 게이트웨이 서버로 승격: SaaS + 셀프호스팅(Ollama/vLLM) 라우팅 · fallback · 비용 로깅 · MCP Gateway. P1~P3와 LangGraph 프로젝트가 이 게이트웨이의 첫 사용자(consumer)가 된다.</p>
+          <p>P1·P2·P3를 재료로 Multi-Agent · Gateway를 만든다. 별도 페이지에서 이어집니다.</p>
         </div>
       </div>
     </div>
@@ -382,72 +285,52 @@
       <div class="project-tags">
         <span class="badge badge-green">🟢 입문·복습</span>
         <span class="badge badge-gray">⏱ 1~2주</span>
-        <span class="badge badge-blue">토스: 재사용 RAG 컴포넌트 · 정량 평가</span>
-        <span class="badge badge-blue">카카오: 검색 정확도 고도화</span>
+        <span class="badge badge-gray">복습 챕터: 04 RAG</span>
       </div>
-
       <div class="callout callout-info" style="margin-top:10px">
-        <strong>📋 단계별 실행 가이드</strong>
-        STEP 0 → STEP 9를 순서대로 따라가면 프로젝트도 학습도 완성됩니다 →
-        <a href="./project1/docs/index.html"><strong>Project 1 단계별 가이드 열기</strong></a>
+        <strong>📋 단계별 가이드</strong>
+        실제 코드는 STEP 0 → 9 순서로 따라가면 됩니다 → <a href="./project1/docs/index.html"><strong>Project 1 가이드 열기</strong></a>
       </div>
 
-      <h3>🎯 목표</h3>
+      <h3>무엇을 만드나</h3>
       <p>
-        도메인 문서 컬렉션에 질문하면 <strong>근거(citation)와 함께</strong> 답하는 RAG를 <strong>FastAPI API로 서빙</strong>하고,
-        검색·답변 품질을 <strong>RAGAS로 정량 측정</strong>한 뒤 <strong>Hybrid 검색 + Reranker</strong>로 개선해
-        "before/after 지표 표"를 남기는 것이 목표입니다. 모든 질의는 Langfuse로 추적합니다.
+        PDF 같은 문서 묶음에 질문하면 <strong>답변과 함께 근거 문단·출처</strong>를 돌려주는 검색 서비스입니다.
+        04 RAG에서 만든 Load → Split → Embed → Store → Retrieve 파이프라인이 뼈대이고, 여기에 세 가지를 더합니다.
+        검색기를 <strong>Hybrid(키워드+벡터) → Reranker</strong>로 두 번 개선하고, <strong>FastAPI</strong>로 API를 열고,
+        <strong>RAGAS</strong>로 baseline · hybrid · rerank 세 구성을 같은 평가셋에서 비교합니다.
+        끝나면 "context recall 0.72 → 0.89"처럼 <strong>before/after 지표 표</strong>가 손에 남습니다.
       </p>
-      <div class="callout callout-info">
-        <strong>📁 도메인 선택</strong>
-        카카오헬스케어를 노린다면 <strong>공개 의료 문서</strong>(질병관리청 가이드라인, 논문 초록, 의약품 설명서 등)로,
-        토스를 노린다면 "어떤 문서셋에도 꽂아 쓰는 <strong>재사용 컴포넌트</strong>" 관점으로 잡으면 공고 서사가 살아납니다.
-      </div>
+      <p style="font-size:13.5px;color:var(--text-secondary)">
+        문서 선택 팁 — 카카오헬스케어를 노린다면 공개 의료 문서(질병관리청 가이드라인, 의약품 설명서 등),
+        토스라면 "어떤 문서셋에도 꽂아 쓰는 재사용 컴포넌트" 관점으로 잡으면 공고 서사가 살아납니다.
+      </p>
 
-      <h3>🧩 핵심 기능</h3>
-      <ul>
-        <li>문서 인제스천 파이프라인: Load → Split → Embed → Store <span class="badge badge-gray">이미 학습</span></li>
-        <li><code>POST /query</code> — 질문 → 관련 청크 검색 → 답변 생성 → <strong>근거 청크 + 출처</strong> 반환</li>
-        <li>Hybrid 검색 (BM25 키워드 + 임베딩 벡터) + <strong>Reranker</strong>(Cross-encoder/Cohere)로 상위 문서 재정렬</li>
-        <li>평가셋(질문–정답 20~50개) 기반 RAGAS: <em>faithfulness · answer relevancy · context precision · context recall</em></li>
-        <li>개선 실험 비교표: <code>baseline</code> vs <code>+hybrid</code> vs <code>+rerank</code></li>
-      </ul>
-
-      <h3>🛠 기술 스택</h3>
-      <div class="stack">
-        <span class="chip">LangChain (loader/splitter/embeddings/retriever)</span>
-        <span class="chip">Chroma / pgvector</span>
-        <span class="chip new">FastAPI</span>
-        <span class="chip new">RAGAS</span>
-        <span class="chip new">Langfuse</span>
-        <span class="chip">rank_bm25 / Cohere Rerank</span>
-      </div>
-
-      <h3>✅ 마일스톤 (각 단계 = 검증 가능한 산출물)</h3>
+      <h3>만드는 순서 (가이드 STEP과 동일)</h3>
       <ol class="check">
-        <li>도메인 문서셋 선택 → 인제스천 스크립트 작성 (Load~Store)
+        <li><span class="step">STEP 1</span>문서 인제스천 — Load → Split → Embed → Chroma 저장
           <span class="verify"><b>검증:</b> 저장된 청크 수 출력 + 임의 질의로 유사 청크 top-k 확인</span></li>
-        <li>FastAPI <code>/query</code> 엔드포인트 — retrieve → generate → 근거·출처 반환
-          <span class="verify"><b>검증:</b> <code>curl</code>로 질문 전송 시 답변 + citation 배열이 함께 오는지 확인</span></li>
-        <li>Langfuse 연동 — 모든 질의를 trace로 기록
-          <span class="verify"><b>검증:</b> Langfuse 대시보드에서 retrieval/generation span·지연·토큰 확인</span></li>
-        <li>평가셋(20~50 Q/A) 구축 + RAGAS 베이스라인 측정
-          <span class="verify"><b>검증:</b> 4개 지표 점수표가 숫자로 출력됨</span></li>
-        <li>Hybrid + Reranker 적용 후 재측정
-          <span class="verify"><b>검증:</b> baseline 대비 context recall / faithfulness <b>상승</b>을 표로 비교</span></li>
-        <li>(선택) chunk size · top-k 스윕 실험
-          <span class="verify"><b>검증:</b> 파라미터별 지표 로그 + 최적값 선택 근거 기록</span></li>
+        <li><span class="step">STEP 2</span>검색 + 생성 + 근거 — 질문 → 관련 청크 → 답변 + citation
+          <span class="verify"><b>검증:</b> 답변과 근거 청크·출처가 함께 나옴</span></li>
+        <li><span class="step">STEP 3~4</span>검색 개선 — Hybrid(BM25 + 벡터) → Cross-Encoder Reranker로 상위 문서 재정렬
+          <span class="verify"><b>검증:</b> 같은 질문에 상위 문서 순서가 달라지는 것을 눈으로 확인</span></li>
+        <li><span class="step">STEP 5</span>FastAPI <code>POST /query</code> 서빙
+          <span class="verify"><b>검증:</b> <code>curl</code>로 질문을 보내면 답변 + citation 배열이 JSON으로 옴</span></li>
+        <li><span class="step">STEP 6</span>Langfuse 연동 — 요청 1건 = 트레이스 1건
+          <span class="verify"><b>검증:</b> 대시보드에서 retrieval / generation span과 토큰·지연이 보임</span></li>
+        <li><span class="step">STEP 7</span>골든 평가셋(20~50 Q/A) + RAGAS로 세 구성 비교
+          <span class="verify"><b>검증:</b> faithfulness · answer relevancy · context precision · recall 표에서 rerank가 baseline보다 <b>상승</b></span></li>
+        <li><span class="step">STEP 8~9</span>(선택) chunk size · top-k 튜닝, README 정리
+          <span class="verify"><b>검증:</b> 파라미터별 지표 로그와 최적값 선택 근거가 README에 남음</span></li>
       </ol>
 
-      <div class="callout callout-result">
-        <strong>🎓 학습 성과</strong>
-        RAG를 "돌아가는 것"에서 <strong>"측정하고 개선하는 것"</strong>으로. 검색 품질 지표 언어(recall/precision/faithfulness)를 갖추고,
-        서빙·추적의 기본기를 확보합니다. → <strong>이력서:</strong> "context recall 0.72 → 0.89로 개선" 같은 정량 문장.
-      </div>
-      <div class="callout callout-analogy">
-        <strong>🔗 LangGraph 연결</strong>
-        이 RAG를 나중에 그래프의 <strong>"검색 노드"</strong>로 넣으면, 검색 결과가 부실할 때 재검색하는
-        <em>Corrective RAG / Self-RAG</em>로 확장됩니다. P1이 그 노드의 원형입니다.
+      <h3>새로 익히는 것</h3>
+      <div class="stack">
+        <span class="chip new">FastAPI</span>
+        <span class="chip new">Langfuse</span>
+        <span class="chip new">RAGAS</span>
+        <span class="chip new">rank_bm25 · Cross-Encoder Reranker</span>
+        <span class="chip">LangChain loader / splitter / retriever (복습)</span>
+        <span class="chip">Chroma (복습)</span>
       </div>
     </section>
 
@@ -457,67 +340,50 @@
       <div class="project-tags">
         <span class="badge badge-yellow">🟡 중급</span>
         <span class="badge badge-gray">⏱ 1~2주</span>
-        <span class="badge badge-purple">토스: Agent 시스템 · Multi-LLM · 정량 평가</span>
-        <span class="badge badge-purple">카카오: Tool Calling · Langfuse 추적 · 프롬프트 평가</span>
+        <span class="badge badge-gray">복습 챕터: 02 · 03 Agent</span>
       </div>
-
       <div class="callout callout-info" style="margin-top:10px">
-        <strong>📋 단계별 실행 가이드</strong>
-        STEP 0 → STEP 9를 순서대로 따라가면 프로젝트도 학습도 완성됩니다 →
-        <a href="./project2/docs/index.html"><strong>Project 2 단계별 가이드 열기</strong></a>
+        <strong>📋 단계별 가이드</strong>
+        실제 코드는 STEP 0 → 9 순서로 따라가면 됩니다 → <a href="./project2/docs/index.html"><strong>Project 2 가이드 열기</strong></a>
       </div>
 
-      <h3>🎯 목표</h3>
+      <h3>무엇을 만드나</h3>
       <p>
-        Tool · Memory · Guardrails를 갖춘 실용 Agent(리서치/업무 비서)를 <strong>FastAPI로 서빙</strong>하고,
-        <strong>Langfuse로 전 실행</strong>(추론·Tool 호출·토큰·비용·지연)을 추적하며,
-        <strong>OpenAI ↔ Anthropic</strong>을 설정으로 스위칭하고, <strong>프롬프트 A/B를 정량 평가</strong>합니다.
+        웹 검색 · 계산 · 날짜 · <strong>P1 문서 검색</strong> 네 가지 도구를 가진 업무 비서 Agent를 <strong>FastAPI로 서빙</strong>합니다.
+        세션마다 대화를 기억하고(Memory), 위험한 입력은 막고(Guardrails), 답은 정해진 형식으로 내놓습니다(Structured Output) —
+        전부 02·03에서 배운 조각들의 조립입니다. 그 위에 P1과 다른 세 가지를 얹습니다.
+        <strong>Langfuse</strong>로 Tool 호출 하나하나까지 추적하고, <strong>OpenAI ↔ Anthropic</strong>을 설정으로 갈아 끼우고,
+        프롬프트 A와 B 중 어느 쪽이 나은지 <strong>LLM-as-judge</strong>로 채점합니다.
+        P1을 도구로 재사용하면서 "시스템을 조립한다"는 감각이 생깁니다.
       </p>
 
-      <h3>🧩 핵심 기능</h3>
-      <ul>
-        <li>Agent 코어: 이미 배운 <strong>Tool + Memory + Guardrails + Structured Output</strong> 조립 <span class="badge badge-gray">이미 학습</span></li>
-        <li>실용 도구 2~4개: 웹 검색 · 계산 · 날짜 · <strong>사내 문서 검색 = P1 재사용</strong></li>
-        <li><code>POST /chat</code> — 세션 메모리 유지(멀티턴), 가능하면 SSE 스트리밍</li>
-        <li>Multi-LLM Provider 추상화: 환경설정으로 OpenAI/Anthropic 교체 — <strong>토스플레이스 Model Router의 축소판</strong>(뒤에서 Gateway로 승격하는 씨앗)</li>
-        <li>Langfuse 트레이싱: Tool 호출별 span, 토큰/비용, Guardrail 차단 로그</li>
-        <li>프롬프트 평가 하네스: 케이스 10~20개에 대해 프롬프트 A vs B를 <strong>LLM-as-judge</strong>로 채점</li>
-      </ul>
-
-      <h3>🛠 기술 스택</h3>
-      <div class="stack">
-        <span class="chip">LangChain Agent (tool/memory/middleware/guardrails)</span>
-        <span class="chip new">FastAPI</span>
-        <span class="chip new">Langfuse</span>
-        <span class="chip new">OpenAI + Anthropic 동시 지원</span>
-        <span class="chip new">LLM-as-judge 평가 스크립트</span>
-      </div>
-
-      <h3>✅ 마일스톤</h3>
+      <h3>만드는 순서 (가이드 STEP과 동일)</h3>
       <ol class="check">
-        <li>Agent 코어 (tools + memory + guardrails) 구성
-          <span class="verify"><b>검증:</b> 로컬에서 멀티턴 대화 + Tool 호출이 동작</span></li>
-        <li>FastAPI <code>/chat</code> + 세션 메모리
-          <span class="verify"><b>검증:</b> 두 번째 요청이 첫 요청의 맥락을 기억하는지 확인</span></li>
-        <li>Langfuse 연동
-          <span class="verify"><b>검증:</b> 대시보드에서 Tool 호출/토큰/비용 span이 트리로 보임</span></li>
-        <li>Multi-LLM Provider 스위칭
-          <span class="verify"><b>검증:</b> 같은 질문을 OpenAI/Anthropic으로 각각 실행, 응답·비용 비교</span></li>
-        <li>프롬프트 평가 하네스 (LLM-as-judge, 케이스 10~20개)
-          <span class="verify"><b>검증:</b> 프롬프트 A/B의 정확도·형식준수 <b>점수표</b> 출력</span></li>
-        <li>(선택) Guardrail 위반/거부 케이스 로깅
-          <span class="verify"><b>검증:</b> Langfuse에서 차단된 요청이 사유와 함께 기록</span></li>
+        <li><span class="step">STEP 1~2</span>Agent 코어 — 도구 3종 + 첫 Agent, 그리고 P1의 RAG를 네 번째 도구로 장착
+          <span class="verify"><b>검증:</b> 질문 종류에 따라 알맞은 도구를 고르는 것이 로그에 보임</span></li>
+        <li><span class="step">STEP 3</span>Memory — 세션별 멀티턴 대화
+          <span class="verify"><b>검증:</b> 두 번째 요청이 첫 요청의 맥락을 기억함</span></li>
+        <li><span class="step">STEP 4</span>Guardrails + Structured Output
+          <span class="verify"><b>검증:</b> 금지 입력은 차단되고, 응답은 정해진 스키마로 옴</span></li>
+        <li><span class="step">STEP 5</span>FastAPI <code>POST /chat</code> (+ SSE 스트리밍)
+          <span class="verify"><b>검증:</b> <code>curl</code>로 같은 <code>thread_id</code>를 보내면 멀티턴이 이어짐</span></li>
+        <li><span class="step">STEP 6</span>Langfuse 연동
+          <span class="verify"><b>검증:</b> 대시보드에 Tool 호출 / 토큰 / 비용 span이 트리로 보임</span></li>
+        <li><span class="step">STEP 7</span>Multi-LLM Provider 추상화
+          <span class="verify"><b>검증:</b> 같은 질문을 OpenAI · Anthropic으로 각각 실행해 응답·비용 비교</span></li>
+        <li><span class="step">STEP 8</span>프롬프트 A/B 평가 하네스 (LLM-as-judge, 케이스 10~20개)
+          <span class="verify"><b>검증:</b> 프롬프트 A/B의 정확도 · 형식 준수 <b>점수표</b> 출력</span></li>
+        <li><span class="step">STEP 9</span>README 정리
+          <span class="verify"><b>검증:</b> 문제 정의 · 아키텍처 · 점수표 · 배운 점이 README에 남음</span></li>
       </ol>
 
-      <div class="callout callout-result">
-        <strong>🎓 학습 성과</strong>
-        Agent를 <strong>운영 관점</strong>(추적·비용·프롬프트 품질)으로 다룹니다. P1을 Tool로 재사용하며 "시스템을 조립하는" 감각을 얻고,
-        Multi-LLM 운영 경험(토스 우대사항)을 확보합니다.
-      </div>
-      <div class="callout callout-analogy">
-        <strong>🔗 LangGraph 연결</strong>
-        하나의 Agent에 도구가 늘고 역할이 섞이면 "차라리 역할별로 Agent를 쪼개 조율하고 싶다"는 지점이 옵니다.
-        그게 바로 P3의 출발점입니다.
+      <h3>새로 익히는 것</h3>
+      <div class="stack">
+        <span class="chip new">Multi-LLM Provider 추상화</span>
+        <span class="chip new">LLM-as-judge 평가 스크립트</span>
+        <span class="chip new">SSE 스트리밍</span>
+        <span class="chip">FastAPI · Langfuse (P1에서 익힌 것 재적용)</span>
+        <span class="chip">LangChain Agent / Memory / Middleware (복습)</span>
       </div>
     </section>
 
@@ -527,135 +393,89 @@
       <div class="project-tags">
         <span class="badge badge-red">🔴 심화 · 인프라 관점</span>
         <span class="badge badge-gray">⏱ 2주</span>
-        <span class="badge badge-red">토스: 정량 평가 기반을 "플랫폼으로 제공"</span>
-        <span class="badge badge-red">카카오: 평가 체계 구축 · 반복 개선</span>
+        <span class="badge badge-gray">단계별 가이드 준비 중</span>
       </div>
 
-      <h3>🎯 목표</h3>
+      <h3>무엇을 만드나</h3>
       <p>
-        P1(RAG)과 P2(Agent)를 <strong>대상 시스템(system under test)</strong>으로 삼아,
-        프롬프트·모델·검색 파라미터를 바꿀 때마다 품질이 오르내리는지 <strong>자동으로 측정·비교·회귀 감지</strong>하는
-        평가 파이프라인을 만듭니다. 평가 결과는 Langfuse에 <strong>점수·데이터셋</strong>으로 남기고, 실행마다 리포트를 자동 생성합니다.
-        토스가 공고에 명시한 <em>"정량 평가 기반을 만들고 플랫폼으로 제공"</em>을 정면으로 겨냥합니다.
+        P1(RAG)과 P2(Agent)를 <strong>시험 대상(system under test)</strong>으로 놓고, 프롬프트·모델·검색 설정을 바꿀 때마다
+        한 번의 실행으로 지표를 뽑고 지난 결과와 비교해 <strong>나빠졌으면 알려 주는</strong> 평가 파이프라인입니다.
+        P1·P2에서 평가는 마지막 한 단계였지만, P3에서는 평가 자체가 주인공입니다.
+        "만드는 능력"과 구별되는 <strong>"품질을 지표로 관리하는 능력"</strong>을 증명하는 프로젝트라서 세 개 중 가장 강력하고,
+        토스 공고의 "정량 평가 기반을 플랫폼으로 제공"에 정면으로 대응합니다.
       </p>
-      <div class="callout callout-info">
-        <strong>💡 왜 이게 "3번째 프로젝트"로 강력한가</strong>
-        P1·P2는 평가를 <strong>부속 단계</strong>로만 씁니다. P3는 평가 자체를 <strong>주인공</strong>으로 세워,
-        "만드는 능력"과 구별되는 <strong>"품질을 지표로 관리하는 능력"</strong>을 증명합니다.
-        이 하네스는 이후 LangGraph로 만들 모든 것의 품질 게이트로 그대로 재사용됩니다.
+      <div class="callout callout-analogy">
+        <strong>🧪 비유</strong>
+        일반 코드에 테스트 스위트와 CI가 있듯, LLM 앱에도 "이번 변경으로 답변 품질이 떨어지지 않았나"를 자동으로 묻는
+        회귀 테스트를 두는 것입니다. 한 번 만들어 두면 이후 LangGraph로 만드는 모든 것의 품질 게이트로 그대로 씁니다.
       </div>
 
-      <h3>🧩 핵심 기능</h3>
-      <ul>
-        <li><strong>골든 평가셋 관리</strong>: 질문–기대답·기대근거를 버전 관리 (RAG용 / Agent용 분리)</li>
-        <li><strong>평가 러너</strong>: 한 번 실행으로 P1/P2를 호출해 지표 자동 산출 (RAGAS 지표 · Agent task success · Tool 선택 정확도 · 형식 준수)</li>
-        <li><strong>LLM-as-judge 정성 평가</strong> + <strong>judge 신뢰도 점검</strong> (사람이 라벨한 소수 케이스와의 일치율)</li>
-        <li><strong>실험 비교 · 회귀 감지</strong>: 설정 A vs B, "이번 변경이 지난 베이스라인보다 떨어졌는가"</li>
-        <li><strong>관측성 통합</strong>: Langfuse에 score 기록, trace ↔ eval 연결, 비용·지연도 지표화</li>
-        <li><strong>자동 리포트</strong>: 실행마다 지표표 + 회귀 하이라이트를 담은 리포트 생성</li>
-      </ul>
-
-      <h3>🛠 기술 스택</h3>
-      <div class="stack">
-        <span class="chip">RAGAS</span>
-        <span class="chip">LLM-as-judge (자체 스크립트)</span>
-        <span class="chip">Langfuse (datasets · scores · traces)</span>
-        <span class="chip">pandas (집계·리포트)</span>
-        <span class="chip new">pytest / CI 훅 (선택)</span>
-        <span class="chip new">OpenTelemetry (선택 · 카카오 우대)</span>
-      </div>
-
-      <h3>✅ 마일스톤</h3>
+      <h3>만드는 순서</h3>
       <ol class="check">
-        <li>골든 평가셋 v1 구축 (RAG용·Agent용, 각 20~50 케이스)
-          <span class="verify"><b>검증:</b> 케이스 스키마 검증 + 버전 태그 부여</span></li>
-        <li>평가 러너 — P1/P2를 호출해 지표 자동 산출
-          <span class="verify"><b>검증:</b> 한 번 실행에 지표 표가 숫자로 출력됨</span></li>
+        <li>골든 평가셋 v1 — 질문 · 기대 답 · 기대 근거를 RAG용 / Agent용으로 나눠 버전 관리 (각 20~50 케이스)
+          <span class="verify"><b>검증:</b> 케이스 스키마 검증 통과 + 버전 태그 부여</span></li>
+        <li>평가 러너 — P1/P2를 호출해 RAGAS 지표 · task success · Tool 선택 정확도 · 형식 준수를 자동 산출
+          <span class="verify"><b>검증:</b> 명령 한 번에 지표 표가 숫자로 출력됨</span></li>
         <li>LLM-as-judge 정성 평가 + judge 신뢰도 점검
-          <span class="verify"><b>검증:</b> judge 점수와 내가 손으로 라벨한 소수 케이스의 일치율 확인</span></li>
-        <li>실험 비교(A/B) + 회귀 감지
-          <span class="verify"><b>검증:</b> 일부러 나쁜 프롬프트를 넣으면 <b>회귀로 잡히는지</b> 확인</span></li>
-        <li>Langfuse 통합 (score·dataset 기록, trace 연결)
-          <span class="verify"><b>검증:</b> 대시보드에서 실행별 점수 추이·비용이 보임</span></li>
-        <li>자동 리포트 생성
-          <span class="verify"><b>검증:</b> 실행 시 지표표 + 회귀 하이라이트 리포트 파일이 생성됨</span></li>
+          <span class="verify"><b>검증:</b> 내가 손으로 라벨한 소수 케이스와 judge 점수의 일치율 확인</span></li>
+        <li>실험 비교(A/B) + 회귀 감지 — "이번 변경이 지난 베이스라인보다 떨어졌는가"
+          <span class="verify"><b>검증:</b> 일부러 나쁜 프롬프트를 넣으면 <b>회귀로 잡힘</b></span></li>
+        <li>Langfuse 통합 — dataset · score 기록, trace ↔ eval 연결, 비용·지연도 지표화
+          <span class="verify"><b>검증:</b> 대시보드에서 실행별 점수 추이와 비용이 보임</span></li>
+        <li>자동 리포트 — 실행마다 지표 표 + 회귀 하이라이트 파일 생성
+          <span class="verify"><b>검증:</b> 실행 후 리포트 파일이 생김</span></li>
         <li>(선택) CI에 평가 붙이기
-          <span class="verify"><b>검증:</b> 커밋 시 임계값 미달이면 경고/실패</span></li>
+          <span class="verify"><b>검증:</b> 커밋 시 임계값 미달이면 경고 / 실패</span></li>
       </ol>
 
-      <div class="callout callout-result">
-        <strong>🎓 학습 성과</strong>
-        "만든다"에서 <strong>"품질을 지표로 관리한다"</strong>로. 평가셋 설계 · judge 신뢰도 · 회귀 평가 · 관측성 운영을 확보하고,
-        토스의 "평가 플랫폼" 서사와 카카오 우대사항(평가 데이터셋·반복 개선)을 정면으로 충족합니다.
-      </div>
-      <div class="callout callout-analogy">
-        <strong>🔗 LangGraph 연결</strong>
-        이 하네스는 LangGraph로 넘어간 뒤에도 <strong>그대로 재사용</strong>됩니다.
-        LangGraph로 만든 Multi-Agent·워크플로우의 품질을 똑같이 측정하는 <strong>"품질 게이트"</strong>가 되어,
-        앞으로 만들 모든 것의 회귀를 막아 줍니다.
+      <h3>새로 익히는 것</h3>
+      <div class="stack">
+        <span class="chip new">평가셋 설계 · 버전 관리</span>
+        <span class="chip new">judge 신뢰도 검증</span>
+        <span class="chip new">회귀 평가 설계</span>
+        <span class="chip new">Langfuse datasets · scores</span>
+        <span class="chip new">pandas 집계 · 리포트</span>
+        <span class="chip new">pytest / CI 훅 (선택)</span>
+        <span class="chip new">OpenTelemetry (선택 · 카카오 우대)</span>
       </div>
     </section>
 
     <hr />
 
-    <h2 id="next">다음 단계 — LangGraph로 자연스럽게 넘어가기</h2>
+    <!-- ============ NEXT ============ -->
+    <h2 id="next">다음 단계 — LangGraph</h2>
     <p>
-      LangGraph 학습의 <strong>첫 프로젝트는 Multi-Agent 오케스트레이터</strong>로 잡으세요.
-      Multi-Agent는 두 공고 모두가 원하지만(카카오는 LangGraph를 명시), <strong>그 제자리가 LangGraph</strong>이기 때문에
-      "LangGraph 이전"이 아니라 "LangGraph의 첫 결과물"로 만드는 게 맞습니다. 이때 이번에 만든 3개가 그대로 재료가 됩니다.
+      세 프로젝트가 끝나면 LangGraph로 넘어갑니다. 이번에 만든 것은 버리는 연습작이 아니라 그대로 재료가 됩니다.
     </p>
     <table>
       <thead><tr><th style="width:36%">이번에 만든 것</th><th style="width:64%">LangGraph 단계에서의 역할</th></tr></thead>
       <tbody>
-        <tr><td><strong>P1</strong> RAG 검색 서비스</td><td>그래프의 <strong>"검색 노드"</strong> → Corrective / Self-RAG로 확장</td></tr>
-        <tr><td><strong>P2</strong> Agent API</td><td>Multi-Agent의 <strong>Sub-Agent(노드)</strong>로 편입</td></tr>
-        <tr><td><strong>P3</strong> 평가·관측성 하네스</td><td>LangGraph 워크플로우의 <strong>품질 게이트</strong>로 그대로 재사용</td></tr>
-        <tr><td><span class="badge badge-green">신규</span> Multi-Agent 오케스트레이터</td><td>Supervisor·Sub-Agent를 <strong>StateGraph·조건부 엣지</strong>로 구현</td></tr>
-      </tbody>
-    </table>
-    <p>Multi-Agent를 LangGraph로 <strong>처음부터</strong> 만들면, 아래를 "손으로 짤 필요 없이" 프레임워크가 제공한다는 걸 바로 체감합니다.</p>
-    <table>
-      <thead><tr><th style="width:50%">직접 짰다면 손으로 관리했을 것</th><th style="width:50%">LangGraph가 제공하는 것</th></tr></thead>
-      <tbody>
-        <tr><td>상태 <code>dict</code>를 스텝마다 직접 갱신·전달</td><td><strong>StateGraph</strong> — 상태 스키마와 자동 전파</td></tr>
-        <tr><td><code>if/while</code>로 다음 Agent 분기·반복</td><td><strong>조건부 엣지(conditional edges)</strong></td></tr>
-        <tr><td>종료 조건·최대 반복 수 직접 관리</td><td>그래프의 <strong>엣지·END 노드</strong></td></tr>
-        <tr><td>중간 상태 저장/복구를 수동으로</td><td><strong>Checkpointer</strong> (이미 02 노트북에서 맛봄)</td></tr>
-        <tr><td>사람 확인 끼워넣기(HITL)를 임시방편으로</td><td><strong>interrupt / Human-in-the-loop</strong></td></tr>
+        <tr><td><strong>P1</strong> RAG 검색 서비스</td><td>그래프의 <strong>검색 노드</strong> → 검색이 부실하면 다시 찾는 Self-Corrective RAG로 확장</td></tr>
+        <tr><td><strong>P2</strong> Agent API</td><td>Supervisor 아래 <strong>Sub-Agent</strong>로 편입. Multi-LLM 추상화는 나중에 독립 <strong>LLM Gateway</strong>(Model Router + MCP Gateway)로 승격 — 토스플레이스 1순위 직격</td></tr>
+        <tr><td><strong>P3</strong> 평가·관측성 하네스</td><td>LangGraph로 만드는 모든 워크플로우의 <strong>품질 게이트</strong>로 그대로 재사용</td></tr>
       </tbody>
     </table>
     <div class="callout callout-info">
-      <strong>▶ 첫 LangGraph 과제</strong>
-      P2의 Agent를 Sub-Agent로 재사용해 <strong>Supervisor + Sub-Agent Multi-Agent</strong>를 LangGraph로 만들고,
-      P3의 평가 하네스로 <strong>품질을 측정</strong>하세요. 만드는 즉시 "측정까지" 되는 구조라 실무에서 바로 통하는 포트폴리오가 됩니다.
+      <strong>▶ 이어서 읽기</strong>
+      구체적인 프로젝트 3개(Self-Corrective RAG · Supervisor Multi-Agent · LLM Gateway)는
+      <a href="../langgraph-project/index.html"><strong>LangGraph 실무 프로젝트 3선</strong></a>에서 다룹니다.
     </div>
 
-    <div class="callout callout-info">
-      <strong>▶▶ 그 이후 — Gateway 승격 (토스플레이스 1순위 직격)</strong>
-      LangGraph 단계까지 끝나면, P2의 Multi-LLM 추상화를 <strong>독립 LLM Gateway 서버</strong>로 승격하세요:
-      OpenAI 호환 API 하나로 SaaS + 셀프호스팅(Ollama/vLLM) 모델을 라우팅하고, fallback · 비용 로깅 · MCP Gateway를 얹습니다.
-      토스플레이스 공고의 <strong>Model Router · MCP Gateway · "SaaS &amp; Self-hosted LLM 연동"</strong>에 정면 대응하며,
-      P1~P3와 LangGraph 프로젝트가 이 게이트웨이의 실제 사용자(consumer)가 되어 "플랫폼을 만들어 다른 프로젝트가 소비했다"는 서사가 완성됩니다.
-      랭체인/랭그래프가 아닌 <strong>서버 엔지니어링</strong> 성격이라 순서상 마지막이 맞습니다.
-    </div>
-
+    <!-- ============ RESUME ============ -->
     <h2 id="resume">이력서·면접용 서술 팁</h2>
-    <div class="callout callout-analogy">
-      <strong>📝 토스 이력서 가이드 반영</strong>
-      토스는 "어떤 기술을 썼는지보다 <strong>어떤 목적의 과제였고, 무엇으로, 어떻게 해결했는지</strong>"를 원합니다.
-      각 프로젝트를 <strong>목적 → 접근 → 정량 결과(before/after)</strong> 3문장으로 정리하세요.
-    </div>
+    <p>
+      토스 이력서 가이드는 "어떤 기술을 썼는지"보다 <strong>어떤 목적의 과제였고, 무엇으로, 어떻게 해결했는지</strong>를 원합니다.
+      각 프로젝트를 <strong>목적 → 접근 → 정량 결과(before/after)</strong> 세 문장으로 정리하세요.
+    </p>
     <ul>
-      <li><strong>정량 결과를 남겨라</strong> — "잘 됐다"가 아니라 "context recall 0.72→0.89", "프롬프트 B가 정확도 +14%p". RAGAS·Langfuse 지표가 근거가 됩니다.</li>
-      <li><strong>실험 과정을 Git에 남겨라</strong> — baseline → 개선 커밋 히스토리 자체가 "실험→개선을 해봤다"의 증거입니다.</li>
-      <li><strong>각 프로젝트에 README</strong> — 문제 정의 · 아키텍처 다이어그램 · 지표 표 · 배운 점(특히 P3 회고).</li>
-      <li><strong>도메인 한 줄</strong> — 카카오 지원 시 P1을 의료 문서셋으로 돌려 "의료 정보 검색 정확도" 서사를 만드세요.</li>
-      <li><strong>토스플레이스 1순위 서사</strong> — P2의 Multi-LLM 스위칭 → Gateway 승격 로드맵을 "Model Router를 축소판부터 단계적으로 키웠다"로 서술하세요. 공고가 요구하는 "제약 속 판단"의 재료가 됩니다.</li>
+      <li><strong>숫자로 말하기</strong> — "잘 됐다"가 아니라 "context recall 0.72 → 0.89", "프롬프트 B가 정확도 +14%p". RAGAS · Langfuse 지표가 근거가 됩니다.</li>
+      <li><strong>과정을 남기기</strong> — baseline → 개선 순서의 커밋 히스토리와, 문제 정의 · 아키텍처 · 지표 표 · 배운 점을 담은 README가 "실험→개선을 해봤다"의 증거입니다.</li>
+      <li><strong>공고별 한 줄 맞춤</strong> — 카카오는 P1을 의료 문서로 돌려 "의료 정보 검색 정확도" 서사를, 토스플레이스는 P2의 Multi-LLM 스위칭을 "Model Router를 축소판부터 단계적으로 키웠다"로 서술하세요.</li>
     </ul>
 
     <div class="pager">
       <a class="prev" href="../langchain/docs/04.rag.html"><small>← 선행 학습</small> 04. RAG (완료)</a>
-      <a class="next" href="#p1"><small>여기서 시작 →</small> P1. RAG 검색 서비스</a>
+      <a class="next" href="./project1/docs/index.html"><small>여기서 시작 →</small> Project 1 가이드</a>
     </div>
 
   </main>
