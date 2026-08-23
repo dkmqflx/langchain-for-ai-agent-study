@@ -191,23 +191,6 @@ curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
       </ul>
       <p><a href="http://localhost:8001/docs">http://localhost:8001/docs</a>도 열어 보세요. ②에서 적은 계약서가 그대로 화면이 돼 있습니다.</p>
 
-      <div class="callout callout-danger">
-        <strong>🚨 3번이나 5번이 이상하면 — STEP 4 코드의 두 함정</strong>
-        <p style="margin-top:6px">
-          여기가 "같은 방에 두 번째 질문"을 <strong>처음으로</strong> 해 보는 자리라, STEP 4에서는 안 보이던 문제가 여기서 드러납니다.
-          이미 고쳐진 코드를 따라왔다면 안 겪지만, 증상만 알아 두세요.
-        </p>
-        <table style="margin-top:8px">
-          <thead><tr><th style="width:40%">증상</th><th>원인 → 고치는 곳</th></tr></thead>
-          <tbody>
-            <tr><td>3번이 <strong>몇 분째 안 끝난다</strong>. P1 터미널에 <code>POST /query</code>가 줄줄이 찍힌다</td>
-                <td>모델이 답을 찾고도 검색을 계속 다시 부르는 루프 → <a href="./4.html">STEP 4</a> 🚨 함정 (<code>ProviderStrategy</code> + 도구 상한)</td></tr>
-            <tr><td>5번이 <code>blocked: false</code>이고 answer에 <strong>3번 답이 그대로</strong> 나온다</td>
-                <td>직전 턴 답이 지워지지 않고 새어 나옴 → <a href="./4.html">STEP 4</a> 칠판 (<code>"structured_response": None</code>)</td></tr>
-          </tbody>
-        </table>
-      </div>
-
       <div class="label">🎓 한 줄 정리</div>
       <p>
         <strong>HTTP는 기억이 없으니 보관증(<code>session_id</code>)을 손님에게 쥐여 주고, 서버는 그 번호로 대화방을 찾는다.</strong>
@@ -224,15 +207,11 @@ curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
           이 프로젝트에선 인증까지 만들지 않고, STEP 9 README의 한계 목록에 한 줄 남깁니다.
         </p>
 
-        <h3>"안 끝나서 다시 보냈더니 400이 났어요"</h3>
+        <h3>같은 방에는 한 번에 하나씩</h3>
         <p>
-          curl이 타임아웃으로 포기해도 <strong>서버는 그 요청을 계속 돌리고 있습니다.</strong> 그 상태에서 같은 <code>session_id</code>로 다시 보내면,
-          두 번째 요청은 첫 번째가 <em>쓰다 만</em> 대화 기록(도구를 부르겠다는 메시지는 있는데 결과는 아직 없는 상태)을 읽게 되고 OpenAI가 그 기록을 거절합니다:
-        </p>
-<pre><code>openai.BadRequestError: 400 — An assistant message with 'tool_calls' must be followed by
-tool messages responding to each 'tool_call_id' ...</code></pre>
-        <p>
-          이 에러는 원인이 아니라 <strong>결과</strong>입니다. 같은 방에 요청이 겹치면 언제든 날 수 있어서, 운영에서는 방마다 잠금을 두거나 클라이언트가 응답 전엔 다음 요청을 못 보내게 합니다.
+          응답이 오기 전에 같은 <code>session_id</code>로 다음 요청을 보내면 안 됩니다. 서버는 앞 요청을 아직 처리 중이고,
+          뒤 요청은 <strong>쓰다 만 대화 기록</strong>을 읽게 되어 실패합니다. 운영에서는 방마다 잠금을 두거나
+          클라이언트가 응답 전엔 다음 요청을 못 보내게 막습니다. 이 프로젝트에선 구현하지 않고 STEP 9 README의 한계 목록에 적습니다.
         </p>
 
         <h3>스트리밍 — "생각 중…"을 보여 주기 (선택)</h3>

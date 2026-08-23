@@ -73,9 +73,8 @@ def input_guardrail(state, runtime):
                 return {
                     "messages": [AIMessage(content=REFUSALS[category])],
                     "jump_to": "end",     # 모델 호출 없이 여기서 끝낸다
-                    # 직전 턴의 구조화 답변을 지운다. 랭체인은 이 값을 '모델 노드가 돌 때' 비우는데,
-                    # 우리는 모델 앞에서 끝내 버리니 안 지우면 지난 턴 답이 이번 턴 답인 양 새어 나온다.
-                    # (같은 세션에서 정상 질문 → 차단 질문 순서로 불러야 드러나는 버그. STEP 5에서 발견)
+                    # 같은 세션의 직전 답이 남아 있지 않게 비운다.
+                    # (랭체인은 이 값을 모델 노드가 돌 때 비우는데, 여기서는 모델을 안 부르고 끝내므로 직접 비운다)
                     "structured_response": None,
                 }
 
@@ -117,18 +116,13 @@ agent = create_agent(
         PIIMiddleware("credit_card", strategy="mask", apply_to_input=True),
         PIIMiddleware("email", strategy="redact", apply_to_input=True),
         # ③ 요청 하나당 도구 호출 상한. 평소엔 1~3번이면 끝나므로 8이면 넉넉하다.
-        #    넘으면 도구 대신 "한도 초과" 결과를 돌려주고(continue), 모델은 그때까지
-        #    모은 것으로 답을 마무리한다 → 한 요청이 몇 분씩 도는 사고를 막는 안전망.
+        #    넘으면 도구 대신 "한도 초과" 결과를 돌려주고(continue), 모델은 그때까지 모은 것으로 답을 마무리한다.
         ToolCallLimitMiddleware(run_limit=8, exit_behavior="continue"),
     ],
-    # 구조화 출력 전략. ToolStrategy가 아니라 ProviderStrategy인 이유가 중요하다.
-    #  - ToolStrategy: 'ChatReply를 제출하라'는 가짜 도구를 만들고, 매 스텝 반드시 도구를
-    #    하나 부르도록(tool_choice="any") 모델을 묶는다. 그러면 모델은 '그냥 답하기'를 못 하고
-    #    답을 찾은 뒤에도 검색을 또 부르는 루프에 빠진다 (STEP 5 멀티턴에서 실제로 발생).
-    #  - ProviderStrategy: OpenAI의 네이티브 JSON 스키마 모드를 쓴다. 도구 호출을 강제하지
-    #    않으니 "더 부를 도구가 없다 → 형식에 맞춰 답한다"는 자연스러운 종료가 살아 있다.
-    #  ※ 모델 회사가 '도구 + 구조화 출력 동시 지원'을 해야 쓸 수 있다. OpenAI는 된다.
-    #    Gemini 2.5는 안 되므로 STEP 7에서 이 줄을 다시 만난다.
+    # 구조화 출력. ProviderStrategy = OpenAI의 JSON 스키마 모드. 모델이 "더 부를 도구가 없다"고
+    # 판단하면 그 답이 곧 ChatReply가 된다. (ToolStrategy는 매 스텝 도구를 하나 반드시 부르게
+    # 모델을 묶어서, 답을 찾은 뒤에도 검색을 다시 부르는 루프에 빠지기 쉽다.)
+    # 모델이 '도구 + 구조화 출력 동시 지원'이어야 쓸 수 있다 — OpenAI는 되고, Gemini 2.5는 STEP 7 참고.
     response_format=ProviderStrategy(ChatReply),                      # ← 추가(STEP 4)
 )
 
