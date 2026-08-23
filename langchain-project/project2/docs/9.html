@@ -40,7 +40,7 @@
 
     <p class="crumb"><a href="./index.html">Project 2 · 관측 가능한 Agent API 서비스</a> &nbsp;›&nbsp; STEP 9</p>
 
-    <section class="step" id="step9">
+    <section class="step new-step" id="step9">
       <div class="step-head">
         <div class="step-num">9</div>
         <h2>마무리 — README &amp; 포트폴리오화</h2>
@@ -48,90 +48,68 @@
       </div>
 
       <div class="label">🎯 목표</div>
-      <p>남이 보고 이해할 수 있고, <strong>이력서에 바로 쓸</strong> 형태로 마감한다.</p>
-
-      <div class="label">🛠 할 일</div>
       <p>
-        <code>README.md</code> 하나를 채웁니다. 다섯 조각으로 나눠 <strong>각 칸에 무엇을 쓰면 좋은지</strong> 보고,
-        <a href="#full-code">맨 아래 전체 템플릿</a>을 복사해 채우세요.
+        <code>README.md</code> 하나를 채웁니다. 처음 보는 사람이 <strong>읽고 → 띄우고 → 호출해 볼 수 있고</strong>, 이력서에 <strong>숫자로</strong> 옮길 수 있으면 완성입니다.
       </p>
 
-      <div class="callout callout-info">
-        <strong>🧭 다섯 조각 한눈에</strong>
-        <p style="margin-top:6px">
-          <b>①</b> 문제 정의 &nbsp;→&nbsp; <b>②</b> 아키텍처 &nbsp;→&nbsp; <b>③</b> 결과(정량)
-          &nbsp;→&nbsp; <b>④</b> 실행 방법 &nbsp;→&nbsp; <b>⑤</b> 한계 · 다음
-        </p>
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>README는 공부 후기가 아니라 제품 설명서다</h3>
+      <p>
+        "Agent를 공부하려고 만들었다"로 시작하면 튜토리얼입니다. 이 프로젝트가 <strong>어떤 문제를 풀었고, 어떻게 생겼고, 얼마나 잘 되고, 어떻게 돌리고, 뭐가 부족한지</strong> —
+        이 다섯 가지를 순서대로 적으면 제품 설명서가 됩니다. 칸은 다섯 개뿐이에요.
+      </p>
+      <div class="hflow">
+        <div class="hbox"><b>① 문제</b><span>무엇을 풀었나</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox"><b>② 아키텍처</b><span>어떻게 생겼나<br>뭘 갈아끼울 수 있나</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>③ 결과</b><span>표 두 개<br>(숫자)</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox"><b>④ 실행</b><span>서버 두 개<br>순서·포트</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox warn"><b>⑤ 한계</b><span>알고 있다는<br>증거</span></div>
       </div>
 
-      <h3>① 문제 정의 — P1과 다른 문제를 풀었다는 걸 보여 주세요</h3>
+      <div class="label">🛠 할 일 — 칸 다섯 개</div>
+
+      <div class="piece"><span class="pn">①</span><h4>문제 정의</h4><small>— P1과 다른 문제를 풀었다는 게 보여야 한다</small></div>
       <p>
-        P2의 README에서 가장 흔한 실수는 <em>"Agent를 공부하려고 만들었다"</em>입니다. 그건 튜토리얼이에요.
-        여기서 실제로 푼 문제는 이겁니다 —
-        <strong>"질문마다 필요한 정보가 다른데, 검색만 하는 창구는 그걸 감당하지 못한다."</strong>
-      </p>
-      <p>
-        약관 질문에는 사내 문서가, "연회비 5년치"에는 계산이, "요즘 규정 바뀌었나"에는 웹이 필요하죠.
-        사용자에게 "이건 어느 창구에 물어보세요"라고 시킬 수는 없으니
-        <strong>창구를 하나로 두고 안에서 알아서 고르게 만든 것</strong> — 그게 이 프로젝트의 문제 정의입니다.
+        약관 질문엔 사내 문서가, "연회비 5년치"엔 계산이, "요즘 규정 바뀌었나"엔 웹이 필요합니다.
+        사용자에게 "이건 어느 창구"라고 시킬 수 없으니 <strong>창구를 하나로 두고 안에서 알아서 고르게 한 것</strong> — 그게 문제 정의입니다. 두세 문장이면 됩니다.
       </p>
 
-      <h3>② 아키텍처 — "무엇을 갈아끼울 수 있는가"가 보이게</h3>
+      <div class="piece"><span class="pn">②</span><h4>아키텍처</h4><small>— 기술 이름 나열 말고, 흐름과 손잡이</small></div>
       <p>
-        기술 이름을 나열하지 말고 <strong>흐름</strong>과 <strong>손잡이</strong>를 적으세요.
-        이 프로젝트에서 밖으로 빼 둔 손잡이가 셋 있습니다 —
-        <strong>도구 목록</strong>(추가·제거 가능), <strong>모델</strong>(<code>get_model</code>), <strong>프롬프트</strong>(<code>Context</code>).
-        읽는 사람이 <strong>"이건 확장해서 쓸 수 있는 구조구나"</strong>를 알아보면 성공입니다.
-      </p>
-      <div class="callout callout-info">
-        <strong>💡 P1을 HTTP로 부른 이유를 꼭 한 줄 쓰세요</strong>
-        <p style="margin-top:6px">
-          이게 P2 README에서 가장 값어치 있는 문장입니다. 코드를 복사해 붙였다면 나올 수 없는 설계 결정이니까요.
-          <em>"RAG 검색을 독립 서비스로 두고 Agent가 도구로 호출하도록 분리해, 검색 컴포넌트를 다른 서비스에서도
-          재사용할 수 있게 했다. P1 장애 시에도 Agent는 나머지 도구로 계속 응답한다."</em>
-          — 설계 의도와 그 대가로 얻은 것이 함께 들어 있는 문장입니다.
-        </p>
-      </div>
-
-      <h3>③ 결과 — 표 두 개를 붙입니다</h3>
-      <p>
-        <strong>여기가 튜토리얼과 갈리는 지점입니다.</strong> STEP 8의 프롬프트 A/B 표와 STEP 7의 모델 비교 표,
-        두 개를 그대로 붙이세요. <em>"프롬프트를 개선했다"</em>는 누구나 쓸 수 있지만
-        <em>"형식 준수율 0.67 → 1.00"</em>은 <strong>실제로 잰 사람만</strong> 쓸 수 있습니다.
-      </p>
-      <div class="callout callout-warn">
-        <strong>💡 내려간 숫자를 지우지 마세요</strong>
-        <p style="margin-top:6px">
-          모든 칸이 올라간 표는 오히려 <strong>의심스럽습니다.</strong> B에서 어떤 케이스가 나빠졌다면 그대로 적고,
-          <strong>"왜 그랬고, 그럼에도 왜 B를 골랐는지"</strong>를 한 줄 붙이세요. 그 한 줄이 표 전체의 신뢰도를 올립니다.
-          면접에서도 올라간 숫자보다 <strong>내려간 숫자를 설명하는 능력</strong>을 봅니다.
-        </p>
-      </div>
-
-      <h3>④ 실행 방법 — <strong>서버가 두 개</strong>라는 걸 빼먹지 마세요</h3>
-      <p>
-        P2는 P1이 떠 있어야 온전히 돕니다. 이걸 안 적으면 처음 보는 사람은 <code>search_internal_docs</code>가
-        계속 실패하는 걸 보고 <strong>버그라고 생각합니다.</strong>
-        포트(8000 / 8001)와 실행 순서까지 적어 두세요. <strong>내 컴퓨터에서만 되는 프로젝트는 없는 것과 같습니다.</strong>
+        <code>사용자 → 가드레일 → Agent → 도구 → 구조화 답변</code> 한 줄과, 밖으로 빼 둔 손잡이 셋(도구 목록 · 모델 · 프롬프트)을 적습니다.
+        그리고 <strong>꼭 한 문장</strong>: <em>"P1을 import하지 않고 HTTP로 호출했다 — 검색을 다른 서비스에서도 재사용할 수 있고, P1이 죽어도 Agent는 나머지 도구로 답한다."</em>
+        설계 의도와 그 대가가 같이 들어 있는 문장이라, 코드를 복사한 사람은 쓸 수 없는 문장입니다.
       </p>
 
-      <h3>⑤ 한계 · 다음 — 알고 있다는 걸 보여 주는 칸</h3>
+      <div class="piece"><span class="pn">③</span><h4>결과</h4><small>— STEP 8의 A/B 표와 STEP 7의 모델 비교 표, 그대로</small></div>
       <p>
-        감추는 칸이 아니라 <strong>"한계를 알고 쓴다"를 증명하는 칸</strong>입니다.
-        이 프로젝트에는 STEP을 지나오며 이미 짚어 둔 한계가 넷 있습니다. 그대로 옮기면 됩니다.
+        여기가 튜토리얼과 갈리는 지점입니다. "프롬프트를 개선했다"는 누구나 쓰지만 <strong>"형식 준수율 0.67 → 1.00"</strong>은 잰 사람만 씁니다.
+        표 아래에 갈린 케이스 하나와 "그래서 어느 쪽을 골랐고 왜"를 한 줄 붙이세요.
       </p>
+
+      <div class="piece"><span class="pn">④</span><h4>실행 방법</h4><small>— 서버가 두 개라는 걸 빼먹지 않기</small></div>
+      <p>
+        P2는 P1이 떠 있어야 온전히 돕니다. 이걸 안 적으면 처음 보는 사람은 <code>search_internal_docs</code>가 계속 실패하는 걸 보고 고장이라고 생각해요.
+        <strong>순서(P1 먼저)와 포트(8000 / 8001)</strong>까지 적습니다.
+      </p>
+
+      <div class="piece"><span class="pn">⑤</span><h4>한계 · 다음</h4><small>— 감추는 칸이 아니라 "알고 쓴다"를 보여 주는 칸</small></div>
       <table>
-        <thead><tr><th style="width:26%">한계</th><th style="width:34%">지금 상태</th><th>운영이라면</th></tr></thead>
+        <thead><tr><th style="width:24%">한계</th><th>지금</th><th style="width:32%">운영이라면</th></tr></thead>
         <tbody>
-          <tr><td><b>대화 저장</b></td><td><code>InMemorySaver</code> — 재시작하면 전부 소실, 워커 여러 개면 기억이 갈라짐</td><td>Postgres 기반 checkpointer로 교체</td></tr>
-          <tr><td><b>세션 소유권</b></td><td>클라이언트가 보낸 <code>session_id</code>를 그대로 신뢰 — 남의 대화를 읽을 수 있음</td><td>인증 토큰에서 사용자 확인 후 서버가 세션 키 생성</td></tr>
-          <tr><td><b>세션 동시성</b></td><td>같은 <code>session_id</code>로 요청이 겹치면 쓰다 만 기록을 읽어 OpenAI 400 (STEP 5에서 실제 발생)</td><td>세션당 잠금, 또는 클라이언트가 응답 전 재요청 차단</td></tr>
-          <tr><td><b>채점자 신뢰도</b></td><td>LLM judge 점수를 사람 라벨과 대조해 보지 않음</td><td>일치율 측정 후 judge 프롬프트 보정 <span class="badge badge-gray">→ P3</span></td></tr>
+          <tr><td><b>대화 저장</b></td><td><code>InMemorySaver</code> — 재시작하면 사라지고, 서버가 여러 대면 기억이 갈라짐</td><td>Postgres 기반 checkpointer</td></tr>
+          <tr><td><b>세션 소유권</b></td><td>클라이언트가 보낸 <code>session_id</code>를 그대로 믿음</td><td>로그인 확인 후 서버가 세션 키 생성</td></tr>
+          <tr><td><b>세션 동시성</b></td><td>같은 방에 요청이 겹치면 쓰다 만 기록을 읽어 실패</td><td>세션당 잠금</td></tr>
+          <tr><td><b>채점자 신뢰도</b></td><td>LLM 채점 점수를 사람 점수와 비교하지 않음</td><td>일치율 측정 → P3</td></tr>
         </tbody>
       </table>
 
-      <div class="label" id="full-code">📄 전체 템플릿</div>
-      <div class="filename">README.md</div>
+      <details>
+        <summary>전체 템플릿 — README.md (복사해서 괄호와 x를 채우세요)</summary>
 <pre><code class="nohl"># P2 · 관측 가능한 Agent API 서비스
 
 ## 문제 정의
@@ -145,9 +123,8 @@
 - 도구 4종: get_today / calculate / web_search / **search_internal_docs (P1 RAG 서비스를 HTTP 호출)**
 - 메모리: session_id → thread_id (checkpointer)
 - 가드레일: 키워드 기반 입력 차단(LLM 호출 0회) + PII 마스킹
-- 출력: ProviderStrategy(ChatReply) 로 { answer, sources, confident } 형식 강제
-  (ToolStrategy는 tool_choice="any" 강제 → 후속 질문에서 검색 루프. 실측 후 교체)
-- 안전망: ToolCallLimitMiddleware — 요청당 도구 호출 8회 상한
+- 출력: ChatReply 스키마 { answer, sources, confident } 로 형식 강제
+- 안전망: 요청당 도구 호출 8회 상한
 - 가로지르는 층: Langfuse(트레이싱·비용) / Multi-LLM(get_model) / 프롬프트 평가 하네스
 
 ### 설계 결정
@@ -177,9 +154,9 @@
 서버가 두 개다. **P1을 먼저 띄운다.**
 
 1. P1 (문서 검색, 포트 8000)
-   cd ../project1 &amp;&amp; uv run uvicorn main:app --reload
+   cd ../project1 && uv run uvicorn main:app --reload
 2. P2 (Agent API, 포트 8001)
-   uv sync &amp;&amp; uv run uvicorn main:app --reload --port 8001
+   uv sync && uv run uvicorn main:app --reload --port 8001
 3. 호출
    curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
      -d '{"message":"신용카드 분실 시 회원 책임은?","session_id":"u1"}'
@@ -191,55 +168,53 @@
 ## 한계 / 다음
 - 대화 저장이 InMemorySaver — 재시작 시 소실, 다중 워커에서 기억 분리. 운영 시 Postgres checkpointer 필요
 - session_id를 클라이언트가 지정 — 인증 붙여 서버가 세션 소유권을 검증해야 함
-- 같은 session_id 동시 요청 미보호 — 겹치면 쓰다 만 기록을 읽어 400. 세션당 잠금 필요
+- 같은 session_id 동시 요청 미보호 — 겹치면 쓰다 만 기록을 읽어 실패. 세션당 잠금 필요
 - LLM judge의 신뢰도를 사람 라벨과 대조하지 않음 → P3에서 일치율 측정
 - 도구 추가는 tools.py에 함수 하나 + 목록 한 줄. 사내 API 등으로 그대로 확장 가능</code></pre>
+      </details>
 
       <div class="callout callout-analogy">
-        <strong>📝 이력서 3문장 템플릿 (목적 → 접근 → 정량 결과)</strong>
+        <strong>📝 이력서 3문장 — 목적 → 접근 → 정량 결과</strong>
         <p style="margin-top:6px">
-          "<strong>목적</strong> — 질문마다 필요한 정보 출처가 다른 사내 문의를 단일 창구로 처리하면서,
-          품질 변화를 배포 전에 확인할 수 있어야 했다.
-          <strong>접근</strong> — LangChain Agent에 도구 4종(사내 RAG는 P1 서비스를 HTTP로 호출)을 붙이고,
-          가드레일·구조화 출력·세션 메모리를 얹어 FastAPI로 서빙했다. 모델과 프롬프트는 미들웨어로 런타임 교체 가능하게 설계했다.
-          <strong>결과</strong> — Langfuse로 도구 호출·토큰·비용을 전량 추적하고,
-          케이스 15개 자동 채점으로 프롬프트 개선의 형식 준수율을 0.67 → 1.00으로 검증했다."
+          <strong>목적</strong> — 질문마다 정보 출처가 다른 사내 문의를 단일 창구로 처리하면서, 품질 변화를 배포 전에 확인할 수 있어야 했다.<br>
+          <strong>접근</strong> — LangChain Agent에 도구 4종(사내 RAG는 P1 서비스를 HTTP로 호출)을 붙이고, 가드레일·구조화 출력·세션 메모리를 얹어 FastAPI로 서빙했다. 모델과 프롬프트는 미들웨어로 런타임 교체 가능하게 설계했다.<br>
+          <strong>결과</strong> — Langfuse로 도구 호출·토큰·비용을 전량 추적하고, 케이스 15개 자동 채점으로 프롬프트 개선의 형식 준수율을 0.67 → 1.00으로 검증했다.
         </p>
       </div>
 
-      <div class="callout callout-result">
-        <strong>✅ 최종 검증 게이트 (= 완성 정의)</strong>
-        <p style="margin-top:6px">
-          <a href="./index.html#dod">맨 위 Definition of Done</a>의 7개 항목에 모두 ✅.
-          그러면 Project 2는 완성이고, 아래가 손에 남습니다:
-          <strong>Agent 조립(도구·메모리·가드레일·구조화) · 서비스 간 조합 · 관측성 운영 · Multi-LLM 라우팅 · 프롬프트 정량 평가</strong>.
-        </p>
-      </div>
+      <div class="label">✅ 검증 — 이게 완성 정의입니다</div>
+      <ul class="checklist">
+        <li><b>남이 띄울 수 있다</b> — README의 실행 방법만 보고 P1·P2를 띄우고 <code>curl</code> 한 번이 성공한다</li>
+        <li><b>표 두 개가 숫자로 차 있다</b> — x.xx 가 하나도 남아 있지 않다</li>
+        <li><b>갈린 케이스 한 줄</b> — 내려간 숫자를 지우지 않고 이유를 적었다</li>
+        <li><b>한계 네 줄</b> — 위 표 그대로</li>
+        <li><b>개요 페이지의 완성 정의 7개</b>에 전부 ✅ — <a href="./index.html">📋 개요</a></li>
+      </ul>
 
-      <div class="label">🎓 배우는 것</div>
+      <div class="label">🎓 한 줄 정리</div>
       <p>
-        "Agent를 만들었다"를 <strong>"운영 관점에서 다룰 수 있다"</strong>로. 추적되고, 막히고, 갈아끼워지고,
-        측정되는 Agent와 노트북에서 도는 Agent는 <strong>같은 코드가 아닙니다.</strong>
-        그 차이를 설명할 수 있게 된 것이 이 프로젝트의 진짜 결과물이에요.
+        <strong>"Agent를 만들었다"가 아니라 "추적되고, 막히고, 갈아끼워지고, 측정되는 Agent를 운영 관점에서 다룰 수 있다."</strong>
+        노트북에서 도는 Agent와는 같은 코드가 아니고, 그 차이를 설명할 수 있게 된 것이 이 프로젝트의 진짜 결과물입니다.
       </p>
+
+      <details class="more">
+        <summary>더 알아보기 — 내려간 숫자 / 다음 프로젝트</summary>
+
+        <h3>내려간 숫자를 지우지 마세요</h3>
+        <p>
+          모든 칸이 올라간 표는 오히려 의심스럽습니다. B에서 나빠진 케이스가 있다면 그대로 적고 "왜 그랬고, 그럼에도 왜 B를 골랐는지"를 한 줄 붙이세요.
+          그 한 줄이 표 전체의 신뢰도를 올립니다. 면접에서도 올라간 숫자보다 내려간 숫자를 설명하는 능력을 봅니다.
+        </p>
+
+        <h3>다음 — P3 평가·관측성 하네스</h3>
+        <p>
+          P2에서 평가는 마지막 STEP의 부속이었습니다. P3에서는 그 평가가 주인공이 됩니다 — P1과 P2를 평가 대상으로 놓고, 케이스셋을 버전 관리하고,
+          채점자를 사람 점수로 검증하고, 지난 실행과 비교해 회귀를 자동으로 잡습니다. STEP 8의 <code>eval_cases.json</code>과 <code>evaluate.py</code>가 그 첫 벽돌이고,
+          P1·P2를 둘 다 HTTP 창구로 만들어 둔 것이 여기서 값을 합니다.
+        </p>
+      </details>
+
     </section>
-
-    <hr />
-
-    <div class="callout callout-info">
-      <strong>▶ 다음</strong>
-      <p style="margin-top:6px">
-        P2에서 평가는 <strong>마지막 STEP의 부속</strong>이었습니다.
-        <a href="../../index.html#p3">P3(평가·관측성 하네스)</a>에서는 그 평가가 <strong>주인공</strong>이 됩니다 —
-        P1과 P2를 <em>평가 대상</em>으로 놓고, 골든셋을 버전 관리하고, judge를 사람 라벨로 검증하고,
-        지난 실행과 비교해 <strong>회귀를 자동으로 잡습니다.</strong>
-      </p>
-      <p>
-        STEP 8에서 만든 <code>eval_cases.json</code>과 <code>evaluate.py</code>가 그 하네스의 첫 벽돌입니다.
-        그리고 P1·P2를 <strong>둘 다 HTTP 창구로 만들어 둔 것</strong>이 여기서 값을 합니다 —
-        같은 방식으로 두 서비스를 채점할 수 있으니까요.
-      </p>
-    </div>
 
     <div class="pager">
       <a class="prev" href="./8.html"><small>← 이전</small> STEP 8 · 프롬프트 A/B 평가 하네스</a>
