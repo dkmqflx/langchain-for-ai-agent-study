@@ -108,9 +108,10 @@ class ChatIn(BaseModel):                 # 요청 본문 스키마
 class ChatOut(BaseModel):                # 응답 스키마 — STEP 4의 ChatReply를 HTTP로 옮긴 모양
     answer: str
     sources: list[str] = []
+    confident: bool = False              # STEP 4에서 꺼낸 값. 여기 안 적으면 response_model이 조용히 잘라 낸다
     used_tools: list[str] = []
     blocked: bool = False                # 가드레일에 막혔는지 (클라이언트가 다르게 표시할 수 있게)
-    session_id: str                       # 클라이언트가 다음 요청에 그대로 실어 보내라는 뜻
+    session_id: str                      # 클라이언트가 다음 요청에 그대로 실어 보내라는 뜻
 
 
 @app.get("/health")                      # 서버가 살아있는지 확인하는 운영 기본 엔드포인트
@@ -171,6 +172,37 @@ curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
         <p>
           <a href="http://localhost:8001/docs">http://localhost:8001/docs</a>도 열어 보세요.
           pydantic으로 선언한 스키마가 그대로 문서와 시험용 화면이 돼 있습니다.
+        </p>
+      </div>
+
+      <div class="callout callout-danger">
+        <strong>🚨 게이트 3·5는 STEP 3+4의 조합을 처음으로 시험하는 자리입니다 — 여기서 두 버그가 드러났습니다</strong>
+        <p style="margin-top:6px">
+          STEP 4까지의 검증은 전부 <strong>새 세션에 질문 하나</strong>였습니다. HTTP로 서비스가 되고 나서야 "같은 세션에 두 번째 질문"과
+          "정상 질문 뒤의 차단"이 실제로 일어나고, 그제야 보이는 문제가 있습니다. 증상으로 알아보세요.
+        </p>
+        <table style="margin-top:8px">
+          <thead><tr><th style="width:34%">증상</th><th>원인</th><th style="width:22%">고치는 곳</th></tr></thead>
+          <tbody>
+            <tr><td>게이트 3이 <strong>몇 분째 안 끝난다.</strong> P1 터미널에 <code>POST /query</code>가 줄줄이 찍힌다.</td>
+                <td><code>ToolStrategy</code>가 모델에게 "매 스텝 도구를 하나는 반드시 불러라"를 강제해, 답을 찾고도 검색을 계속 다시 부르는 루프.</td>
+                <td><a href="./4.html">STEP 4</a> 🚨 함정 — <code>ProviderStrategy</code> + 도구 호출 상한</td></tr>
+            <tr><td>게이트 5가 <code>blocked:false</code>이고 <strong>answer에 게이트 3의 답이 그대로</strong> 나온다.</td>
+                <td>가드레일이 모델 앞에서 끝내 버려, 체크포인트에 남은 직전 턴의 <code>structured_response</code>가 비워지지 않고 새어 나옴.</td>
+                <td><a href="./4.html">STEP 4</a> 칠판 — 가드레일 return에 <code>"structured_response": None</code></td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:10px">
+          <strong>그리고 덤으로 배운 서비스 교훈 하나.</strong> 첫 증상이 났을 때 curl이 타임아웃으로 포기했다고 <strong>같은 <code>session_id</code>로 바로 재시도</strong>하면,
+          서버는 첫 요청을 아직 돌리고 있습니다(클라이언트가 끊어도 Agent는 모릅니다). 재시도는 그 방의 <strong>쓰다 만 기록</strong> —
+          도구를 부르겠다는 AI 메시지는 있는데 결과는 아직 없는 상태 — 를 읽고, OpenAI가 그 기록을 거절합니다:
+        </p>
+<pre style="margin-top:8px"><code>openai.BadRequestError: 400 — An assistant message with 'tool_calls' must be followed by
+tool messages responding to each 'tool_call_id'. The following tool_call_ids did not have
+response messages: call_4AGn…   (param: messages.[62])   ← 후속 질문 하나가 이미 60개 메시지를 쌓는 중이었다</code></pre>
+        <p style="margin-top:8px">
+          이 400은 <em>원인이 아니라 결과</em>입니다. 같은 세션에 요청이 겹치면 언제든 날 수 있는 에러라, 운영에서는 <strong>세션당 한 번에 하나</strong>만 처리하도록
+          잠금을 두거나 클라이언트가 응답 전까지 다음 요청을 못 보내게 합니다. 이 프로젝트에선 구현하지 않고 STEP 9 README의 한계 목록에 한 줄 남깁니다.
         </p>
       </div>
 
