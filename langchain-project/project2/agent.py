@@ -115,6 +115,7 @@ class Context:
     """
 
     provider: str | None = None            # None이면 기본 모델(DEFAULT_PROVIDER)
+    system_prompt: str | None = None       # None이면 기본 프롬프트(SYSTEM_PROMPT) ← 추가(STEP 8)
 
 
 # @wrap_model_call = 모델을 부르기 '직전'에 끼어들어, 들어가는 요청을 고칠 수 있는 훅.
@@ -126,6 +127,22 @@ def select_provider(request, handler):
     if name:
         request = request.override(model=get_model(name))       # 요청의 모델만 바꿔치기
     return handler(request)                                     # 바뀐 요청으로 실제 호출 진행
+
+
+# 프롬프트도 같은 자리에 구멍을 하나 더 뚫는다(STEP 8).
+# SYSTEM_PROMPT가 create_agent에 한 번 박혀 있으면 A로 돌리고 파일을 고쳐 B로 또 돌려야 하는데,
+# 그러면 두 실행 사이에 코드가 달라져 '같은 코스'라는 전제가 깨진다.
+@wrap_model_call
+def override_prompt(request, handler):
+    """요청에 시스템 프롬프트가 지정돼 있으면 그것으로 갈아끼운다(평가·실험용).
+
+    안 넘기면 None이라 if가 거짓이 되고 아무 일도 일어나지 않는다 —
+    평소 요청은 지금까지와 똑같이 SYSTEM_PROMPT로 돈다.
+    """
+    sp = getattr(request.runtime.context, "system_prompt", None)
+    if sp:
+        request = request.override(system_prompt=sp)
+    return handler(request)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -163,6 +180,7 @@ agent = create_agent(
     middleware=[
         input_guardrail,                                          # ① 내가 만든 키워드 검문소
         select_provider,                                          # ② 요청별 모델 교체(STEP 7)
+        override_prompt,                                          # ②' 요청별 프롬프트 교체(STEP 8)
         # ③ 카드번호가 섞여 들어오면 마지막 4자리만 남기고 가린다.
         #    사용자가 실수로 붙여넣은 번호가 모델 제공사 서버까지 가는 걸 막는다.
         PIIMiddleware("credit_card", strategy="mask", apply_to_input=True),
@@ -178,7 +196,8 @@ agent = create_agent(
 )
 
 
-def ask(message: str, session_id: str = "default", provider: str | None = None) -> dict:
+def ask(message: str, session_id: str = "default",
+        provider: str | None = None, system_prompt: str | None = None) -> dict:   # ← 추가(STEP 8)
     """질문 하나를 처리해 {answer, sources, confident, used_tools, blocked} 형태로 돌려준다.
 
     session_id가 같으면 앞 대화가 이어진다. 두 번째 인자(config)의 thread_id가
@@ -186,6 +205,7 @@ def ask(message: str, session_id: str = "default", provider: str | None = None) 
     어느 차트를 꺼낼지 모르니까.
 
     provider를 주면 이 요청만 그 모델로 처리한다. 안 주면 기본 모델(STEP 7).
+    system_prompt를 주면 이 요청만 그 프롬프트로 처리한다. 평가 하네스가 쓴다(STEP 8).
     처리 과정 전체는 Langfuse에 트레이스(상자) 하나로 남는다(STEP 6).
     """
     # with = 상자 열기. 이 블록 안에서 생긴 기록은 모두 이 상자의 자식으로 들어가,
@@ -207,7 +227,8 @@ def ask(message: str, session_id: str = "default", provider: str | None = None) 
                 # 이 config를 넘긴 호출만 Langfuse에 남는다.
                 "callbacks": [langfuse_handler],                       # ← 추가(STEP 6)
             },
-            context=Context(provider=provider),                        # ← 상자를 채워 넘긴다(STEP 7)
+            # 상자를 채워 넘긴다(STEP 7) — 프롬프트 칸이 하나 늘었다(STEP 8)
+            context=Context(provider=provider, system_prompt=system_prompt),
         )
         messages = result["messages"]
 
