@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # STEP 4 · Agent 조립: 모델 + 도구 + 프롬프트 + 메모리 + 가드레일 + 구조화 출력.
-# 이 파일이 앞으로 관측(STEP 6) · 모델선택(STEP 7)을 하나씩 얹어 가며 자라날 자리다.
+# STEP 6 · 관측성(Langfuse): 요청 하나가 처리되는 과정 전체를 트레이스 하나로 남긴다.
+# 이 파일이 앞으로 모델선택(STEP 7)을 얹어 가며 자라날 자리다.
 # ═══════════════════════════════════════════════════════════════════
 from dotenv import load_dotenv
 from langchain.agents import create_agent
@@ -11,10 +12,22 @@ from langchain.agents.structured_output import ProviderStrategy       # ← 추�
 from langchain.messages import AIMessage                              # ← 추가(STEP 4)
 from langgraph.checkpoint.memory import InMemorySaver   # ← 추가(STEP 3)
 from pydantic import BaseModel, Field                                 # ← 추가(STEP 4)
+# STEP 6 관측성 — 랭체인 실행을 지켜보다 Langfuse로 흘려보내는 참관인 둘
+from langfuse.langchain import CallbackHandler                        # ← 추가(STEP 6)
+# propagate_attributes = 지금 열려 있는 상자와 그 자식들에 이름표(세션·태그)를 붙이는 도구
+from langfuse import get_client, propagate_attributes                 # ← 추가(STEP 6)
 
 from tools import get_today, calculate, web_search, search_internal_docs   # ← search_internal_docs 추가(STEP 2)
 
-load_dotenv()                                        # .env의 OPENAI_API_KEY 로드
+load_dotenv()                                        # .env의 OPENAI_API_KEY·LANGFUSE_* 로드
+
+# ═══════════════════════════════════════════════════════════════════
+# STEP 6 · 관측성(Langfuse): 어떤 도구를 몇 번 불렀고, 토큰을 얼마나 썼고, 어디서 오래 걸렸는지 남긴다.
+# 키를 인자로 넘기지 않는 점에 주목 — .env의 정해진 이름(LANGFUSE_*)을 알아서 찾아 읽는다.
+# 그래서 이 두 줄은 반드시 load_dotenv() '뒤'에 있어야 한다(앞에 두면 키가 아직 없어 못 읽는다).
+# ═══════════════════════════════════════════════════════════════════
+langfuse_handler = CallbackHandler()
+langfuse = get_client()                              # 콜백과 같은 .env 키를 읽는 클라이언트
 
 # 시스템 프롬프트 = Agent의 '행동 지침서'. 매 요청마다 대화 맨 앞에 조용히 붙는다.
 # 도구를 쥐여 줬다고 알아서 쓰지는 않는다 — '언제 써야 하는지'까지 여기서 못 박아야 한다.
@@ -67,16 +80,23 @@ def input_guardrail(state, runtime):
     for category, keywords in BLOCKED.items():
         for kw in keywords:
             if kw in text:
-                # STEP 6에서 이 print 자리를 Langfuse 기록으로 바꾼다.
-                # 차단은 '아무 일도 안 일어난 것'처럼 보여서, 기록하지 않으면 존재 자체가 안 보인다.
                 print(f"⛔ 차단 [{category}] — '{kw}' 감지")
-                return {
-                    "messages": [AIMessage(content=REFUSALS[category])],
-                    "jump_to": "end",     # 모델 호출 없이 여기서 끝낸다
-                    # 같은 세션의 직전 답이 남아 있지 않게 비운다.
-                    # (랭체인은 이 값을 모델 노드가 돌 때 비우는데, 여기서는 모델을 안 부르고 끝내므로 직접 비운다)
-                    "structured_response": None,
-                }
+                # 차단된 요청은 모델도 도구도 안 썼으니 토큰 0·지연 0 — 대시보드에서
+                # '아무 일도 없었던 것'처럼 보인다. 그런데 운영에서 정말 세고 싶은 숫자가
+                # "하루에 몇 번 막혔나"다. 그래서 일부러 태그를 달아 보이게 만든다(STEP 6).
+                # with에 들어가는 순간 지금 열려 있는 상자에 태그가 붙고, 태그는 트레이스 단위로
+                # 합쳐지므로 ask()가 나중에 다는 태그를 덮어쓰지 않고 나란히 남는다.
+                with propagate_attributes(
+                    tags=["blocked", category],
+                    metadata={"blocked_keyword": kw},
+                ):
+                    return {
+                        "messages": [AIMessage(content=REFUSALS[category])],
+                        "jump_to": "end",     # 모델 호출 없이 여기서 끝낸다
+                        # 같은 세션의 직전 답이 남아 있지 않게 비운다.
+                        # (랭체인은 이 값을 모델 노드가 돌 때 비우는데, 여기서는 모델을 안 부르고 끝내므로 직접 비운다)
+                        "structured_response": None,
+                    }
 
     return None                            # None = "이상 없음, 평소대로 진행하라"
 
@@ -133,52 +153,72 @@ def ask(message: str, session_id: str = "default") -> dict:
     session_id가 같으면 앞 대화가 이어진다. 두 번째 인자(config)의 thread_id가
     '대화방 번호'다. checkpointer를 달아 놓고 이 값을 안 넘기면 에러가 난다 —
     어느 차트를 꺼낼지 모르니까.
+
+    처리 과정 전체는 Langfuse에 트레이스(상자) 하나로 남는다(STEP 6).
     """
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": message}]},
-        {"configurable": {"thread_id": session_id}},                  # ← 추가(STEP 3)
-    )
-    messages = result["messages"]
+    # with = 상자 열기. 이 블록 안에서 생긴 기록은 모두 이 상자의 자식으로 들어가,
+    # 대시보드에 '요청 1개 = 트리 1개'로 그려진다. 없으면 모델 호출 3번이 서로 남남인
+    # 상자 3개로 흩어져서 "이 질문 하나에 총 얼마 들었나"를 볼 수 없다.
+    with langfuse.start_as_current_observation(
+        name="agent-chat", as_type="span", input=message,
+    ) as trace, propagate_attributes(session_id=session_id):   # 세션 이름표 → 같은 대화가 한 줄로 묶인다
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": message}]},
+            {
+                "configurable": {"thread_id": session_id},             # ← 추가(STEP 3)
+                # 참관인을 들여보내는 줄. 핸들러를 만들어 둔다고 자동으로 기록되지 않는다 —
+                # 이 config를 넘긴 호출만 Langfuse에 남는다.
+                "callbacks": [langfuse_handler],                       # ← 추가(STEP 6)
+            },
+        )
+        messages = result["messages"]
 
-    # 이번 턴에 쓴 도구만 센다. messages에는 지난 대화까지 다 들어 있으므로
-    # '마지막 사용자 발화' 이후 구간만 봐야 이번 턴의 도구가 나온다.
-    #   예) [Human, AI, Tool, Human, AI, Tool] → last_human=3, 그 뒤 3개가 이번 턴
-    # 주의: last_human에 담기는 건 '메시지'가 아니라 그 메시지의 '번호(인덱스)'다.
-    # 마지막 사용자 발화의 내용을 읽으려는 게 아니라, messages[last_human:] 슬라이싱의
-    # 시작점으로 쓰려고 위치만 구하는 것이다.
-    last_human = max(i for i, m in enumerate(messages) if m.type == "human")
-    # ProviderStrategy는 답을 모델의 본문(JSON)으로 받으므로 messages에 남는 tool_calls는
-    # 전부 우리가 쥐여 준 진짜 도구다 — 따로 거를 게 없다. STEP 8의 채점 대상이 이것.
-    used_tools = [
-        call["name"]
-        for m in messages[last_human:]           # 이번 턴 구간만 훑고
-        # tool_calls는 AIMessage에만 있다. m.tool_calls로 바로 꺼내면 Human에서 터지니
-        # getattr(..., None)으로 안전하게 본다. 도구를 안 쓴 AI는 []라서 같이 걸러진다.
-        if getattr(m, "tool_calls", None)
-        for call in m.tool_calls                 # 한 메시지가 도구를 여러 개 부를 수도 있다
-    ]
+        # 이번 턴에 쓴 도구만 센다. messages에는 지난 대화까지 다 들어 있으므로
+        # '마지막 사용자 발화' 이후 구간만 봐야 이번 턴의 도구가 나온다.
+        #   예) [Human, AI, Tool, Human, AI, Tool] → last_human=3, 그 뒤 3개가 이번 턴
+        # 주의: last_human에 담기는 건 '메시지'가 아니라 그 메시지의 '번호(인덱스)'다.
+        # 마지막 사용자 발화의 내용을 읽으려는 게 아니라, messages[last_human:] 슬라이싱의
+        # 시작점으로 쓰려고 위치만 구하는 것이다.
+        last_human = max(i for i, m in enumerate(messages) if m.type == "human")
+        # ProviderStrategy는 답을 모델의 본문(JSON)으로 받으므로 messages에 남는 tool_calls는
+        # 전부 우리가 쥐여 준 진짜 도구다 — 따로 거를 게 없다. STEP 8의 채점 대상이 이것.
+        used_tools = [
+            call["name"]
+            for m in messages[last_human:]           # 이번 턴 구간만 훑고
+            # tool_calls는 AIMessage에만 있다. m.tool_calls로 바로 꺼내면 Human에서 터지니
+            # getattr(..., None)으로 안전하게 본다. 도구를 안 쓴 AI는 []라서 같이 걸러진다.
+            if getattr(m, "tool_calls", None)
+            for call in m.tool_calls                 # 한 메시지가 도구를 여러 개 부를 수도 있다
+        ]
 
-    # 가드레일에 막히면 모델을 아예 호출하지 않고 끝난다(jump_to="end").
-    # 모델이 안 돌았으니 structured_response도 없다 → []로 꺼내면 KeyError, .get()으로 받는다.
-    reply = result.get("structured_response")
-    if reply is None:
-        return {
-            "answer": messages[-1].content,   # 가드레일이 넣어 둔 거절 문구
-            "sources": [],
-            "confident": False,               # 근거로 확인한 게 아니라 문 앞에서 돌려보낸 것
-            "used_tools": [],
-            "blocked": True,
-        }
+        # 가드레일에 막히면 모델을 아예 호출하지 않고 끝난다(jump_to="end").
+        # 모델이 안 돌았으니 structured_response도 없다 → []로 꺼내면 KeyError, .get()으로 받는다.
+        reply = result.get("structured_response")
+        # 막힌 경우와 정상인 경우 모두 같은 모양의 dict를 돌려준다.
+        # 호출하는 쪽은 blocked만 보면 되고 예외 처리를 따로 하지 않아도 된다(STEP 8 채점이 쉬워진다).
+        if reply is None:
+            out = {
+                "answer": messages[-1].content,   # 가드레일이 넣어 둔 거절 문구
+                "sources": [],
+                "confident": False,               # 근거로 확인한 게 아니라 문 앞에서 돌려보낸 것
+                "used_tools": [],
+                "blocked": True,
+            }
+        else:
+            out = {
+                "answer": reply.answer,
+                "sources": reply.sources,
+                "confident": reply.confident,   # ChatReply에 정의해 둔 칸을 그대로 꺼낸다
+                "used_tools": used_tools,
+                "blocked": False,
+            }
 
-    # 막힌 경우와 정상인 경우 모두 같은 모양의 dict를 돌려준다.
-    # 호출하는 쪽은 blocked만 보면 되고 예외 처리를 따로 하지 않아도 된다(STEP 8 채점이 쉬워진다).
-    return {
-        "answer": reply.answer,
-        "sources": reply.sources,
-        "confident": reply.confident,   # ChatReply에 정의해 둔 칸을 그대로 꺼낸다
-        "used_tools": used_tools,
-        "blocked": False,
-    }
+        # 결과도 상자에 붙여 둔다. 태그는 대시보드의 필터 손잡이 —
+        # "search_internal_docs를 쓴 요청만" 같은 식으로 걸러 볼 수 있다.
+        # 도구를 하나도 안 썼으면 태그가 비어 필터에서 사라지므로 no_tool을 대신 단다.
+        with propagate_attributes(tags=used_tools or ["no_tool"]):
+            trace.update(output=out)
+            return out
 
 
 if __name__ == "__main__":
@@ -197,3 +237,7 @@ if __name__ == "__main__":
             break
 
         print(ask(msg, session))
+
+    # Langfuse는 기록을 모아 뒀다가 뒤에서 보낸다. 서버는 계속 떠 있으니 알아서 나가지만,
+    # 이렇게 끝나는 스크립트는 다 보내기 전에 프로세스가 죽어 기록이 사라진다 → 끝에서 밀어 보낸다.
+    langfuse.flush()                                                  # ← 추가(STEP 6)
