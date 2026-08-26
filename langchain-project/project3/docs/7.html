@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 7 · Langfuse datasets · scores — Project 3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html">STEP 3 · 러너 v1</a>
+      <a href="./4.html">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html" class="current">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 3 · LLM/Agent 평가·관측성 하네스</a> &nbsp;›&nbsp; STEP 7</p>
+
+    <section class="step new-step" id="step7">
+      <div class="step-head">
+        <div class="step-num">7</div>
+        <h2>Langfuse datasets · scores</h2>
+        <span class="badge badge-yellow">플랫폼화</span> <span class="badge badge-gray">⏱ 2~3시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        지금까지의 결과는 내 컴퓨터의 <code>runs/</code>에만 있습니다. 이 STEP에서 골든셋을 Langfuse <strong>데이터셋</strong>으로 올리고,
+        <code>--langfuse</code> 플래그로 실행을 <strong>run</strong>, 케이스를 <strong>trace</strong>, 지표를 <strong>score</strong>로 남깁니다.
+        끝나면 대시보드에서 실행별 점수 추이를 보고, 점수가 낮은 케이스에서 P2가 실제로 무슨 도구를 불렀는지까지 클릭으로 따라갈 수 있습니다.
+      </p>
+
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>우리 단어 넷이 Langfuse 단어 넷에 하나씩 대응된다</h3>
+      <table>
+        <thead><tr><th style="width:26%">P3에서</th><th style="width:26%">Langfuse에서</th><th>연결 열쇠</th></tr></thead>
+        <tbody>
+          <tr><td>시험지 <code>rag_v1.json</code></td><td><b>Dataset</b> <code>rag_v1</code></td><td>이름이 같다</td></tr>
+          <tr><td>케이스 <code>rag-05</code></td><td><b>Dataset item</b></td><td><code>id</code>를 item id로 그대로 쓴다</td></tr>
+          <tr><td>실행 <code>runs/rag_v1__rerank__…</code></td><td><b>Dataset run</b></td><td><code>run_id</code>를 run 이름으로</td></tr>
+          <tr><td>케이스 하나 실행</td><td><b>Trace</b></td><td>케이스마다 상자 하나. item과 run에 묶인다</td></tr>
+          <tr><td>지표 하나 (<code>source_hit</code> …)</td><td><b>Score</b></td><td>trace에 이름·값으로 붙는다</td></tr>
+        </tbody>
+      </table>
+      <p>
+        대응이 1:1이라 새로 배울 개념이 없습니다. STEP 1에서 <code>id</code>를 잠근 덕에 케이스와 item은 <strong>찾을 필요 없이</strong> 바로 연결되고,
+        STEP 3에서 실행마다 <code>run_id</code>를 만든 덕에 run 이름도 이미 있어요.
+      </p>
+
+      <div class="tree"><span class="t-root">Dataset · rag_v1</span> (15 items)
+├── <span class="t-note">Run · rag_v1__rerank__20260826-143012</span>
+│   ├── item rag-01 ── <span class="t-llm">trace eval-case</span> ── scores: ok 1 · source_hit 1 · faithfulness 0.92 · judge_score 5
+│   ├── item rag-02 ── <span class="t-llm">trace eval-case</span> ── scores: …
+│   └── …
+└── <span class="t-note">Run · rag_v1__baseline__20260826-151540</span>
+    ├── item rag-01 ── <span class="t-llm">trace eval-case</span> ── scores: ok 1 · source_hit 0 · faithfulness 0.88 · judge_score 4
+    └── …
+<span class="t-note">→ 대시보드의 Runs 탭에서 두 run을 나란히 놓으면 STEP 6의 판정표를 케이스 단위로 본다</span></div>
+
+      <div class="callout callout-analogy">
+        <strong>🗄 비유 — 내 노트를 팀 게시판에 옮겨 붙인다</strong>
+        <p style="margin-top:6px">
+          <code>runs/</code>는 내 실험 노트라 나만 봅니다. Langfuse는 팀 게시판이에요 — 같은 시험지를 같은 칸에 붙여 두면 누구든 "지난주 대비 어디가 떨어졌나"를 볼 수 있고,
+          점수 옆의 trace를 누르면 그 케이스의 <strong>답변과 근거</strong>, 같은 프로젝트의 P2 기록까지 이어집니다.
+        </p>
+      </div>
+
+      <div class="label">🛠 할 일 — 세 조각</div>
+
+      <div class="piece"><span class="pn">①</span><h4>sync_dataset.py — 시험지 올리기</h4><small>— 같은 id로 다시 올리면 덮어쓴다</small></div>
+      <div class="filename">sync_dataset.py</div>
+<pre><code>import sys
+
+from dotenv import load_dotenv
+from langfuse import get_client
+
+from schemas import load_dataset
+
+load_dotenv()
+langfuse = get_client()
+
+name = sys.argv[1] if len(sys.argv) &gt; 1 else "rag_v1"
+ds = load_dataset(name)
+
+langfuse.create_dataset(
+    name=ds.name, description=ds.description,
+    metadata={"version": ds.version, "target": ds.target},
+)
+for c in ds.cases:
+    langfuse.create_dataset_item(
+        dataset_name=ds.name,
+        id=c.id,                                                   # ← 러너가 trace를 연결할 때 이 id를 쓴다
+        input={"question": c.question},
+        expected_output=c.ground_truth if ds.target == "rag" else c.rubric,
+        metadata=c.model_dump(exclude={"id", "question"}),          # expect_tool·tags 같은 나머지 칸
+    )
+langfuse.flush()
+print(f"☁️  {ds.name} ({ds.version}) · {len(ds.cases)}개 케이스 업로드 완료")</code></pre>
+      <p>
+        시험지의 원본은 여전히 <code>datasets/*.json</code>(git)입니다. Langfuse는 그 사본이에요. 케이스를 고치면 버전을 올리고 이 스크립트를 다시 돌립니다 —
+        <code>id</code>가 같으면 덮어쓰니 중복이 생기지 않습니다.
+      </p>
+
+      <div class="piece"><span class="pn">②</span><h4>tracing.py — 함수 넷</h4><small>— 상자 열기 · 점수 붙이기 · run에 묶기 · 나중에 온 점수 붙이기</small></div>
+      <div class="filename">tracing.py</div>
+<pre><code>import math
+from contextlib import contextmanager
+
+from dotenv import load_dotenv
+from langfuse import get_client
+
+load_dotenv()
+langfuse = get_client()                       # .env의 LANGFUSE_* 를 알아서 읽는다
+
+
+@contextmanager
+def case_span(run_id: str, case, params: dict):
+    """케이스 하나를 트레이스(상자)로 감싼다. 이 안에서 일어난 HTTP 호출·채점이 전부 자식으로 들어간다."""
+    with langfuse.start_as_current_observation(
+        name="eval-case", as_type="evaluator", input=case.question,
+        metadata={"run_id": run_id, "case_id": case.id, **params},
+    ) as span:
+        yield span
+
+
+def record(span, output: str, scores: dict) -&gt; None:
+    """답변과 점수를 트레이스에 붙인다. 점수는 트레이스 단위(score_trace)로 — 대시보드가 그 단위로 모아 보여 준다."""
+    span.update(output=output)
+    for name, value in scores.items():
+        if value is None or (isinstance(value, float) and math.isnan(value)):
+            continue                          # '해당 없음'은 점수가 아니다
+        span.score_trace(name=name, value=float(value))
+
+
+def link(span, run_id: str, case_id: str, params: dict) -&gt; None:
+    """이 트레이스를 데이터셋의 해당 케이스(item)와 이번 실행(run)에 묶는다.
+    케이스 id를 dataset item id로 그대로 썼기 때문에(sync_dataset.py) 찾을 필요 없이 바로 연결된다."""
+    langfuse.api.dataset_run_items.create(
+        run_name=run_id, dataset_item_id=case_id, trace_id=span.trace_id, metadata=params,
+    )
+
+
+def add_scores(trace_id: str, scores: dict) -&gt; None:
+    """트레이스가 닫힌 뒤에 나온 점수(RAGAS는 모아서 채점한다)를 trace_id로 나중에 붙인다."""
+    for name, value in scores.items():
+        if value is None or (isinstance(value, float) and math.isnan(value)):
+            continue
+        langfuse.create_score(trace_id=trace_id, name=name, value=float(value))
+
+
+def flush() -&gt; None:
+    """스크립트가 끝나기 전에 모아 둔 기록을 전부 보낸다. 없으면 마지막 몇 건이 사라진다."""
+    langfuse.flush()</code></pre>
+      <p>
+        <code>add_scores</code>가 따로 있는 이유는 STEP 4의 설계 때문입니다. RAGAS는 케이스를 모아 한 번에 채점하니, 그 점수가 나올 때쯤엔 케이스 상자가 이미 닫혀 있어요.
+        그래서 상자의 <code>trace_id</code>를 기억해 뒀다가 나중에 붙입니다.
+      </p>
+
+      <div class="piece"><span class="pn">③</span><h4>runner.py — 플래그 하나, 루프에 상자 하나</h4><small>— 플래그가 꺼져 있으면 nullcontext = 아무것도 안 함</small></div>
+<pre><code>from contextlib import nullcontext                                    # ← 추가(STEP 7)
+import tracing                                                        # ← 추가(STEP 7)
+
+    ap.add_argument("--langfuse", action="store_true")                # ← 추가(STEP 7)
+
+    for i, case in enumerate(cases, 1):
+        # --langfuse가 켜져 있을 때만 케이스를 트레이스(상자)로 감싼다. 꺼져 있으면 nullcontext = 아무것도 안 함
+        span_cm = tracing.case_span(run_id, case, params) if args.langfuse else nullcontext()   # ← 추가(STEP 7)
+        with span_cm as span:
+            result = call_target(ds.target, case, params, run_id)
+            scores = score_case(ds.target, case, result)
+            row = { … STEP 3 그대로 … }
+            if args.judge and …:                                      # STEP 5 그대로
+                …
+                scores["judge_score"] = v.score
+
+            if span:                                                                               # ← 추가(STEP 7)
+                tracing.record(span, result.answer, scores)          # 점수를 트레이스에 붙이고
+                tracing.link(span, run_id, case.id, params)          # 데이터셋 run에 연결한다
+                row["trace_id"] = span.trace_id
+
+        rows.append(row)
+        …
+
+    if args.ragas and ds.target == "rag":                             # STEP 4 블록 안에
+        rdf = ragas_scores(ragas_rows)
+        df = df.join(rdf)
+        if args.langfuse:                                                                          # ← 추가(STEP 7)
+            for cid, r in rdf.iterrows():
+                tracing.add_scores(df.loc[cid, "trace_id"], r.to_dict())
+
+    # … 저장·요약 뒤 …
+    if args.langfuse:
+        tracing.flush()                                                                            # ← 추가(STEP 7)</code></pre>
+      <p>
+        <code>nullcontext()</code> 덕분에 <code>with</code> 블록을 둘로 복사하지 않아도 됩니다. 플래그가 꺼지면 <code>span</code>이 <code>None</code>이라 <code>if span:</code>이 그냥 지나가요.
+        STEP 3~5에서 쓴 <code>runs/</code> 저장은 그대로라, Langfuse가 안 떠 있어도 로컬 결과는 항상 남습니다.
+      </p>
+
+      <details>
+        <summary>전체 코드 한 번에 보기 — runner.py (STEP 7까지 완성본)</summary>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 3 · 러너: 골든셋 × 시험 대상 → 케이스별 점수표 + 요약. 명령 한 번이 실행 하나(run)다.
+# STEP 4 · --ragas   : RAG 지표 4개를 표에 붙인다
+# STEP 5 · --judge   : LLM 채점 점수를 표에 붙인다
+# STEP 7 · --langfuse: 케이스마다 트레이스를 남기고 점수를 붙여 Langfuse 데이터셋 run에 연결한다
+#
+# 실행:  uv run python runner.py --target rag   --dataset rag_v1   --label rerank --param mode=rerank
+#        uv run python runner.py --target agent --dataset agent_v1 --label prompt-A
+# 결과:  runs/&lt;dataset&gt;__&lt;label&gt;__&lt;시각&gt;/results.csv, summary.json
+# ═══════════════════════════════════════════════════════════════════
+import argparse
+import json
+import math
+import time
+from contextlib import nullcontext
+from pathlib import Path
+
+import pandas as pd
+
+from metrics import ragas_scores, score_case                          # ← ragas_scores 추가(STEP 4)
+from schemas import load_dataset
+from targets import call_target, health
+from judge import judge_answer, rubric_for                            # ← 추가(STEP 5)
+import tracing                                                        # ← 추가(STEP 7)
+
+
+def parse_params(pairs: list[str]) -&gt; dict:
+    """['mode=rerank', 'k=4'] → {'mode': 'rerank', 'k': '4'}"""
+    return dict(p.split("=", 1) for p in pairs)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--target", required=True, choices=["rag", "agent"])
+    ap.add_argument("--dataset", required=True)                       # datasets/&lt;name&gt;.json
+    ap.add_argument("--label", required=True)                         # 이 실행의 이름표. "rerank", "prompt-B"
+    ap.add_argument("--param", nargs="*", default=[])                 # 시험 대상에 넘길 손잡이. mode=baseline
+    ap.add_argument("--limit", type=int)                              # 처음엔 3개로 하네스가 도는지부터
+    ap.add_argument("--ragas", action="store_true")                   # ← 추가(STEP 4)
+    ap.add_argument("--judge", action="store_true")                   # ← 추가(STEP 5)
+    ap.add_argument("--langfuse", action="store_true")                # ← 추가(STEP 7)
+    args = ap.parse_args()
+    params = parse_params(args.param)
+
+    ds = load_dataset(args.dataset)
+    assert ds.target == args.target, f"{ds.name}은 {ds.target}용 데이터셋입니다"
+    if not health()[args.target]:
+        raise SystemExit(f"❌ {args.target} 서비스가 응답하지 않습니다. 서버를 먼저 띄우세요.")
+
+    cases = ds.cases[: args.limit] if args.limit else ds.cases
+    run_id = f"{ds.name}__{args.label}__{time.strftime('%Y%m%d-%H%M%S')}"
+    out_dir = Path("runs") / run_id
+    out_dir.mkdir(parents=True)
+    print(f"▶ {run_id} · {len(cases)}개 · params={params}")
+
+    rows, outputs = [], {}                                            # outputs: id → RunResult (RAGAS가 contexts를 쓴다)
+    for i, case in enumerate(cases, 1):
+        # --langfuse가 켜져 있을 때만 케이스를 트레이스(상자)로 감싼다. 꺼져 있으면 nullcontext = 아무것도 안 함
+        span_cm = tracing.case_span(run_id, case, params) if args.langfuse else nullcontext()   # ← 추가(STEP 7)
+        with span_cm as span:
+            result = call_target(ds.target, case, params, run_id)
+            scores = score_case(ds.target, case, result)
+            row = {"id": case.id, "question": case.question, "answer": result.answer,
+                   "sources": " / ".join(result.sources), "used_tools": ",".join(result.used_tools),
+                   "error": result.error, **scores}
+
+            # STEP 5 · 내용 채점. 차단이 기대된 케이스는 '내용'이 없으니 건너뛴다. 서비스 에러도 마찬가지.
+            if args.judge and result.error is None and not getattr(case, "expect_blocked", False):   # ← 추가(STEP 5)
+                v = judge_answer(case.question, rubric_for(ds.target, case), result.answer, result.sources)
+                row["judge_score"], row["judge_reason"] = v.score, v.reason
+                scores["judge_score"] = v.score
+
+            if span:                                                                               # ← 추가(STEP 7)
+                tracing.record(span, result.answer, scores)          # 점수를 트레이스에 붙이고
+                tracing.link(span, run_id, case.id, params)          # 데이터셋 run에 연결한다
+                row["trace_id"] = span.trace_id
+
+        rows.append(row)
+        outputs[case.id] = result
+        mark = "✅" if scores["ok"] else "❌"
+        print(f"  {mark} {i:2d}/{len(cases)} {case.id:10s} {result.latency_ms:6d}ms  {row.get('judge_score', '')}")
+
+    df = pd.DataFrame(rows).set_index("id")
+
+    # STEP 4 · RAGAS는 모아서 한 번에. 응답이 없던 케이스는 채점할 게 없으니 뺀다.
+    if args.ragas and ds.target == "rag":                                                          # ← 추가(STEP 4)
+        ragas_rows = [{"id": c.id, "question": c.question, "answer": outputs[c.id].answer,
+                       "contexts": outputs[c.id].contexts, "ground_truth": c.ground_truth}
+                      for c in cases if outputs[c.id].error is None]
+        rdf = ragas_scores(ragas_rows)
+        df = df.join(rdf)
+        if args.langfuse:                                                                          # ← 추가(STEP 7)
+            for cid, r in rdf.iterrows():
+                tracing.add_scores(df.loc[cid, "trace_id"], r.to_dict())
+
+    df.to_csv(out_dir / "results.csv", encoding="utf-8-sig")
+
+    # 요약 = 숫자 열의 평균. True/False를 1/0으로 넣어 뒀으니 평균이 곧 비율이다.
+    metrics = df.select_dtypes("number").mean().round(3).to_dict()
+    summary = {"run_id": run_id, "dataset": ds.name, "version": ds.version, "target": ds.target,
+               "label": args.label, "params": params, "n": len(df),
+               "metrics": {k: (None if math.isnan(v) else v) for k, v in metrics.items()}}
+    (out_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if args.langfuse:
+        tracing.flush()                                                                            # ← 추가(STEP 7)
+
+    print("\n" + "=" * 52)
+    print(pd.Series(summary["metrics"]).to_string())
+    print("=" * 52)
+    print(f"📁 {out_dir}")
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+      </details>
+
+      <div class="label">✅ 검증</div>
+<pre><code># 1) 시험지 올리기
+uv run python sync_dataset.py rag_v1
+uv run python sync_dataset.py agent_v1
+
+# 2) 기록을 남기며 실행 — STEP 6에서 비교한 두 구성을 그대로
+uv run python runner.py --target rag --dataset rag_v1 --label rerank   --param mode=rerank   --ragas --judge --langfuse
+uv run python runner.py --target rag --dataset rag_v1 --label baseline --param mode=baseline --ragas --judge --langfuse</code></pre>
+      <ul class="checklist">
+        <li><b>데이터셋이 보인다</b> — 대시보드 <b>Datasets</b>에 <code>rag_v1</code>(15 items)·<code>agent_v1</code>이 있고, item을 열면 <code>input.question</code>과 <code>expected_output</code>이 있다</li>
+        <li><b>run이 보인다</b> — <code>rag_v1</code> → <b>Runs</b> 탭에 <code>rag_v1__rerank__…</code>와 <code>rag_v1__baseline__…</code> 두 줄, 각각 15 items</li>
+        <li><b>점수가 붙어 있다</b> — run을 열면 item마다 <code>source_hit · faithfulness · context_recall · judge_score</code> 열이 있고, 한 item을 누르면 trace(<code>eval-case</code>)의 input·output이 보인다</li>
+        <li><b>두 run을 나란히 본다</b> — Runs 탭에서 둘을 골라 비교하면 STEP 6의 판정표와 같은 방향(baseline이 recall에서 낮음)이 케이스 단위로 보인다</li>
+        <li><b>로컬은 그대로다</b> — <code>--langfuse</code>를 붙여도 <code>runs/</code>에 폴더가 똑같이 생긴다</li>
+      </ul>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>시험지 = dataset, 케이스 = item, 실행 = run, 지표 = score. 열쇠는 STEP 1에서 잠근 id와 STEP 3의 run_id다.</strong>
+        로컬 결과는 항상 남고, Langfuse는 그 위에 얹는 층이다.
+      </p>
+
+      <details class="more" open>
+        <summary>더 알아보기 — P2의 트레이스와 P3의 트레이스 / 왜 score_trace인가 / 비용·지연도 점수로</summary>
+
+        <h3>P2의 트레이스와 P3의 트레이스는 별개입니다</h3>
+        <p>
+          P3의 <code>eval-case</code> 상자 안에는 P2로 보낸 HTTP 호출만 있고, P2가 안에서 부른 도구·토큰은 <strong>P2 자신의 트레이스</strong>(P2 STEP 6의 <code>agent-chat</code>)에 있습니다.
+          프로세스가 다르니 당연한 일이에요. 둘을 잇는 실마리는 <strong>세션 id</strong>입니다 — P3가 <code>eval-&lt;run_id&gt;-&lt;case_id&gt;</code>로 보냈으니 P2 트레이스를 그 세션으로 검색하면 나옵니다.
+          완전히 한 트리로 묶고 싶다면 요청 헤더로 trace id를 전파하는 방법(W3C <code>traceparent</code>)이 있는데, 다음 단계의 과제로 남겨 둡니다.
+        </p>
+
+        <h3>왜 span.score()가 아니라 score_trace()인가</h3>
+        <p>
+          점수를 자식 observation에 붙이면 대시보드의 run 화면에서 모이지 않습니다. run 비교 화면은 <strong>trace 단위 점수</strong>를 열로 보여 주기 때문에,
+          케이스의 점수는 트레이스에 붙여야 STEP 6의 판정표가 그대로 대시보드에 나타납니다.
+        </p>
+
+        <h3>비용과 지연도 점수입니다</h3>
+        <p>
+          <code>latency_ms</code>는 이미 score로 올라갑니다. 비용은 P2의 트레이스에 있으니(P2 STEP 6), 원한다면 P2의 <code>/chat</code> 응답에 <code>cost</code> 칸을 열고
+          <code>RunResult</code>에 받아 지표로 세면 "프롬프트 B가 정확도 +5%p, 비용 +30%"처럼 <strong>품질과 비용을 한 표</strong>에 놓을 수 있습니다. 토스 공고의 "비용·지연 지표화"가 정확히 이것입니다.
+        </p>
+      </details>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./6.html"><small>← 이전</small> STEP 6 · 비교·회귀 감지</a>
+      <a class="next" href="./8.html"><small>다음 →</small> STEP 8 · 리포트 + 게이트</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

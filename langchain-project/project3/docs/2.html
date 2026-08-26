@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 2 · 시험 대상 어댑터 — P1·P2를 같은 모양으로 — Project 3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html" class="current">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html">STEP 3 · 러너 v1</a>
+      <a href="./4.html">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 3 · LLM/Agent 평가·관측성 하네스</a> &nbsp;›&nbsp; STEP 2</p>
+
+    <section class="step" id="step2">
+      <div class="step-head">
+        <div class="step-num">2</div>
+        <h2>시험 대상 어댑터 — P1·P2를 같은 모양으로</h2>
+        <span class="badge badge-green">🟢 뼈대</span> <span class="badge badge-gray">⏱ 1~2시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        P1의 <code>/query</code>와 P2의 <code>/chat</code>은 창구도 응답 모양도 다릅니다. 이 차이를 <code>targets.py</code> 한 파일이 흡수해서,
+        러너에게는 <strong>"질문을 넣으면 <code>RunResult</code>가 나온다"</strong>는 한 가지 모양만 보이게 합니다.
+        그 전에 P1에 <strong>옵션 하나</strong>를 더합니다 — 검색된 원문(<code>contexts</code>)을 평가 때만 함께 돌려주는 스위치예요.
+      </p>
+
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>수험생이 다른 언어로 답해도, 답안지 양식은 하나여야 채점기가 돈다</h3>
+      <p>
+        P1은 <code>citations</code>(문서·쪽)로 근거를 주고, P2는 <code>sources</code>(문자열 목록)로 줍니다. P2에는 <code>used_tools</code>·<code>blocked</code>가 있고 P1에는 없어요.
+        러너가 이 차이를 매번 <code>if target == "rag"</code>로 처리하면 STEP 3~7의 모든 코드에 그 분기가 퍼집니다.
+        대신 <strong>응답을 받자마자 하나의 양식(<code>RunResult</code>)으로 옮겨 적는 층</strong>을 둡니다. 러너는 그 양식만 압니다.
+      </p>
+
+      <div class="hflow">
+        <div class="hbox"><b>📚 P1 · /query</b><span>{ answer, citations,<br>contexts }</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox hi"><b>🔄 targets.py</b><span>ask_rag / ask_agent<br>차이는 여기서 끝난다</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>📦 RunResult</b><span>answer · sources · contexts<br>used_tools · blocked · latency · error</span></div>
+        <div class="harrow">←</div>
+        <div class="hbox"><b>🤖 P2 · /chat</b><span>{ answer, sources,<br>used_tools, blocked }</span></div>
+      </div>
+
+      <div class="callout callout-analogy">
+        <strong>🌐 비유 — 통역사를 한 명 두면 회의실은 한 언어만 쓴다</strong>
+        <p style="margin-top:6px">
+          참석자마다 통역사를 붙이지 않고, 입구에 한 명만 세웁니다. 안에서는 모두가 같은 양식으로 말하죠.
+          시험 대상이 셋, 넷으로 늘어도(다음 단계의 LangGraph 서비스) <strong>통역사에게 문장 하나만 더 가르치면</strong> 회의실 안 코드는 그대로입니다.
+        </p>
+      </div>
+
+      <div class="label">🛠 할 일 — 다섯 조각</div>
+
+      <div class="piece"><span class="pn">①</span><h4>P1에 옵션 하나 — <code>include_contexts</code></h4><small>— P1 쪽 파일 둘에 세 줄. 기본값이 false라 평소 응답은 그대로다</small></div>
+      <p>
+        RAGAS의 faithfulness·context precision·recall은 <strong>검색된 원문</strong>이 있어야 계산됩니다. P1의 <code>answer()</code>는 이미 <code>contexts</code>를 만들고 있고,
+        <code>/query</code> 응답에서만 빼고 있었어요. 요청한 쪽만 받도록 스위치를 답니다.
+      </p>
+      <div class="filename">project1/schemas.py — 두 줄 추가</div>
+<pre><code>class QueryIn(BaseModel):
+    question: str
+    mode: Literal["baseline", "hybrid", "rerank"] = "rerank"
+    include_contexts: bool = False          # ← 추가(P3 STEP 2). 평가 때만 검색된 원문을 함께 받는다
+
+class QueryOut(BaseModel):
+    answer: str
+    citations: list[Citation]
+    contexts: list[str] = []                # ← 추가(P3 STEP 2). 기본은 빈 목록 — 평소 응답 크기는 그대로다</code></pre>
+      <div class="filename">project1/main.py — query() 한 곳</div>
+<pre><code>@app.post("/query", response_model=QueryOut)
+def query(body: QueryIn):
+    result = answer(body.question, mode=body.mode)
+    return {
+        "answer": result["answer"],
+        "citations": result["citations"],
+        "contexts": result["contexts"] if body.include_contexts else [],   # ← 요청한 쪽만 받는다
+    }</code></pre>
+      <p>터미널 A의 P1은 <code>--reload</code>로 떠 있으니 저장하면 스스로 다시 뜹니다. P2는 이 옵션을 모르므로 P2가 받는 응답은 달라지지 않아요.</p>
+
+      <div class="piece"><span class="pn">②</span><h4>schemas.py — RunResult, 답안지 양식</h4><small>— STEP 1의 파일에 클래스 하나 추가</small></div>
+<pre><code>class RunResult(BaseModel):
+    answer: str
+    sources: list[str] = []                   # 근거. RAG는 "문서 p.쪽", Agent는 sources 그대로
+    contexts: list[str] = []                  # RAG만. 검색된 원문 — RAGAS가 읽는다
+    used_tools: list[str] = []                # Agent만. 이번 턴에 부른 도구 이름
+    blocked: bool = False                     # Agent만. 가드레일에 막혔나
+    latency_ms: int                           # 요청 → 응답까지 걸린 시간
+    error: str | None = None                  # 서비스가 죽어 있었으면 그 사유. 케이스는 계속 돈다</code></pre>
+      <p>
+        "RAG만", "Agent만" 칸이 섞여 있는 게 어색해 보일 수 있어요. 하지만 양식을 둘로 나누면 러너가 다시 분기해야 합니다.
+        <strong>안 쓰는 칸은 빈 값</strong>으로 두는 쪽이 코드 전체를 단순하게 유지합니다.
+      </p>
+
+      <div class="piece"><span class="pn">③</span><h4>targets.py — 전화 한 통, 시간 재기, 실패를 값으로</h4><small>— 예외를 밖으로 던지지 않는다</small></div>
+      <div class="filename">targets.py</div>
+<pre><code>import os
+import time
+
+import requests
+from dotenv import load_dotenv
+
+from schemas import RunResult
+
+load_dotenv()
+P1_API_URL = os.getenv("P1_API_URL", "http://localhost:8000")
+P2_API_URL = os.getenv("P2_API_URL", "http://localhost:8001")
+
+
+def _post(url: str, payload: dict, timeout: int = 120) -&gt; tuple[dict | None, int, str | None]:
+    """POST 한 번. (응답 JSON, 걸린 ms, 에러 사유)를 돌려준다. 서비스가 죽어 있어도 예외를 밖으로 던지지 않는다."""
+    t0 = time.perf_counter()
+    try:
+        r = requests.post(url, json=payload, timeout=timeout)
+        r.raise_for_status()                              # 4xx·5xx도 실패로 친다
+        data, err = r.json(), None
+    except requests.exceptions.RequestException as e:
+        data, err = None, str(e)
+    return data, int((time.perf_counter() - t0) * 1000), err</code></pre>
+      <p>
+        15개 중 하나가 타임아웃 났다고 실행 전체가 죽으면 나머지 14개의 답을 잃습니다. 그래서 실패는 <strong>예외가 아니라 값</strong>(<code>error</code> 칸)으로 돌려주고,
+        STEP 3에서 <code>ok</code>라는 지표로 셉니다. "응답률 0.93"도 그 자체로 정보예요. <code>latency_ms</code>는 여기서 재는 게 정확합니다 — 러너가 재면 채점 시간까지 섞입니다.
+      </p>
+
+      <div class="piece"><span class="pn">④</span><h4>targets.py — 통역 두 문장</h4><small>— 응답을 RunResult로 옮겨 적는다</small></div>
+<pre><code>def ask_rag(question: str, *, mode: str = "rerank") -&gt; RunResult:
+    """P1 · POST /query. mode(baseline|hybrid|rerank)가 곧 '실험 손잡이'다."""
+    data, ms, err = _post(f"{P1_API_URL}/query",
+                          {"question": question, "mode": mode, "include_contexts": True})
+    if err:
+        return RunResult(answer="", latency_ms=ms, error=err)
+    # 같은 페이지에서 청크가 여럿 걸리는 일이 흔하다 → 순서는 지키고 중복만 걷어낸다
+    sources = list(dict.fromkeys(f"{c.get('source')} p.{c.get('page')}" for c in data["citations"]))
+    return RunResult(answer=data["answer"], sources=sources,
+                     contexts=data.get("contexts", []), latency_ms=ms)
+
+
+def ask_agent(question: str, *, session_id: str) -&gt; RunResult:
+    """P2 · POST /chat. 케이스마다 session_id를 다르게 줘야 앞 케이스의 대화가 섞이지 않는다."""
+    data, ms, err = _post(f"{P2_API_URL}/chat", {"message": question, "session_id": session_id})
+    if err:
+        return RunResult(answer="", latency_ms=ms, error=err)
+    return RunResult(answer=data["answer"], sources=data["sources"],
+                     used_tools=data["used_tools"], blocked=data["blocked"], latency_ms=ms)</code></pre>
+      <p>
+        <code>ask_rag</code>의 <code>mode</code>를 눈여겨보세요. P1이 API로 열어 둔 검색 구성(baseline · hybrid · rerank)이 P3에서는 <strong>실험 손잡이</strong>가 됩니다.
+        STEP 6에서 "rerank를 baseline으로 바꾸면 회귀로 잡히는가"를 이 손잡이로 재현합니다.
+      </p>
+
+      <div class="piece"><span class="pn">⑤</span><h4>targets.py — 러너가 부르는 입구 하나 + 헬스체크</h4><small>— 분기는 여기 한 번뿐</small></div>
+<pre><code>def call_target(target: str, case, params: dict, run_id: str) -&gt; RunResult:
+    """러너가 부르는 단 하나의 입구. target 이름으로 어느 서비스에 보낼지 고른다."""
+    if target == "rag":
+        return ask_rag(case.question, **params)
+    return ask_agent(case.question, session_id=f"eval-{run_id}-{case.id}", **params)
+
+
+def health() -&gt; dict[str, bool]:
+    """두 서비스가 살아 있는지. 러너가 시작 전에 한 번 확인한다."""
+    out = {}
+    for name, base in (("rag", P1_API_URL), ("agent", P2_API_URL)):
+        try:
+            out[name] = requests.get(f"{base}/health", timeout=5).ok
+        except requests.exceptions.RequestException:
+            out[name] = False
+    return out
+
+
+if __name__ == "__main__":
+    print("health:", health())
+    print("\n[rag]  ", ask_rag("카드를 잃어버렸는데 누가 몰래 쓴 금액을 은행이 물어주나요?"))
+    print("\n[agent]", ask_agent("오늘부터 30일 뒤는 며칠인가요?", session_id="smoke"))</code></pre>
+      <p>
+        <code>params</code>는 STEP 3에서 명령줄의 <code>--param mode=baseline</code>이 그대로 담겨 오는 상자입니다. 지금 P2에는 손잡이가 없지만,
+        나중에 P2가 <code>/chat</code>에 <code>provider</code>나 <code>prompt</code> 칸을 열면 <strong>이 코드는 그대로 두고</strong> 명령줄만 바꾸면 됩니다.
+        세션 id에 <code>run_id</code>가 들어가는 건 실행을 두 번 돌려도 P2의 메모리가 섞이지 않게 하려는 거예요.
+      </p>
+
+      <div class="label">✅ 검증</div>
+<pre><code># 1) P1이 contexts를 돌려주는가 (터미널 A의 P1이 다시 떴는지 먼저 확인)
+curl -s -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "휴면예금은 몇 년이 지나야 하나요?", "include_contexts": true}' | head -c 600
+
+# 2) 두 시험 대상이 같은 양식으로 돌아오는가
+uv run python targets.py
+
+# 기대 출력 (내용은 다를 수 있음)
+# health: {'rag': True, 'agent': True}
+#
+# [rag]   answer='분실·도난 신고를 접수한 시점부터 …' sources=['data/03_신용카드개인회원표준약관_SC제일은행.pdf p.4'] contexts=['…', '…', '…', '…'] used_tools=[] blocked=False latency_ms=11832 error=None
+#
+# [agent] answer='오늘은 2026-08-26 … 30일 뒤는 2026-09-25입니다.' sources=[] contexts=[] used_tools=['get_today', 'calculate'] blocked=False latency_ms=6210 error=None</code></pre>
+      <ul class="checklist">
+        <li><b>contexts가 온다</b> — 1)의 응답에 <code>"contexts": ["…"]</code>가 있고, <code>include_contexts</code>를 빼고 보내면 <code>[]</code>다</li>
+        <li><b>양식이 같다</b> — <code>[rag]</code>와 <code>[agent]</code> 모두 <code>RunResult</code>의 일곱 칸이 찍힌다</li>
+        <li><b>실패가 값이다</b> — 터미널 B의 P2를 잠깐 끄고 다시 실행하면 <code>[agent]</code>가 <code>error='…Connection refused…'</code>로 돌아오고 스크립트는 죽지 않는다. 확인 후 P2를 다시 켠다</li>
+      </ul>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>시험 대상의 차이는 어댑터 한 파일에서 끝내고, 러너는 하나의 양식만 본다.</strong>
+        실패도 예외가 아니라 값으로 받아야 15개 중 14개의 답이 살아남는다.
+      </p>
+
+      <details class="more" open>
+        <summary>더 알아보기 — timeout은 왜 120초인가 / 세 번째 시험 대상을 붙이려면</summary>
+
+        <h3>timeout 120초</h3>
+        <p>
+          P1의 rerank 구성은 리랭커 모델을 태워 질의당 10초 안팎이 걸리고, P2는 도구를 두세 번 부르면 그만큼 더 걸립니다.
+          넉넉히 두되 무한정 기다리지는 않습니다 — 타임아웃도 <code>error</code>로 기록되어 "응답률" 지표에 잡혀야 하니까요.
+        </p>
+
+        <h3>시험 대상을 하나 더 붙이는 데 필요한 것</h3>
+        <p>
+          다음 단계에서 LangGraph로 G1(Self-Corrective RAG)을 만들면 P3로 P1과 비교하게 됩니다. 그때 할 일은 셋뿐입니다:
+          <code>.env</code>에 주소 한 줄, <code>targets.py</code>에 <code>ask_g1()</code> 한 함수, <code>call_target</code>에 분기 한 줄.
+          시험지(<code>rag_v1.json</code>)와 러너·지표·비교는 <strong>한 글자도 안 바뀝니다.</strong> 그게 이 STEP에서 양식을 하나로 맞춘 값입니다.
+        </p>
+      </details>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./1.html"><small>← 이전</small> STEP 1 · 골든셋 v1</a>
+      <a class="next" href="./3.html"><small>다음 →</small> STEP 3 · 러너 v1</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

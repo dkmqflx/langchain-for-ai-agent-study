@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 3 · 러너 v1 — 명령 한 번에 점수표 — Project 3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html" class="current">STEP 3 · 러너 v1</a>
+      <a href="./4.html">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 3 · LLM/Agent 평가·관측성 하네스</a> &nbsp;›&nbsp; STEP 3</p>
+
+    <section class="step" id="step3">
+      <div class="step-head">
+        <div class="step-num">3</div>
+        <h2>러너 v1 — 명령 한 번에 점수표</h2>
+        <span class="badge badge-green">🟢 뼈대</span> <span class="badge badge-gray">⏱ 2~3시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        <code>uv run python runner.py --target rag --dataset rag_v1 --label rerank</code> 한 줄로 시험지 전체를 돌려,
+        <strong>케이스별 점수표(<code>results.csv</code>)와 요약(<code>summary.json</code>)</strong>이 폴더 하나에 남게 합니다.
+        지표는 아직 <strong>코드로 셀 수 있는 것</strong>만 — 비용 0원, 항상 같은 답이 나오는 것들입니다.
+      </p>
+
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>실행(run) 하나 = 시험지 × 시험 대상 × 설정, 그리고 폴더 하나</h3>
+      <p>
+        P2 STEP 8의 <code>evaluate.py</code>는 결과를 CSV 한 장에 덮어썼습니다. 그걸로는 "지난주와 비교"가 안 돼요. 지난주 파일이 없으니까요.
+        P3는 <strong>실행마다 새 폴더</strong>를 만듭니다. 이름에 시험지 · 라벨 · 시각이 들어가서, 폴더 목록이 곧 실험 일지가 됩니다.
+      </p>
+      <p>
+        폴더 안에는 두 파일이 있습니다. <code>results.csv</code>는 <strong>케이스별 원본</strong>(답변 · 근거 · 지표), <code>summary.json</code>은 <strong>평균과 설정</strong>입니다.
+        STEP 6의 비교는 <code>summary.json</code>끼리, "어느 케이스가 갈렸나"는 <code>results.csv</code>끼리 봅니다.
+      </p>
+
+      <div class="hflow">
+        <div class="hbox"><b>📋 시험지</b><span>rag_v1.json<br>(STEP 1)</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox hi"><b>🏃 케이스마다</b><span>call_target → RunResult<br>score_case → 숫자 몇 개</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox"><b>📄 results.csv</b><span>한 케이스 = 한 줄<br>답변·근거·지표</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>📊 summary.json</b><span>숫자 열의 평균<br>+ 라벨·params·버전</span></div>
+      </div>
+
+      <div class="callout callout-analogy">
+        <strong>🗂 비유 — 실험 노트는 페이지를 찢지 않는다</strong>
+        <p style="margin-top:6px">
+          실험실 노트는 어제 페이지 위에 오늘 결과를 덧쓰지 않습니다. 날짜와 조건을 적고 새 페이지에 씁니다.
+          그래야 "지난주 rerank가 오늘 baseline보다 나았나"를 두 페이지를 펼쳐 놓고 비교할 수 있죠.
+          <code>runs/rag_v1__rerank__20260826-143012/</code>가 그 페이지 한 장입니다.
+        </p>
+      </div>
+
+      <div class="label">🛠 할 일 — 네 조각</div>
+
+      <div class="piece"><span class="pn">①</span><h4>metrics.py — 코드로 세는 지표</h4><small>— True/False를 1.0/0.0으로 두는 이유</small></div>
+      <div class="filename">metrics.py</div>
+<pre><code>import math
+
+from schemas import AgentCase, RagCase, RunResult
+
+
+def _b(x: bool) -&gt; float:
+    return 1.0 if x else 0.0
+
+
+def score_rag(case: RagCase, r: RunResult) -&gt; dict:
+    """P1 응답 하나를 채점. RAGAS 전에도 잴 수 있는 것부터 잰다."""
+    if case.expect_source:
+        source_hit = _b(any(case.expect_source in s for s in r.sources))
+    else:
+        source_hit = math.nan                      # 기대 문서를 안 적은 케이스는 '해당 없음' — 평균에서 빠진다
+    return {
+        "ok": _b(r.error is None),                 # 서비스가 응답했나
+        "has_sources": _b(bool(r.sources)),        # 근거를 하나라도 달았나
+        "source_hit": source_hit,                  # 기대한 문서가 근거에 들어 있나
+        "latency_ms": r.latency_ms,
+    }
+
+
+def score_agent(case: AgentCase, r: RunResult) -&gt; dict:
+    """P2 응답 하나를 채점. P2 STEP 8의 세 가지 판정을 그대로 가져온다."""
+    used = r.used_tools
+    tool_ok = (case.expect_tool in used) if case.expect_tool else (len(used) == 0)
+    sources_ok = bool(r.sources) if case.expect_sources else True
+    block_ok = r.blocked == case.expect_blocked
+    return {
+        "ok": _b(r.error is None),
+        "tool_ok": _b(tool_ok),                    # 기대한 도구를 썼나 (기대가 없으면 '안 썼나')
+        "format_ok": _b(sources_ok and block_ok),  # 근거를 달았고, 막을 걸 막았나
+        "block_ok": _b(block_ok),                  # 가드레일만 따로도 본다 — 프롬프트를 고치다 뚫리는 걸 잡기 위해
+        "latency_ms": r.latency_ms,
+    }
+
+
+SCORERS = {"rag": score_rag, "agent": score_agent}
+
+
+def score_case(target: str, case, r: RunResult) -&gt; dict:
+    return SCORERS[target](case, r)</code></pre>
+      <p>
+        지표를 전부 <strong>숫자</strong>로 두는 게 핵심입니다. <code>True</code> 대신 <code>1.0</code>을 넣으면 15개 케이스의 평균이 곧 "비율"이 되고,
+        pandas의 <code>mean()</code> 한 줄로 요약표가 나옵니다. "해당 없음"은 <code>NaN</code> — 평균에서 자동으로 빠집니다.
+      </p>
+
+      <div class="piece"><span class="pn">②</span><h4>runner.py — 인자와 실행 이름</h4><small>— label은 사람용 이름표, params는 실제 손잡이</small></div>
+      <div class="filename">runner.py</div>
+<pre><code>import argparse
+import json
+import math
+import time
+from pathlib import Path
+
+import pandas as pd
+
+from metrics import score_case
+from schemas import load_dataset
+from targets import call_target, health
+
+
+def parse_params(pairs: list[str]) -&gt; dict:
+    """['mode=rerank', 'k=4'] → {'mode': 'rerank', 'k': '4'}"""
+    return dict(p.split("=", 1) for p in pairs)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--target", required=True, choices=["rag", "agent"])
+    ap.add_argument("--dataset", required=True)                       # datasets/&lt;name&gt;.json
+    ap.add_argument("--label", required=True)                         # 이 실행의 이름표. "rerank", "prompt-B"
+    ap.add_argument("--param", nargs="*", default=[])                 # 시험 대상에 넘길 손잡이. mode=baseline
+    ap.add_argument("--limit", type=int)                              # 처음엔 3개로 하네스가 도는지부터
+    args = ap.parse_args()
+    params = parse_params(args.param)
+
+    ds = load_dataset(args.dataset)
+    assert ds.target == args.target, f"{ds.name}은 {ds.target}용 데이터셋입니다"
+    if not health()[args.target]:
+        raise SystemExit(f"❌ {args.target} 서비스가 응답하지 않습니다. 서버를 먼저 띄우세요.")
+
+    cases = ds.cases[: args.limit] if args.limit else ds.cases
+    run_id = f"{ds.name}__{args.label}__{time.strftime('%Y%m%d-%H%M%S')}"
+    out_dir = Path("runs") / run_id
+    out_dir.mkdir(parents=True)
+    print(f"▶ {run_id} · {len(cases)}개 · params={params}")</code></pre>
+      <p>
+        <code>--label</code>과 <code>--param</code>은 다른 것입니다. <code>label</code>은 폴더 이름에 들어가는 <strong>사람용 이름표</strong>고, <code>param</code>은 시험 대상에 실제로 넘어가는 <strong>손잡이</strong>예요.
+        둘 다 <code>summary.json</code>에 남으니 나중에 "이 실행이 어떤 설정이었지"를 잊어버릴 일이 없습니다.
+      </p>
+
+      <div class="piece"><span class="pn">③</span><h4>runner.py — 루프</h4><small>— 케이스 하나 = 전화 한 통 + 채점 + 한 줄</small></div>
+<pre><code>    rows, outputs = [], {}                                            # outputs: id → RunResult (STEP 4에서 contexts를 쓴다)
+    for i, case in enumerate(cases, 1):
+        result = call_target(ds.target, case, params, run_id)
+        scores = score_case(ds.target, case, result)
+        row = {"id": case.id, "question": case.question, "answer": result.answer,
+               "sources": " / ".join(result.sources), "used_tools": ",".join(result.used_tools),
+               "error": result.error, **scores}
+        rows.append(row)
+        outputs[case.id] = result
+        mark = "✅" if scores["ok"] else "❌"
+        print(f"  {mark} {i:2d}/{len(cases)} {case.id:10s} {result.latency_ms:6d}ms")</code></pre>
+
+      <div class="piece"><span class="pn">④</span><h4>runner.py — 저장과 요약</h4><small>— 숫자 열의 평균이 곧 요약</small></div>
+<pre><code>    df = pd.DataFrame(rows).set_index("id")
+    df.to_csv(out_dir / "results.csv", encoding="utf-8-sig")
+
+    # 요약 = 숫자 열의 평균. True/False를 1/0으로 넣어 뒀으니 평균이 곧 비율이다.
+    metrics = df.select_dtypes("number").mean().round(3).to_dict()
+    summary = {"run_id": run_id, "dataset": ds.name, "version": ds.version, "target": ds.target,
+               "label": args.label, "params": params, "n": len(df),
+               "metrics": {k: (None if math.isnan(v) else v) for k, v in metrics.items()}}
+    (out_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print("\n" + "=" * 52)
+    print(pd.Series(summary["metrics"]).to_string())
+    print("=" * 52)
+    print(f"📁 {out_dir}")
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+      <p>
+        <code>select_dtypes("number")</code>가 이 설계의 보상입니다. STEP 4에서 RAGAS 열 넷, STEP 5에서 judge 열 하나가 붙어도
+        <strong>요약 코드는 한 글자도 안 바뀝니다</strong> — 숫자 열이면 알아서 평균에 들어가니까요.
+        <code>version</code>을 요약에 남기는 건 STEP 6에서 "같은 시험지였나"를 확인하기 위해서입니다.
+      </p>
+
+      <details>
+        <summary>전체 코드 한 번에 보기 — runner.py (STEP 3 버전)</summary>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# STEP 3 · 러너: 골든셋 × 시험 대상 → 케이스별 점수표 + 요약. 명령 한 번이 실행 하나(run)다.
+#
+# 실행:  uv run python runner.py --target rag   --dataset rag_v1   --label rerank --param mode=rerank
+#        uv run python runner.py --target agent --dataset agent_v1 --label prompt-A
+# 결과:  runs/&lt;dataset&gt;__&lt;label&gt;__&lt;시각&gt;/results.csv, summary.json
+# ═══════════════════════════════════════════════════════════════════
+import argparse
+import json
+import math
+import time
+from pathlib import Path
+
+import pandas as pd
+
+from metrics import score_case
+from schemas import load_dataset
+from targets import call_target, health
+
+
+def parse_params(pairs: list[str]) -&gt; dict:
+    """['mode=rerank', 'k=4'] → {'mode': 'rerank', 'k': '4'}"""
+    return dict(p.split("=", 1) for p in pairs)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--target", required=True, choices=["rag", "agent"])
+    ap.add_argument("--dataset", required=True)                       # datasets/&lt;name&gt;.json
+    ap.add_argument("--label", required=True)                         # 이 실행의 이름표. "rerank", "prompt-B"
+    ap.add_argument("--param", nargs="*", default=[])                 # 시험 대상에 넘길 손잡이. mode=baseline
+    ap.add_argument("--limit", type=int)                              # 처음엔 3개로 하네스가 도는지부터
+    args = ap.parse_args()
+    params = parse_params(args.param)
+
+    ds = load_dataset(args.dataset)
+    assert ds.target == args.target, f"{ds.name}은 {ds.target}용 데이터셋입니다"
+    if not health()[args.target]:
+        raise SystemExit(f"❌ {args.target} 서비스가 응답하지 않습니다. 서버를 먼저 띄우세요.")
+
+    cases = ds.cases[: args.limit] if args.limit else ds.cases
+    run_id = f"{ds.name}__{args.label}__{time.strftime('%Y%m%d-%H%M%S')}"
+    out_dir = Path("runs") / run_id
+    out_dir.mkdir(parents=True)
+    print(f"▶ {run_id} · {len(cases)}개 · params={params}")
+
+    rows, outputs = [], {}                                            # outputs: id → RunResult (STEP 4에서 contexts를 쓴다)
+    for i, case in enumerate(cases, 1):
+        result = call_target(ds.target, case, params, run_id)
+        scores = score_case(ds.target, case, result)
+        row = {"id": case.id, "question": case.question, "answer": result.answer,
+               "sources": " / ".join(result.sources), "used_tools": ",".join(result.used_tools),
+               "error": result.error, **scores}
+        rows.append(row)
+        outputs[case.id] = result
+        mark = "✅" if scores["ok"] else "❌"
+        print(f"  {mark} {i:2d}/{len(cases)} {case.id:10s} {result.latency_ms:6d}ms")
+
+    df = pd.DataFrame(rows).set_index("id")
+    df.to_csv(out_dir / "results.csv", encoding="utf-8-sig")
+
+    # 요약 = 숫자 열의 평균. True/False를 1/0으로 넣어 뒀으니 평균이 곧 비율이다.
+    metrics = df.select_dtypes("number").mean().round(3).to_dict()
+    summary = {"run_id": run_id, "dataset": ds.name, "version": ds.version, "target": ds.target,
+               "label": args.label, "params": params, "n": len(df),
+               "metrics": {k: (None if math.isnan(v) else v) for k, v in metrics.items()}}
+    (out_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print("\n" + "=" * 52)
+    print(pd.Series(summary["metrics"]).to_string())
+    print("=" * 52)
+    print(f"📁 {out_dir}")
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+      </details>
+
+      <div class="label">✅ 검증</div>
+<pre><code># 처음엔 3개로 — 하네스가 도는지부터
+uv run python runner.py --target rag   --dataset rag_v1   --label smoke --limit 3
+uv run python runner.py --target agent --dataset agent_v1 --label smoke --limit 3
+
+# 돌면 전체로. 이 두 실행이 STEP 6의 baseline이 된다
+uv run python runner.py --target rag   --dataset rag_v1   --label rerank   --param mode=rerank
+uv run python runner.py --target agent --dataset agent_v1 --label prompt-A
+
+# 기대 출력 (숫자는 예시)
+# ▶ rag_v1__rerank__20260826-143012 · 15개 · params={'mode': 'rerank'}
+#   ✅  1/15 rag-01       9812ms
+#   ✅  2/15 rag-02      10240ms
+#   …
+# ====================================================
+# ok             1.000
+# has_sources    1.000
+# source_hit     0.867
+# latency_ms  9633.400
+# ====================================================
+# 📁 runs/rag_v1__rerank__20260826-143012</code></pre>
+      <ul class="checklist">
+        <li><b>폴더가 생긴다</b> — <code>runs/</code> 아래에 실행마다 폴더가 하나씩, 안에 <code>results.csv</code>·<code>summary.json</code></li>
+        <li><b>요약이 숫자다</b> — rag는 <code>ok · has_sources · source_hit · latency_ms</code>, agent는 <code>ok · tool_ok · format_ok · block_ok · latency_ms</code></li>
+        <li><b>CSV를 읽을 수 있다</b> — <code>results.csv</code>를 열어 <code>source_hit</code>이 0인 케이스의 <code>sources</code>를 보고 "어느 문서가 대신 나왔는지" 말할 수 있다</li>
+        <li><b>시험지가 다르면 거절한다</b> — <code>--target agent --dataset rag_v1</code>로 실행하면 <code>rag용 데이터셋입니다</code>로 멈춘다</li>
+      </ul>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>실행 하나는 폴더 하나이고, 지표는 전부 숫자라서 평균이 곧 요약이다.</strong>
+        이 두 규칙 위에 STEP 4~7이 열(column)만 더해 나간다.
+      </p>
+
+      <details class="more" open>
+        <summary>더 알아보기 — 왜 평균만 보지 않나 / 같은 설정을 두 번 돌려 보기</summary>
+
+        <h3>평균은 "얼마나", CSV는 "어디서"</h3>
+        <p>
+          <code>source_hit 0.867</code>은 15개 중 2개가 엉뚱한 문서를 근거로 댔다는 뜻입니다. 어느 2개인지는 <code>results.csv</code>에만 있어요.
+          평균이 떨어졌을 때 할 일은 CSV를 열어 그 케이스의 <code>answer</code>와 <code>sources</code>를 읽는 것입니다. STEP 6이 이 "어디서"를 자동으로 뽑아 줍니다.
+        </p>
+
+        <h3>같은 설정을 두 번 돌려 보세요</h3>
+        <p>
+          <code>--label rerank</code>를 한 번 더 실행하고 두 <code>summary.json</code>을 나란히 놓아 보세요. LLM은 같은 질문에도 답이 조금씩 달라서 숫자가 흔들립니다.
+          그 <strong>흔들림의 폭</strong>이 STEP 6에서 "얼마나 떨어져야 회귀인가"의 임계값을 정하는 근거가 됩니다. 폭보다 작은 변화는 잡음이에요.
+        </p>
+      </details>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./2.html"><small>← 이전</small> STEP 2 · 시험 대상 어댑터</a>
+      <a class="next" href="./4.html"><small>다음 →</small> STEP 4 · RAGAS 지표</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project 3 · LLM/Agent 평가·관측성 하네스 — 단계별 실행 가이드</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html" class="current">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html">STEP 3 · 러너 v1</a>
+      <a href="./4.html">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <h1>Project 3 · LLM/Agent 평가·관측성 하네스</h1>
+    <p class="doc-meta">
+      <span class="badge badge-red">🔴 심화 · 인프라 관점</span> &nbsp;·&nbsp; ⏱ 2주
+      &nbsp;·&nbsp; 스택: <span class="badge badge-gray">pydantic · pandas</span> <span class="badge badge-gray">RAGAS</span>
+      <span class="badge badge-purple">LLM-as-judge</span> <span class="badge badge-gray">Langfuse datasets · scores</span> <span class="badge badge-gray">pytest</span>
+    </p>
+
+    <p class="lead">
+      P1과 P2에서 평가는 <strong>마지막 한 단계</strong>였습니다. P3에서는 평가가 <strong>주인공</strong>입니다.
+      P1(RAG)과 P2(Agent)를 <strong>시험 대상</strong>으로 놓고, 골든셋을 시험지로 고정하고(STEP 1), 명령 한 번으로 지표를 뽑고(STEP 3~5),
+      지난 실행과 비교해 <strong>나빠졌으면 알려 주는</strong>(STEP 6) 파이프라인을 만듭니다. 결과는 Langfuse에 쌓이고(STEP 7),
+      리포트와 자동 게이트로 마감합니다(STEP 8). 새 모델을 만드는 프로젝트가 아니라
+      <strong>"품질을 숫자로 관리하는 능력"</strong>을 증명하는 프로젝트입니다.
+    </p>
+
+    <div class="callout callout-info">
+      <strong>📖 이 문서 사용법</strong>
+      각 STEP은 <strong>🎯 목표 → 🧠 개념(왜) → 🛠 할 일(코드) → ✅ 검증 게이트 → 🎓 한 줄 정리</strong> 순서입니다.
+      <strong>검증 게이트를 통과하지 못하면 다음 STEP으로 넘어가지 마세요.</strong>
+      P3는 앞 STEP의 파일을 뒤 STEP이 그대로 이어받아 키우는 구조라, 한 STEP이 비면 그 뒤가 전부 흔들립니다.
+    </div>
+
+    <div class="callout callout-analogy">
+      <strong>🧪 P1·P2와 무엇이 다른가 — "만드는 사람"에서 "시험 감독관"으로</strong>
+      <p style="margin-top:6px">
+        일반 코드에는 테스트가 있습니다. 같은 입력에는 같은 출력이 나오니 <strong>통과 아니면 실패</strong>, 둘 중 하나죠.
+        LLM 앱은 다릅니다. 같은 질문에도 답이 조금씩 달라지고, 정답도 한 문장으로 정해져 있지 않습니다.
+        그래서 점수는 0/1이 아니라 <strong>비율과 평균</strong>이고, 판정은 "틀렸다"가 아니라 <strong>"지난번보다 임계값 넘게 떨어졌다"</strong>입니다.
+      </p>
+      <p>
+        이 차이 때문에 P3에는 일반 테스트에 없는 부품 셋이 들어갑니다.
+        <strong>고정된 시험지</strong>(골든셋 + 버전), <strong>채점자</strong>(코드 · RAGAS · LLM), 그리고
+        <strong>"그 채점자를 믿어도 되나"</strong>를 사람 점수로 확인하는 절차입니다. 한 번 만들어 두면 이후 LangGraph로 만드는 모든 것의 품질 게이트로 그대로 씁니다.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>⚠️ 버전 기준 (한 번만 읽어두기)</strong>
+      RAGAS는 <strong>0.4.x</strong>, Langfuse는 <strong>4.x</strong>(datasets · scores API) 기준입니다.
+      RAGAS 0.4.x는 <code>langchain-community 0.4.1</code>과 맞물리므로 STEP 0에서 그 버전으로 고정합니다.
+      두 패키지 모두 마이너 버전에서 함수 이름이 바뀝니다 — <code>ImportError</code>가 나면 에러 메시지의 모듈명을 공식 문서에서 검색하세요.
+    </div>
+
+    <h2 id="dod">✅ 완성 정의 (Definition of Done)</h2>
+    <p>아래가 모두 충족되면 이 프로젝트는 "완성"입니다. STEP들이 이 목록을 하나씩 채워 나갑니다.</p>
+    <ul>
+      <li>골든셋 <strong>두 벌</strong>(RAG용 · Agent용, 각 15~20 케이스)이 <strong>스키마 검증</strong>을 통과하고 <strong>버전 태그</strong>가 있다 <span class="badge badge-gray">STEP 1</span></li>
+      <li><strong>명령 한 번</strong>으로 P1·P2를 돌려 케이스별 점수표(<code>results.csv</code>)와 요약(<code>summary.json</code>)이 폴더 하나에 남는다 <span class="badge badge-gray">STEP 2~3</span></li>
+      <li>RAG는 <strong>RAGAS 4종</strong>, Agent는 <strong>도구 선택 · 형식 · 차단</strong> 지표가 숫자로 나온다 <span class="badge badge-gray">STEP 3~4</span></li>
+      <li><strong>LLM 채점 점수</strong>가 있고, 사람 라벨 10개와의 <strong>일치율</strong>이 숫자로 있다 <span class="badge badge-gray">STEP 5</span></li>
+      <li>두 실행을 비교해 <strong>회귀 / 개선 / 유지</strong>를 판정하고, 일부러 나쁜 설정을 넣으면 <strong>회귀로 잡힌다</strong> <span class="badge badge-gray">STEP 6</span></li>
+      <li>Langfuse에 <strong>케이스 = item, 실행 = run, 지표 = score</strong>로 쌓여 실행별 추이가 보인다 <span class="badge badge-gray">STEP 7</span></li>
+      <li>실행마다 <strong>리포트 파일</strong>이 생기고, <code>pytest</code> 한 줄로 baseline 대비 회귀 여부가 판정된다 <span class="badge badge-gray">STEP 8</span></li>
+      <li><strong>README</strong>에 문제정의 · 아키텍처 · 지표 · 배운 점이 정리돼 있다 <span class="badge badge-gray">STEP 9</span></li>
+    </ul>
+
+    <h3>아키텍처 한눈에 보기</h3>
+    <div class="arch">
+      <div class="arch-flow">
+
+        <div class="arch-node">
+          <div class="ico">📋</div>
+          <div><div class="nd-title">골든셋 (시험지)</div><div class="nd-sub"><code>datasets/rag_v1.json</code> · <code>agent_v1.json</code> — 버전 태그로 고정</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 1</b> · <code>schemas.py</code> — 읽는 순간 모양을 검증한다</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🏃</div>
+          <div><div class="nd-title">러너 <code>runner.py</code></div><div class="nd-sub">케이스마다 시험 대상을 부르고 → 채점하고 → 한 줄 남긴다</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 2</b> · <code>targets.py</code> — HTTP로만 부른다. 코드는 import하지 않는다</div>
+          <div class="arch-enh">
+            <span class="enh-chip">📚 P1 · <code>POST /query</code> (mode 손잡이)</span>
+            <span class="enh-chip">🤖 P2 · <code>POST /chat</code></span>
+          </div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">📏</div>
+          <div><div class="nd-title">지표 세 층</div><div class="nd-sub">① 코드로 세는 것(도구·형식·근거·지연) &nbsp;② RAGAS 4종 &nbsp;③ LLM-as-judge</div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 3~5</b> · 케이스별 점수 → 평균이 곧 요약</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node">
+          <div class="ico">📁</div>
+          <div><div class="nd-title">실행 하나 = 폴더 하나</div><div class="nd-sub"><code>runs/&lt;시험지&gt;__&lt;라벨&gt;__&lt;시각&gt;/</code> — <code>results.csv</code> + <code>summary.json</code></div></div>
+        </div>
+
+        <div class="arch-conn">
+          <div class="line"></div>
+          <div class="lbl"><b>STEP 6</b> · <code>compare.py</code> — baseline vs candidate, 지표별 임계값</div>
+          <div class="arrow">▼</div>
+        </div>
+
+        <div class="arch-node accent">
+          <div class="ico">🚦</div>
+          <div><div class="nd-title">판정</div><div class="nd-sub">회귀 / 개선 / 유지 → 리포트(md) + <code>pytest</code> 게이트 (STEP 8)</div></div>
+        </div>
+
+      </div>
+
+      <div class="arch-cross-label">가로지르는 관심사 — 파이프라인 전체에 적용</div>
+      <div class="arch-cross">
+        <div class="cross-card">
+          <div class="ico">🏷</div>
+          <div><div class="cc-title">STEP 1 · 버전 관리</div><div class="cc-sub">같은 <code>version</code>의 시험지끼리만 점수를 비교한다</div></div>
+        </div>
+        <div class="cross-card">
+          <div class="ico">🧑‍⚖️</div>
+          <div><div class="cc-title">STEP 5 · 채점자 신뢰도</div><div class="cc-sub">사람 라벨 10개와 judge 점수의 일치율</div></div>
+        </div>
+        <div class="cross-card">
+          <div class="ico">☁️</div>
+          <div><div class="cc-title">STEP 7 · Langfuse</div><div class="cc-sub">dataset · run · trace · score — 대시보드에서 추이 비교</div></div>
+        </div>
+        <div class="cross-card green">
+          <div class="ico">🔁</div>
+          <div><div class="cc-title">STEP 8 · 게이트</div><div class="cc-sub"><code>baselines/</code> 대비 회귀면 <code>pytest</code> 실패</div></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 id="sut-link">🔗 P1·P2와의 관계 — 시험 감독관은 수험생의 코드를 읽지 않는다</h3>
+    <p>
+      P3는 P1의 <code>rag.py</code>도 P2의 <code>agent.py</code>도 <code>import</code>하지 않습니다.
+      아는 것은 <strong>주소 둘과 JSON 모양 둘</strong>뿐이고, 그래서 P3 환경에는 Chroma도 리랭커도 LangGraph도 깔리지 않습니다.
+    </p>
+    <table>
+      <thead><tr><th style="width:14%">시험 대상</th><th style="width:40%">P3가 보내는 것</th><th>P3가 받는 것</th></tr></thead>
+      <tbody>
+        <tr><td><strong>P1</strong> · 8000</td><td><code>POST /query</code> &nbsp;<code>{ question, mode, include_contexts }</code></td><td><code>{ answer, citations, contexts }</code></td></tr>
+        <tr><td><strong>P2</strong> · 8001</td><td><code>POST /chat</code> &nbsp;<code>{ message, session_id }</code></td><td><code>{ answer, sources, used_tools, blocked }</code></td></tr>
+      </tbody>
+    </table>
+    <p>
+      P3가 P1에 요구하는 변경은 딱 하나, <code>include_contexts</code> 옵션입니다(STEP 2). RAGAS가 <strong>검색된 원문</strong>을 읽어야 "답이 문맥에 근거했나"를 잴 수 있어서예요.
+      기본값은 <code>false</code>라 P2가 부를 때의 응답은 지금과 똑같습니다.
+    </p>
+    <div class="callout callout-info">
+      <strong>💡 이력서에 남는 문장</strong>
+      "평가 하네스를 시험 대상과 분리해, <strong>HTTP 창구만 있으면 어떤 서비스든 같은 시험지로 채점</strong>되게 설계했다."
+      이 문장 덕분에 다음 단계(LangGraph)에서 새로 만드는 G1을 P1과 <strong>같은 시험지</strong>로 비교할 수 있습니다 — "그래프로 바꿨더니 recall이 얼마나 올랐나"가 숫자로 나옵니다.
+    </div>
+
+    <h3>🧭 시작 전 준비 — 서버 두 개가 떠 있어야 합니다</h3>
+    <p>
+      STEP 2부터 P1과 P2가 동시에 켜져 있어야 합니다. 터미널을 셋 열어 두세요. P2는 <strong>STEP 6까지</strong> 구현돼 있으면 충분합니다(STEP 7·8은 없어도 됩니다).
+    </p>
+    <div class="filename">터미널 A — P1 (계속 켜 둠)</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project/project1
+uv run uvicorn main:app --reload --port 8000</code></pre>
+    <div class="filename">터미널 B — P2 (계속 켜 둠)</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project/project2
+uv run uvicorn main:app --reload --port 8001</code></pre>
+    <div class="filename">터미널 C — P3 작업용</div>
+<pre><code>cd ~/Documents/langchain-study/langchain-project/project3</code></pre>
+
+    <hr />
+
+    <h2 id="steps">📚 단계별 문서</h2>
+
+    <p>STEP 0부터 순서대로 진행하세요. 각 문서 맨 아래의 <strong>이전/다음</strong> 링크로 이어서 볼 수 있습니다.</p>
+
+    <div class="phase-label">1부 · 시험지와 러너 — 평가의 뼈대</div>
+    <div class="steplist">
+      <div class="steplist-item">
+        <div class="steplist-num">0</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./0.html">프로젝트 셋업 &amp; 준비물</a>
+          <p>독립 환경 · 의존성 · 키 + P1·P2 연결 확인</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">1</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./1.html">골든셋 v1 — 시험지와 스키마</a><span class="sl-tag">🟢 뼈대</span>
+          <p>케이스 두 종류 · 버전 태그 · 읽는 순간 검증</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">2</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./2.html">시험 대상 어댑터 — P1·P2를 같은 모양으로</a><span class="sl-tag">🟢 뼈대</span>
+          <p>응답 둘을 RunResult 하나로 · P1에 contexts 옵션</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num lc">3</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./3.html">러너 v1 — 명령 한 번에 점수표</a><span class="sl-tag">🟢 뼈대</span>
+          <p>결정론 지표 · 실행 하나 = 폴더 하나</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-label">2부 · 지표 층 — 채점자를 늘리고, 채점자를 검사하고, 판정한다</div>
+    <div class="steplist">
+      <div class="steplist-item">
+        <div class="steplist-num">4</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./4.html">RAGAS 지표 장착</a>
+          <p>faithfulness · relevancy · precision · recall을 러너에</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">5</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./5.html">LLM-as-judge + 채점자 신뢰도</a>
+          <p>사람 라벨 10개와 일치율 — 채점자도 시험을 본다</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">6</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./6.html">실행 비교와 회귀 감지</a><span class="sl-tag">이 프로젝트의 하이라이트</span>
+          <p>baseline vs candidate · 임계값 · 일부러 망가뜨려 잡아 보기</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-label">3부 · 플랫폼화 — 팀이 보고, 기계가 판정하고, 남에게 보여 준다</div>
+    <div class="steplist">
+      <div class="steplist-item">
+        <div class="steplist-num">7</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./7.html">Langfuse datasets · scores</a>
+          <p>케이스 = item · 실행 = run · 지표 = score</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">8</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./8.html">자동 리포트 + 품질 게이트</a>
+          <p>실행마다 md 한 장 · pytest 한 줄 · (선택) CI</p>
+        </div>
+      </div>
+      <div class="steplist-item">
+        <div class="steplist-num">9</div>
+        <div class="steplist-body">
+          <a class="sl-title" href="./9.html">마무리 — README &amp; 포트폴리오화</a>
+          <p>이력서에 쓸 형태로 마감</p>
+        </div>
+      </div>
+    </div>
+
+    <h2>🗂 최종 파일 구조 — 파일 하나가 STEP 하나</h2>
+<pre><code>project3/
+├── docs/                    # 이 가이드
+├── datasets/
+│   ├── rag_v1.json          # STEP 1 — RAG 시험지 (P1의 15문항 + 기대 문서)
+│   └── agent_v1.json        # STEP 1 — Agent 시험지 (도구·근거·차단 케이스)
+├── schemas.py               # STEP 1, 2 — 케이스 스키마 · 데이터셋 로더 · RunResult
+├── targets.py               # STEP 2 — P1·P2 HTTP 어댑터
+├── metrics.py               # STEP 3, 4 — 결정론 지표 · RAGAS
+├── judge.py                 # STEP 5 — LLM-as-judge
+├── check_judge.py           # STEP 5 — 채점자 신뢰도 (사람 라벨 vs judge)
+├── runner.py                # STEP 3, 4, 5, 7 — 실행기 (플래그로 지표 층을 켠다)
+├── compare.py               # STEP 6 — baseline vs candidate · 회귀 판정
+├── tracing.py               # STEP 7 — Langfuse trace · score · run 연결
+├── sync_dataset.py          # STEP 7 — 골든셋을 Langfuse 데이터셋으로
+├── report.py                # STEP 8 — 마크다운 리포트
+├── tests/test_quality_gate.py   # STEP 8 — pytest 게이트
+├── runs/                    # 실행 결과 (폴더 하나 = 실행 하나)
+├── baselines/               # STEP 8 — 믿고 쓰는 실행을 승격해 둔 곳
+├── reports/                 # STEP 8 — 리포트
+├── .env
+└── README.md                # STEP 9</code></pre>
+
+    <div class="pager">
+      <a class="prev" href="../../index.html#p3"><small>← 로드맵</small> 실무 프로젝트 3선</a>
+      <a class="next" href="./0.html"><small>여기서 시작 →</small> STEP 0 · 셋업</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 9 · README &amp; 포트폴리오화 — Project 3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html">STEP 3 · 러너 v1</a>
+      <a href="./4.html">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html" class="current">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 3 · LLM/Agent 평가·관측성 하네스</a> &nbsp;›&nbsp; STEP 9</p>
+
+    <section class="step new-step" id="step9">
+      <div class="step-head">
+        <div class="step-num">9</div>
+        <h2>마무리 — README &amp; 포트폴리오화</h2>
+        <span class="badge badge-green">완성</span> <span class="badge badge-gray">⏱ 2~3시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        <code>README.md</code> 하나를 채웁니다. 처음 보는 사람이 <strong>읽고 → 서버 둘 띄우고 → 명령 한 번 돌려 → 리포트를 열어 볼 수 있고</strong>,
+        이력서에 <strong>숫자 셋</strong>으로 옮길 수 있으면 완성입니다.
+      </p>
+
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>P3의 README는 "만든 것"이 아니라 "잡아낸 것"을 보여 준다</h3>
+      <p>
+        P1·P2의 README는 "무엇을 만들었고 얼마나 좋은가"였습니다. P3는 다릅니다. 이 프로젝트의 산출물은 <strong>회귀를 잡아낸 기록</strong>이에요.
+        "baseline 구성으로 바꾸자 recall이 0.70 → 0.58로 떨어졌고 하네스가 이를 회귀로 판정했다" — 이 한 문장이 P3의 존재 이유이고,
+        토스 공고의 "정량 평가 기반을 플랫폼으로"에 정면으로 대응하는 문장입니다. 칸은 P2와 같은 다섯 개, 내용의 무게는 ③에 실립니다.
+      </p>
+      <div class="hflow">
+        <div class="hbox"><b>① 문제</b><span>평가 없는 LLM 앱의<br>변경은 도박이다</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox"><b>② 아키텍처</b><span>시험지 · 러너 · 지표 3층<br>· 비교 · 게이트</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>③ 결과</b><span>표 셋: 회귀 감지 ×2<br>+ judge 신뢰도</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox"><b>④ 실행</b><span>서버 둘 + 명령 셋<br>순서·포트</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox warn"><b>⑤ 한계</b><span>케이스 수 · judge 편향<br>· CI 미완</span></div>
+      </div>
+
+      <div class="label">🛠 할 일 — 칸 다섯 개</div>
+
+      <div class="piece"><span class="pn">①</span><h4>문제 정의</h4><small>— "평가가 없으면 변경은 도박"을 두세 문장으로</small></div>
+      <p>
+        프롬프트 한 줄, 검색 설정 하나를 바꿀 때마다 "나아졌나?"를 질문 두세 개로 확인하던 상태에서 출발합니다.
+        그 방식은 내가 고친 부분만 보게 되고, 다른 곳이 나빠진 건 배포 뒤에야 압니다. 그래서 <strong>고정된 시험지와 자동 판정</strong>이 필요했다 — 이게 문제 정의입니다.
+      </p>
+
+      <div class="piece"><span class="pn">②</span><h4>아키텍처</h4><small>— 흐름 한 줄 + 손잡이 + 설계 의도 한 문장</small></div>
+      <p>
+        <code>골든셋(버전) → 러너 → 시험 대상(HTTP) → 지표 3층 → runs/ → compare → 리포트·게이트</code> 한 줄과, 밖으로 빼 둔 손잡이(<code>--param</code> · 임계값 · baseline 폴더)를 적습니다.
+        그리고 <strong>꼭 한 문장</strong>: <em>"시험 대상을 import하지 않고 HTTP로만 호출해, 창구가 있는 서비스라면 무엇이든 같은 시험지로 채점되게 했다 — 다음 단계의 LangGraph 서비스가 그 첫 수혜자다."</em>
+      </p>
+
+      <div class="piece"><span class="pn">③</span><h4>결과 — 표 셋</h4><small>— 잡아낸 것, 그리고 채점자의 신뢰도</small></div>
+      <table>
+        <thead><tr><th style="width:30%">표</th><th>보여 주는 것</th><th style="width:26%">출처</th></tr></thead>
+        <tbody>
+          <tr><td><b>RAG 회귀 감지</b></td><td>rerank(baseline) vs baseline 구성 — <code>context_recall</code>·<code>source_hit</code> 회귀, <code>latency</code> 개선. "빠르지만 못 찾는다"를 표 한 장으로</td><td>STEP 6 · <code>reports/rag_v1__baseline__…md</code></td></tr>
+          <tr><td><b>Agent 회귀 감지</b></td><td>prompt-A vs 규칙을 지운 prompt-bad — <code>tool_ok</code>·<code>format_ok</code> 회귀, <code>block_ok</code> 유지</td><td>STEP 6 · <code>reports/agent_v1__prompt-bad__…md</code></td></tr>
+          <tr><td><b>judge 신뢰도</b></td><td>사람 라벨 10개 대비 정확 일치 · ±1 일치 · 후함/박함 방향</td><td>STEP 5 · <code>check_judge.py agree</code></td></tr>
+        </tbody>
+      </table>
+      <p>
+        표 아래에 한 줄씩 해석을 붙이세요. "recall이 0.12 떨어진 케이스 둘은 모두 카드 약관 질문이었고, baseline 구성이 예금 약관을 대신 가져왔다" — 이런 문장이 숫자를 읽을 줄 안다는 증거입니다.
+      </p>
+
+      <div class="piece"><span class="pn">④</span><h4>실행 방법</h4><small>— 서버 둘, 명령 셋, 순서와 포트</small></div>
+      <p>
+        P1(8000) · P2(8001)를 먼저 띄우고, <code>runner → compare → pytest</code> 순서라는 걸 적습니다. <code>--ragas --judge</code>는 비용이 든다는 것과, 처음엔 <code>--limit 3</code>으로 돌려 보라는 것도요.
+      </p>
+
+      <div class="piece"><span class="pn">⑤</span><h4>한계 · 다음</h4><small>— 알고 쓴다는 증거</small></div>
+      <table>
+        <thead><tr><th style="width:24%">한계</th><th>지금</th><th style="width:32%">다음이라면</th></tr></thead>
+        <tbody>
+          <tr><td><b>케이스 수</b></td><td>15~20개. 케이스 하나가 비율 지표를 0.05~0.07 움직인다</td><td>50개 이상 + smoke/full 분리</td></tr>
+          <tr><td><b>흔들림</b></td><td>같은 설정도 실행마다 ±0.03 안팎 흔들림(측정치 기록)</td><td>실행 3회 평균으로 판정</td></tr>
+          <tr><td><b>judge 편향</b></td><td>시험 대상과 같은 계열 모델이 채점. 사람 대비 후함(측정치 기록)</td><td>다른 계열 심판 + 라벨 30개로 κ 산출</td></tr>
+          <tr><td><b>트레이스 연결</b></td><td>P3 trace와 P2 trace가 세션 id로만 이어짐</td><td>헤더로 trace id 전파(W3C traceparent)</td></tr>
+          <tr><td><b>CI</b></td><td>로컬 <code>gate.sh</code>. P1의 인덱스·모델 때문에 CI 러너에서 미구동</td><td>인덱스를 아티팩트로 캐시, 야간 workflow</td></tr>
+        </tbody>
+      </table>
+
+      <details>
+        <summary>전체 템플릿 — README.md (복사해서 괄호와 x를 채우세요)</summary>
+<pre><code class="nohl"># P3 · LLM/Agent 평가·관측성 하네스
+
+## 문제 정의
+프롬프트나 검색 설정을 바꿀 때마다 질문 두세 개로 "나아졌나"를 확인하는 방식은 고친 곳만 보게 되고,
+다른 곳의 회귀는 배포 뒤에 드러난다. P1(RAG)·P2(Agent)를 시험 대상으로, 고정된 시험지와 자동 판정으로
+"이번 변경이 지난 baseline보다 나빠졌는가"에 명령 한 번으로 답하는 하네스를 만들었다.
+
+## 아키텍처
+골든셋(datasets/, 버전 태그) → 러너(runner.py) → 시험 대상(P1 /query · P2 /chat, HTTP만)
+→ 지표 3층(결정론 · RAGAS · LLM-as-judge) → runs/&lt;시험지&gt;__&lt;라벨&gt;__&lt;시각&gt;/ → compare.py(임계값 판정)
+→ 리포트(reports/) · 게이트(pytest, baselines/ 대비)
+
+손잡이: `--param`(시험 대상 설정) · `THRESHOLDS`(지표별 임계값) · `baselines/`(승격은 폴더 복사)
+Langfuse: 시험지 = dataset, 케이스 = item(id 동일), 실행 = run, 지표 = score
+
+시험 대상을 import하지 않고 HTTP로만 호출해, 창구가 있는 서비스라면 무엇이든 같은 시험지로 채점된다.
+
+## 결과
+### RAG · rerank(baseline) vs baseline 구성 — 회귀 감지
+| metric | baseline | candidate | delta | verdict |
+|---|---|---|---|---|
+| context_recall | 0.xx | 0.xx | -0.xx | 회귀 |
+| source_hit | 0.xx | 0.xx | -0.xx | 회귀 |
+| latency_ms | xxxx | xxxx | -xxxx | 개선 |
+해석: (갈린 케이스 둘의 공통점 한 문장)
+
+### Agent · prompt-A vs prompt-bad(규칙 3·4 제거) — 회귀 감지
+| metric | baseline | candidate | delta | verdict |
+|---|---|---|---|---|
+| tool_ok | 0.xx | 0.xx | -0.xx | 회귀 |
+| format_ok | 0.xx | 0.xx | -0.xx | 회귀 |
+| block_ok | 1.00 | 1.00 | 0.00 | 유지 |
+
+### judge 신뢰도 (사람 라벨 10개)
+정확 일치 0.xx · ±1 일치 0.xx · MAE 0.xx · judge가 사람보다 (후함/박함)
+
+## 실행
+```bash
+# 터미널 A·B: P1(8000) · P2(8001) 먼저
+uv sync
+uv run python runner.py --target rag   --dataset rag_v1   --label rerank --param mode=rerank --ragas --judge
+uv run python runner.py --target agent --dataset agent_v1 --label prompt-A --judge
+uv run python compare.py baselines/rag_v1 runs/&lt;실행&gt;
+uv run pytest -q
+```
+
+## 한계와 다음
+- 케이스 15~20개 — 케이스 하나가 0.05~0.07을 움직인다 → 50개 이상 + smoke/full 분리
+- 같은 설정의 흔들림 ±0.0x(3회 측정) → 3회 평균으로 판정
+- judge가 시험 대상과 같은 계열 → 다른 계열 심판, 라벨 30개로 κ
+- P3 trace ↔ P2 trace는 세션 id로만 연결 → 헤더 전파
+- CI는 로컬 gate.sh — P1의 인덱스·모델 로딩 때문에 → 아티팩트 캐시 + 야간 workflow
+
+## 배운 점
+- (평가 하네스를 만들며 시험 대상 설계에 대해 깨달은 것 한 줄 — 예: "P1에 contexts 옵션이 없었다면 RAGAS 셋 중 셋을 못 쟀다. 서비스는 평가를 염두에 두고 창구를 열어야 한다")
+- (judge를 사람 라벨로 검증하며 깨달은 것 한 줄)
+- (임계값을 정하며 깨달은 것 한 줄)</code></pre>
+      </details>
+
+      <div class="label">✅ 검증</div>
+      <ul class="checklist">
+        <li><b>처음 보는 사람이 돌릴 수 있다</b> — README만 보고 서버 둘을 띄우고 <code>runner → compare → pytest</code>를 실행할 수 있다</li>
+        <li><b>표 셋에 실제 숫자가 있다</b> — x가 하나도 안 남아 있고, 각 표 아래 해석이 한 줄씩 있다</li>
+        <li><b>한계 칸에 측정치가 있다</b> — 흔들림 폭과 judge 후함/박함이 "느낌"이 아니라 숫자로 적혀 있다</li>
+        <li><b>커밋 히스토리가 순서를 말한다</b> — 시험지 → 러너 → 지표 → 비교 → 게이트 순서의 커밋과, baseline 승격 커밋이 있다</li>
+      </ul>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>P3의 결과물은 점수가 아니라 "회귀를 잡아냈다"는 기록이다.</strong>
+        그 기록이 있어야 다음 단계에서 무엇을 바꾸든 안심하고 바꿀 수 있다.
+      </p>
+
+      <details class="more" open>
+        <summary>더 알아보기 — 이력서 문장 셋 / 다음 단계에서 P3가 하는 일</summary>
+
+        <h3>이력서 문장 셋</h3>
+        <ul>
+          <li><strong>토스플레이스 · 토스</strong> — "RAG·Agent 서비스에 대한 골든셋 기반 회귀 평가 하네스를 구축해, 검색 구성 변경 시 context recall 0.70→0.58 하락을 배포 전에 자동 감지"</li>
+          <li><strong>토스 (평가 플랫폼)</strong> — "LLM-as-judge를 사람 라벨 대비 ±1 일치율 0.9로 검증하고, 지표를 Langfuse dataset run·score로 적재해 실행 간 비교를 대시보드화"</li>
+          <li><strong>카카오헬스케어</strong> — "평가 대상을 HTTP 경계로 분리해 어떤 서비스든 같은 시험지로 채점되는 구조 — 이후 LangGraph 기반 서비스의 품질 게이트로 재사용"</li>
+        </ul>
+
+        <h3>다음 단계에서 P3가 하는 일</h3>
+        <p>
+          <a href="../../../langgraph-project/index.html">LangGraph 프로젝트 3선</a>의 G1(Self-Corrective RAG)은 P1을 그래프로 다시 만드는 프로젝트입니다.
+          G1이 완성되면 <code>targets.py</code>에 <code>ask_g1()</code>을 더하고 <strong>같은 <code>rag_v1</code></strong>으로 두 실행을 비교합니다 — "그래프로 바꿨더니 recall +0.15"가 그때의 표입니다.
+          G2(Supervisor)에서는 <code>agent_v1</code>에 라우팅 케이스를 더해(<code>v2</code>) 라우팅 정확도를 잽니다. P3는 버리는 연습작이 아니라 앞으로 만드는 모든 것의 <strong>검문소</strong>입니다.
+        </p>
+      </details>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./8.html"><small>← 이전</small> STEP 8 · 리포트 + 게이트</a>
+      <a class="next" href="../../../langgraph-project/index.html"><small>다음 →</small> LangGraph 실무 프로젝트 3선</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

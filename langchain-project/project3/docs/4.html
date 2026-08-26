@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 4 · RAGAS 지표 장착 — Project 3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html">STEP 3 · 러너 v1</a>
+      <a href="./4.html" class="current">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 3 · LLM/Agent 평가·관측성 하네스</a> &nbsp;›&nbsp; STEP 4</p>
+
+    <section class="step new-step" id="step4">
+      <div class="step-head">
+        <div class="step-num">4</div>
+        <h2>RAGAS 지표 장착</h2>
+        <span class="badge badge-yellow">지표 층</span> <span class="badge badge-gray">⏱ 1~2시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        RAG 실행에 <code>--ragas</code> 플래그를 더해 <strong>faithfulness · answer_relevancy · context_precision · context_recall</strong> 네 열이
+        <code>results.csv</code>와 <code>summary.json</code>에 붙게 합니다. P1 STEP 7에서 한 번 해 본 채점을 <strong>러너의 부품</strong>으로 옮기는 STEP입니다.
+      </p>
+
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>STEP 3의 지표는 "했나"만 본다. "맞나"를 보려면 문맥과 정답을 놓고 심판이 필요하다</h3>
+      <p>
+        <code>source_hit</code>은 근거가 <em>그 문서</em>였는지만 봅니다. 답이 그 문서 내용과 다르게 지어냈는지, 정답의 절반을 빠뜨렸는지는 모르죠.
+        그걸 보려면 <strong>질문 · 검색된 문맥 · 답 · 정답</strong> 넷을 나란히 놓고 읽어야 하는데, 사람이 15개를 매번 읽을 수는 없습니다. RAGAS가 심판 LLM에게 그 일을 시킵니다.
+      </p>
+      <table>
+        <thead><tr><th style="width:22%">지표</th><th style="width:24%">무엇과 무엇을 비교하나</th><th>묻는 것</th></tr></thead>
+        <tbody>
+          <tr><td><b>faithfulness</b></td><td>답 ↔ 문맥</td><td>답의 주장들이 검색된 문맥에 실제로 있나 (지어내지 않았나)</td></tr>
+          <tr><td><b>answer_relevancy</b></td><td>답 ↔ 질문</td><td>답이 질문에 대답하고 있나 (딴소리가 아닌가)</td></tr>
+          <tr><td><b>context_precision</b></td><td>문맥 ↔ 정답</td><td>검색된 문맥 중 쓸모 있는 게 위쪽에 있나</td></tr>
+          <tr><td><b>context_recall</b></td><td>문맥 ↔ 정답</td><td>정답에 필요한 내용이 문맥에 빠짐없이 있나</td></tr>
+        </tbody>
+      </table>
+      <p>
+        넷 중 셋이 <strong>문맥</strong>을 읽습니다. STEP 2에서 P1에 <code>include_contexts</code>를 단 이유가 여기서 드러나요.
+        지표를 읽는 법은 <a href="../../project1/docs/7.html">P1 STEP 7</a>에 자세히 있으니 여기서는 러너에 붙이는 일에 집중합니다.
+      </p>
+
+      <div class="hflow">
+        <div class="hbox"><b>📄 rows</b><span>answer<br>(STEP 3에서 이미 있음)</span></div>
+        <div class="hbox"><b>📦 outputs</b><span>contexts<br>(RunResult에 들고 있음)</span></div>
+        <div class="hbox"><b>📋 case</b><span>ground_truth<br>(시험지)</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox hi"><b>⚖️ ragas_scores()</b><span>15개를 모아<br>한 번에 채점</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>📊 df.join</b><span>열 넷이 붙는다<br>요약은 자동</span></div>
+      </div>
+
+      <div class="callout callout-analogy">
+        <strong>📮 비유 — 답안지를 모아서 채점실에 보낸다</strong>
+        <p style="margin-top:6px">
+          STEP 3의 지표는 감독관이 시험장에서 바로 매기는 "출석 · 답안지 제출 · 이름 기재" 같은 것이고, RAGAS는 <strong>답안지를 모아 채점실로 보내는</strong> 일입니다.
+          한 장씩 보내면 왕복이 낭비되니 15장을 모아 한 번에 보내고, 돌아온 점수를 케이스 <code>id</code>로 다시 붙입니다.
+        </p>
+      </div>
+
+      <div class="label">🛠 할 일 — 두 조각</div>
+
+      <div class="piece"><span class="pn">①</span><h4>metrics.py — ragas_scores()</h4><small>— P1 STEP 7의 evaluate.py를 함수 하나로</small></div>
+      <div class="filename">metrics.py — 맨 아래에 추가</div>
+<pre><code>import pandas as pd                                                  # ← 파일 맨 위 import에 추가
+
+# ─────────────────────────────────────────────────────────────
+# STEP 4 · RAGAS — 케이스를 모아 한 번에 채점한다 (한 건씩 부르면 오버헤드가 크다)
+# ─────────────────────────────────────────────────────────────
+RAGAS_METRICS = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+
+
+def ragas_scores(rows: list[dict]) -&gt; pd.DataFrame:
+    """rows: [{id, question, answer, contexts, ground_truth}, ...]
+    → id를 인덱스로, RAGAS 지표 4개를 열로 가진 표를 돌려준다."""
+    # ragas는 무겁다(임포트에 수 초). 이 함수를 부를 때만 들여온다.
+    from datasets import Dataset
+    from langchain.chat_models import init_chat_model
+    from langchain_openai import OpenAIEmbeddings
+    from ragas import evaluate
+    from ragas.embeddings import LangchainEmbeddingsWrapper
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
+
+    records = [{"question": r["question"], "answer": r["answer"],
+                "contexts": r["contexts"], "ground_truth": r["ground_truth"]} for r in rows]
+    result = evaluate(
+        Dataset.from_list(records),
+        metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        # gpt-5 계열은 temperature를 기본값으로만 받는다 → bypass_temperature로 RAGAS가 건드리지 않게 한다 (P1 STEP 7과 동일)
+        llm=LangchainLLMWrapper(init_chat_model("gpt-5-mini"), bypass_temperature=True),
+        embeddings=LangchainEmbeddingsWrapper(OpenAIEmbeddings(model="text-embedding-3-small")),
+    )
+    df = result.to_pandas()[RAGAS_METRICS]
+    df.index = [r["id"] for r in rows]
+    return df</code></pre>
+      <p>
+        <code>import</code>를 함수 안에 둔 건 <code>--ragas</code> 없이 돌 때(Agent 평가, 빠른 smoke) ragas를 아예 안 읽게 하려는 겁니다. 임포트에만 몇 초가 걸리거든요.
+        돌아온 표의 인덱스를 케이스 <code>id</code>로 바꿔 두면 러너의 표와 <code>join</code> 한 줄로 붙습니다.
+      </p>
+
+      <div class="piece"><span class="pn">②</span><h4>runner.py — 플래그 하나, 블록 하나</h4><small>— 루프가 끝난 뒤, 저장하기 전에</small></div>
+<pre><code>from metrics import ragas_scores, score_case                          # ← ragas_scores 추가(STEP 4)
+
+    ap.add_argument("--ragas", action="store_true")                   # ← 추가(STEP 4)
+
+    # … 루프 끝, df 만든 직후 …
+    df = pd.DataFrame(rows).set_index("id")
+
+    # STEP 4 · RAGAS는 모아서 한 번에. 응답이 없던 케이스는 채점할 게 없으니 뺀다.
+    if args.ragas and ds.target == "rag":                                                          # ← 추가(STEP 4)
+        ragas_rows = [{"id": c.id, "question": c.question, "answer": outputs[c.id].answer,
+                       "contexts": outputs[c.id].contexts, "ground_truth": c.ground_truth}
+                      for c in cases if outputs[c.id].error is None]
+        rdf = ragas_scores(ragas_rows)
+        df = df.join(rdf)
+
+    df.to_csv(out_dir / "results.csv", encoding="utf-8-sig")</code></pre>
+      <p>
+        STEP 3에서 <code>outputs</code>에 <code>RunResult</code>를 통째로 넣어 둔 이유가 여기입니다 — <code>contexts</code>는 CSV에 안 남기지만(너무 길어요) RAGAS에는 필요하거든요.
+        <code>join</code> 뒤의 저장·요약 코드는 STEP 3 그대로입니다. 숫자 열이 넷 늘었을 뿐이에요.
+      </p>
+
+      <div class="label">✅ 검증</div>
+<pre><code># 3개로 먼저 (RAGAS는 케이스당 심판 호출이 여러 번이라 3개도 1분쯤 걸린다)
+uv run python runner.py --target rag --dataset rag_v1 --label smoke --limit 3 --ragas
+
+# 전체. STEP 6의 baseline·candidate가 될 두 실행을 지금 만들어 둔다
+uv run python runner.py --target rag --dataset rag_v1 --label rerank   --param mode=rerank   --ragas
+uv run python runner.py --target rag --dataset rag_v1 --label baseline --param mode=baseline --ragas
+
+# 기대 출력 (숫자는 예시)
+# ====================================================
+# ok                    1.000
+# has_sources           1.000
+# source_hit            0.867
+# latency_ms         9633.400
+# faithfulness          0.859
+# answer_relevancy      0.509
+# context_precision     0.650
+# context_recall        0.700
+# ====================================================</code></pre>
+      <ul class="checklist">
+        <li><b>열 넷이 붙는다</b> — <code>results.csv</code>에 RAGAS 열 4개가 케이스마다 있고, <code>summary.json</code>의 <code>metrics</code>에도 4개가 있다</li>
+        <li><b>P1 STEP 7과 같은 수준이다</b> — rerank 구성의 네 지표가 P1에서 잰 값과 ±0.1 안에서 비슷하다 (같은 시험지·같은 심판이니 비슷해야 정상)</li>
+        <li><b>Agent 실행은 영향이 없다</b> — <code>--target agent</code>에 <code>--ragas</code>를 붙여도 그냥 무시되고 돈다</li>
+      </ul>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>비싼 채점은 모아서 한 번에, 돌아온 점수는 id로 다시 붙인다.</strong>
+        러너의 나머지는 손대지 않았다 — 숫자 열이 늘면 요약은 알아서 따라온다.
+      </p>
+
+      <details class="more" open>
+        <summary>더 알아보기 — 얼마나 드나 / NaN이 보이면 / 심판을 바꾸려면</summary>
+
+        <h3>한 번 돌리면 얼마나 드나</h3>
+        <p>
+          케이스 15개 × 지표 4개 — faithfulness는 답을 주장 단위로 쪼개 주장마다 묻기 때문에 실제 호출은 <strong>수십 회</strong>입니다. 3~5분, 몇백 원 수준이에요.
+          그래서 smoke는 3개로 돌리고, <code>--ragas</code>는 "이 실행을 비교에 쓸 것이다"라고 마음먹었을 때만 켭니다.
+        </p>
+
+        <h3>NaN이 보이면</h3>
+        <p>
+          심판 LLM의 응답을 RAGAS가 파싱하지 못한 케이스는 그 지표만 <code>NaN</code>이 됩니다. 요약의 평균은 그 케이스를 빼고 계산되니 표는 나오지만,
+          <code>results.csv</code>에서 NaN이 몇 개인지는 확인하세요. 서너 개 이상이면 심판 모델이나 <code>bypass_temperature</code> 설정을 먼저 봅니다.
+        </p>
+
+        <h3>심판을 바꾸려면</h3>
+        <p>
+          <code>init_chat_model("gpt-5-mini")</code> 한 줄입니다. 시험 대상(P1)도 <code>gpt-5-mini</code>로 답을 만드니, 심판을 다른 계열로 두면
+          "자기 답에 후한" 편향을 줄일 수 있어요. 바꾸면 점수 절대값이 달라지므로 <strong>비교는 같은 심판으로 잰 실행끼리만</strong> 합니다 — <code>summary.json</code>에 심판 모델을 적어 두는 것도 좋은 습관입니다.
+        </p>
+      </details>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./3.html"><small>← 이전</small> STEP 3 · 러너 v1</a>
+      <a class="next" href="./5.html"><small>다음 →</small> STEP 5 · Judge + 신뢰도</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>

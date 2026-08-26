@@ -393,7 +393,11 @@
       <div class="project-tags">
         <span class="badge badge-red">🔴 심화 · 인프라 관점</span>
         <span class="badge badge-gray">⏱ 2주</span>
-        <span class="badge badge-gray">단계별 가이드 준비 중</span>
+        <span class="badge badge-gray">시험 대상: P1 · P2</span>
+      </div>
+      <div class="callout callout-info" style="margin-top:10px">
+        <strong>📋 단계별 가이드</strong>
+        실제 코드는 STEP 0 → 9 순서로 따라가면 됩니다 → <a href="./project3/docs/index.html"><strong>Project 3 가이드 열기</strong></a>
       </div>
 
       <h3>무엇을 만드나</h3>
@@ -410,22 +414,24 @@
         회귀 테스트를 두는 것입니다. 한 번 만들어 두면 이후 LangGraph로 만드는 모든 것의 품질 게이트로 그대로 씁니다.
       </div>
 
-      <h3>만드는 순서</h3>
+      <h3>만드는 순서 (가이드 STEP과 동일)</h3>
       <ol class="check">
-        <li>골든 평가셋 v1 — 질문 · 기대 답 · 기대 근거를 RAG용 / Agent용으로 나눠 버전 관리 (각 20~50 케이스)
-          <span class="verify"><b>검증:</b> 케이스 스키마 검증 통과 + 버전 태그 부여</span></li>
-        <li>평가 러너 — P1/P2를 호출해 RAGAS 지표 · task success · Tool 선택 정확도 · 형식 준수를 자동 산출
-          <span class="verify"><b>검증:</b> 명령 한 번에 지표 표가 숫자로 출력됨</span></li>
-        <li>LLM-as-judge 정성 평가 + judge 신뢰도 점검
-          <span class="verify"><b>검증:</b> 내가 손으로 라벨한 소수 케이스와 judge 점수의 일치율 확인</span></li>
-        <li>실험 비교(A/B) + 회귀 감지 — "이번 변경이 지난 베이스라인보다 떨어졌는가"
-          <span class="verify"><b>검증:</b> 일부러 나쁜 프롬프트를 넣으면 <b>회귀로 잡힘</b></span></li>
-        <li>Langfuse 통합 — dataset · score 기록, trace ↔ eval 연결, 비용·지연도 지표화
-          <span class="verify"><b>검증:</b> 대시보드에서 실행별 점수 추이와 비용이 보임</span></li>
-        <li>자동 리포트 — 실행마다 지표 표 + 회귀 하이라이트 파일 생성
-          <span class="verify"><b>검증:</b> 실행 후 리포트 파일이 생김</span></li>
-        <li>(선택) CI에 평가 붙이기
-          <span class="verify"><b>검증:</b> 커밋 시 임계값 미달이면 경고 / 실패</span></li>
+        <li><span class="step">STEP 1</span>골든셋 v1 — RAG용 · Agent용 시험지를 스키마로 검증하고 버전 태그 부여 (각 15~20 케이스)
+          <span class="verify"><b>검증:</b> <code>schemas.py</code> 검증 통과 + 빠진 칸이 있으면 즉시 거절</span></li>
+        <li><span class="step">STEP 2~3</span>시험 대상 어댑터 + 러너 — P1/P2를 HTTP로 호출해 도구 선택 · 형식 · 근거 적중 · 지연을 자동 산출
+          <span class="verify"><b>검증:</b> 명령 한 번에 지표 표가 숫자로 출력되고 실행마다 폴더가 남음</span></li>
+        <li><span class="step">STEP 4</span>RAGAS 지표 4종을 러너에 장착
+          <span class="verify"><b>검증:</b> rerank 구성의 지표가 P1 STEP 7 측정치와 같은 수준</span></li>
+        <li><span class="step">STEP 5</span>LLM-as-judge 정성 평가 + judge 신뢰도 점검
+          <span class="verify"><b>검증:</b> 손으로 라벨한 케이스 10개와 judge 점수의 일치율 확인</span></li>
+        <li><span class="step">STEP 6</span>실행 비교(A/B) + 회귀 감지 — "이번 변경이 지난 baseline보다 떨어졌는가"
+          <span class="verify"><b>검증:</b> 일부러 나쁜 설정(P1 baseline 모드 · P2 규칙 삭제)을 넣으면 <b>회귀로 잡힘</b></span></li>
+        <li><span class="step">STEP 7</span>Langfuse 통합 — 시험지 = dataset · 실행 = run · 지표 = score
+          <span class="verify"><b>검증:</b> 대시보드에서 실행별 점수 추이가 케이스 단위로 보임</span></li>
+        <li><span class="step">STEP 8</span>자동 리포트 + pytest 품질 게이트, (선택) CI
+          <span class="verify"><b>검증:</b> 실행 후 리포트 파일이 생기고, baseline 대비 회귀면 <code>pytest</code> 실패</span></li>
+        <li><span class="step">STEP 9</span>README 정리
+          <span class="verify"><b>검증:</b> 문제 정의 · 아키텍처 · 회귀 감지 표 · judge 신뢰도 · 배운 점이 README에 남음</span></li>
       </ol>
 
       <h3>새로 익히는 것</h3>

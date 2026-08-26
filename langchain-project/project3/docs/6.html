@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STEP 6 · 실행 비교와 회귀 감지 — Project 3</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <nav>
+    <div class="nav-title">Project 3 · 평가 하네스</div>
+    <div class="nav-section">
+      <div class="nav-title">단계</div>
+      <a href="./index.html">📋 개요 · 완성 정의</a>
+      <a href="./0.html">STEP 0 · 셋업</a>
+      <a href="./1.html">STEP 1 · 골든셋 v1</a>
+      <a href="./2.html">STEP 2 · 시험 대상 어댑터</a>
+      <a href="./3.html">STEP 3 · 러너 v1</a>
+      <a href="./4.html">STEP 4 · RAGAS 지표</a>
+      <a href="./5.html">STEP 5 · Judge + 신뢰도</a>
+      <a href="./6.html" class="current">STEP 6 · 비교·회귀 감지</a>
+      <a href="./7.html">STEP 7 · Langfuse datasets</a>
+      <a href="./8.html">STEP 8 · 리포트 + 게이트</a>
+      <a href="./9.html">STEP 9 · 포트폴리오화</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-title">돌아가기</div>
+      <a href="../../index.html">← 프로젝트 로드맵</a>
+      <a href="../../project1/docs/index.html">P1 · RAG 서비스 가이드</a>
+      <a href="../../project2/docs/index.html">P2 · Agent API 가이드</a>
+      <a href="../../../langgraph-project/index.html">다음: LangGraph 프로젝트 3선</a>
+      <a href="../../project1/docs/7.html">P1 STEP 7 · RAGAS 교재</a>
+      <a href="../../project2/docs/8.html">P2 STEP 8 · LLM-as-judge 교재</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <p class="crumb"><a href="./index.html">Project 3 · LLM/Agent 평가·관측성 하네스</a> &nbsp;›&nbsp; STEP 6</p>
+
+    <section class="step new-step" id="step6">
+      <div class="step-head">
+        <div class="step-num">6</div>
+        <h2>실행 비교와 회귀 감지</h2>
+        <span class="badge badge-yellow">지표 층</span> <span class="badge badge-purple">이 프로젝트의 하이라이트</span> <span class="badge badge-gray">⏱ 2~3시간</span>
+      </div>
+
+      <div class="label">🎯 목표</div>
+      <p>
+        실행 두 개를 나란히 놓고 지표마다 <strong>회귀 / 개선 / 유지</strong>를 판정하는 <code>compare.py</code>를 만듭니다.
+        그리고 <strong>일부러 나쁜 설정</strong>을 넣어 — P1은 <code>mode=baseline</code>, P2는 프롬프트 규칙을 지워서 — 그게 회귀로 잡히는지 확인합니다.
+        잡히면 이 하네스는 "테스트"가 된 겁니다.
+      </p>
+
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>회귀는 "낮다"가 아니라 "지난번보다 임계값 넘게 떨어졌다"이다</h3>
+      <p>
+        recall 0.70이 좋은 건지 나쁜 건지는 혼자서는 알 수 없습니다. 지난주에 0.84였다면 나쁜 것이고, 0.58이었다면 좋은 것이죠.
+        그래서 판정은 항상 <strong>두 실행 사이</strong>에서 합니다 — 믿고 쓰던 <strong>baseline</strong>과 이번에 바꾼 <strong>candidate</strong>.
+      </p>
+      <p>
+        그리고 STEP 3의 더 알아보기에서 봤듯 LLM 점수는 같은 설정에서도 흔들립니다. 0.01 떨어졌다고 회귀라 하면 매번 울리는 경보가 되죠.
+        지표마다 <strong>임계값</strong>을 두고, 그보다 크게 떨어졌을 때만 회귀, 크게 올랐을 때만 개선, 그 사이는 유지로 봅니다.
+      </p>
+
+      <div class="hflow">
+        <div class="hbox"><b>📁 baseline</b><span>runs/…rerank…<br>summary + results</span></div>
+        <div class="hbox"><b>📁 candidate</b><span>runs/…baseline…<br>summary + results</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox hi"><b>⚖️ compare.py</b><span>같은 시험지인가?<br>지표마다 delta vs 임계값</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>🚦 판정표</b><span>회귀 / 개선 / 유지<br>+ 갈린 케이스 + exit code</span></div>
+      </div>
+
+      <div class="callout callout-analogy">
+        <strong>🩺 비유 — 건강검진은 수치보다 "작년 대비"를 본다</strong>
+        <p style="margin-top:6px">
+          검진 결과지에는 올해 수치 옆에 작년 수치가 있고, 의사는 그 차이를 봅니다. 그리고 "정상 변동 범위"가 있어서 2~3 오르내리는 건 무시하죠.
+          <code>compare.py</code>가 그 결과지입니다. baseline이 작년, 임계값이 정상 변동 범위, 회귀가 "재검 요망"이에요.
+        </p>
+      </div>
+
+      <div class="label">🛠 할 일 — 세 조각</div>
+
+      <div class="piece"><span class="pn">①</span><h4>compare.py — 임계값과 판정</h4><small>— 지표마다 다르고, 방향도 다르다</small></div>
+      <div class="filename">compare.py</div>
+<pre><code>import json
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+# 지표마다 '얼마나 떨어져야 회귀로 볼 것인가'. 없는 지표는 기본값을 쓴다.
+# 값은 절대 차이(비율 지표는 0.05 = 5%p). 지연은 상대 비율(0.5 = 50% 느려지면 회귀).
+THRESHOLDS = {"judge_score": 0.3, "latency_ms": 0.5}
+DEFAULT_THRESHOLD = 0.05
+LOWER_IS_BETTER = {"latency_ms"}              # 이 지표는 '오르면' 나쁜 것
+
+
+def load_run(path: str | Path) -&gt; tuple[dict, pd.DataFrame]:
+    path = Path(path)
+    summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    results = pd.read_csv(path / "results.csv", index_col="id")
+    return summary, results
+
+
+def verdict(metric: str, base: float, cand: float) -&gt; str:
+    """세 갈래 — 회귀 / 개선 / 유지."""
+    thr = THRESHOLDS.get(metric, DEFAULT_THRESHOLD)
+    if metric in LOWER_IS_BETTER:
+        change = (cand - base) / base if base else 0.0      # 상대 변화. +0.6 = 60% 느려짐
+        worse, better = change &gt; thr, change &lt; -thr
+    else:
+        change = cand - base
+        worse, better = change &lt; -thr, change &gt; thr
+    return "회귀" if worse else "개선" if better else "유지"</code></pre>
+      <p>
+        <code>judge_score</code>는 1~5 척도라 0.05로는 너무 민감해서 0.3, 지연은 절대값(ms)이 의미 없어서 상대 비율로 둡니다.
+        임계값은 <strong>코드 맨 위에</strong> 모아 두세요 — 이 숫자는 앞으로 계속 손보게 되는 값이고, 그때 코드 안을 뒤지면 안 됩니다.
+      </p>
+
+      <div class="piece"><span class="pn">②</span><h4>compare.py — 표 하나, 갈린 케이스 하나</h4><small>— "얼마나"와 "어디서"</small></div>
+<pre><code>def compare(base: dict, cand: dict) -&gt; pd.DataFrame:
+    """두 summary의 metrics를 표 하나로. 한쪽에만 있는 지표는 비교하지 않는다."""
+    rows = []
+    for m, b in base["metrics"].items():
+        c = cand["metrics"].get(m)
+        if b is None or c is None:
+            continue
+        rows.append({"metric": m, "baseline": b, "candidate": c,
+                     "delta": round(c - b, 3), "verdict": verdict(m, b, c)})
+    return pd.DataFrame(rows).set_index("metric")
+
+
+def case_diffs(base_df: pd.DataFrame, cand_df: pd.DataFrame, metric: str) -&gt; pd.DataFrame:
+    """그 지표에서 값이 달라진 케이스만. 요약표는 '얼마나'를, 이 표는 '어디서'를 알려 준다."""
+    both = base_df[[metric]].join(cand_df[[metric]], lsuffix="_base", rsuffix="_cand", how="inner")
+    changed = both.iloc[:, 0].fillna(-1) != both.iloc[:, 1].fillna(-1)   # '해당 없음'(NaN)끼리는 같은 것으로 본다
+    return both[changed]</code></pre>
+
+      <div class="piece"><span class="pn">③</span><h4>compare.py — main: 시험지 확인, 출력, 종료 코드</h4><small>— 회귀가 있으면 exit 1</small></div>
+<pre><code>def main():
+    base, base_df = load_run(sys.argv[1])
+    cand, cand_df = load_run(sys.argv[2])
+    if (base["dataset"], base["version"]) != (cand["dataset"], cand["version"]):
+        sys.exit(f"❌ 시험지가 다릅니다: {base['dataset']} {base['version']} vs {cand['dataset']} {cand['version']}")
+
+    print(f"baseline : {base['run_id']}  params={base['params']}")
+    print(f"candidate: {cand['run_id']}  params={cand['params']}\n")
+    table = compare(base, cand)
+    print(table.to_string())
+
+    regressed = table[table["verdict"] == "회귀"].index.tolist()
+    for m in regressed:
+        print(f"\n[{m} — 값이 달라진 케이스]")
+        print(case_diffs(base_df, cand_df, m).to_string())
+
+    print("\n" + ("🚨 회귀 감지: " + ", ".join(regressed) if regressed else "✅ 회귀 없음"))
+    sys.exit(1 if regressed else 0)
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+      <p>
+        <code>sys.exit(1)</code>이 작아 보이지만 STEP 8의 전부입니다. 종료 코드가 1이면 셸 스크립트도, pytest도, CI도 "실패"로 읽어요.
+        사람이 표를 읽지 않아도 기계가 판정을 이어받을 수 있게 되는 지점입니다.
+      </p>
+
+      <div class="label">✅ 검증 — 일부러 망가뜨려서 잡아 본다</div>
+      <p>STEP 4에서 만든 rag 실행 둘이 있으니 P1부터. <code>mode=baseline</code>은 리랭커도 BM25도 없는 구성이라 검색 지표가 떨어져야 정상입니다.</p>
+<pre><code># P1 · rerank(믿고 쓰던 것) vs baseline(일부러 나쁜 것)
+uv run python compare.py runs/rag_v1__rerank__&lt;시각&gt; runs/rag_v1__baseline__&lt;시각&gt;
+echo "exit=$?"
+
+# 기대 출력 (숫자는 예시)
+# baseline : rag_v1__rerank__20260826-143012  params={'mode': 'rerank'}
+# candidate: rag_v1__baseline__20260826-151540  params={'mode': 'baseline'}
+#
+#                     baseline  candidate    delta verdict
+# metric
+# ok                     1.000      1.000    0.000      유지
+# source_hit             0.867      0.733   -0.134      회귀
+# latency_ms          9633.400   3120.600 -6512.800      개선
+# faithfulness           0.859      0.879    0.020      유지
+# context_recall         0.700      0.578   -0.122      회귀
+# …
+# [source_hit — 값이 달라진 케이스]
+#         source_hit_base  source_hit_cand
+# id
+# rag-03              1.0              0.0
+# rag-11              1.0              0.0
+#
+# 🚨 회귀 감지: source_hit, context_recall
+# exit=1</code></pre>
+      <p>P2는 손잡이가 API에 없으니 <strong>코드를 바꿔서</strong> 나쁜 설정을 만듭니다. 실제 "이번 변경"과 같은 흐름이에요.</p>
+<pre><code># P2 · 터미널 B의 P2는 --reload로 떠 있다
+# project2/agent.py의 SYSTEM_PROMPT에서 규칙 3·4(사내 문서 우선, 근거 표기)를 지우고 저장 → P2가 다시 뜬다
+uv run python runner.py --target agent --dataset agent_v1 --label prompt-bad --judge
+uv run python compare.py runs/agent_v1__prompt-A__&lt;시각&gt; runs/agent_v1__prompt-bad__&lt;시각&gt;
+# → tool_ok · format_ok · judge_score 가 회귀로 잡혀야 한다. 확인 후 SYSTEM_PROMPT를 원복한다</code></pre>
+      <ul class="checklist">
+        <li><b>P1 회귀가 잡힌다</b> — <code>mode=baseline</code>이 <code>source_hit</code> 또는 <code>context_recall</code>에서 회귀, <code>latency_ms</code>는 개선으로 나온다. 종료 코드가 1이다</li>
+        <li><b>P2 회귀가 잡힌다</b> — 규칙을 지운 프롬프트가 <code>tool_ok</code>·<code>format_ok</code> 중 하나 이상에서 회귀로 나온다. <code>block_ok</code>는 유지여야 한다(가드레일은 프롬프트와 무관하다)</li>
+        <li><b>갈린 케이스를 설명할 수 있다</b> — 회귀 지표의 케이스 목록에서 하나를 골라 두 <code>results.csv</code>의 <code>sources</code>·<code>used_tools</code>를 읽고 "왜"를 한 문장으로 말할 수 있다</li>
+        <li><b>시험지가 다르면 거절한다</b> — <code>rag_v1</code> 실행과 <code>agent_v1</code> 실행을 넣으면 <code>시험지가 다릅니다</code>로 멈춘다</li>
+        <li><b>원복했다</b> — P2의 <code>SYSTEM_PROMPT</code>가 원래대로이고, <code>git diff project2/</code>가 비어 있다</li>
+      </ul>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>판정은 항상 두 실행 사이에서, 임계값을 넘겨 떨어졌을 때만 회귀다.</strong>
+        일부러 망가뜨렸을 때 잡히는 하네스만이 실제 회귀도 잡는다.
+      </p>
+
+      <details class="more" open>
+        <summary>더 알아보기 — 임계값은 어떻게 정하나 / tags로 잘라 보기 / 개선도 의심하기</summary>
+
+        <h3>임계값 0.05의 정체</h3>
+        <p>
+          케이스가 15개면 하나가 뒤집힐 때 비율 지표는 0.067 움직입니다. 즉 0.05는 <strong>"케이스 하나 차이"</strong>예요. 케이스가 30개면 하나가 0.033이라 0.05는 두 개 차이가 됩니다.
+          임계값을 정하는 가장 정직한 방법은 STEP 3의 더 알아보기 — <strong>같은 설정을 두세 번 돌려 흔들림의 폭을 재고, 그 폭보다 살짝 크게</strong> 두는 것입니다.
+          그 폭을 README에 적어 두면 "왜 0.05인가"에 답이 됩니다.
+        </p>
+
+        <h3>tags로 잘라 보기</h3>
+        <p>
+          STEP 1에서 채운 <code>tags</code>를 쓰면 "card 케이스만 떨어졌다"를 볼 수 있습니다. <code>results.csv</code>에는 tags가 없으니 시험지에서 가져와 붙입니다.
+        </p>
+<pre><code>from schemas import load_dataset
+ds = load_dataset("rag_v1")
+tag_of = {c.id: (c.tags[0] if c.tags else "-") for c in ds.cases}
+cand_df["tag"] = cand_df.index.map(tag_of)
+print(cand_df.groupby("tag")[["source_hit", "context_recall"]].mean().round(3))</code></pre>
+
+        <h3>개선도 의심하세요</h3>
+        <p>
+          <code>latency_ms</code>가 "개선"으로 찍힌 걸 봤죠. baseline 구성은 리랭커를 안 태우니 빠른 게 당연하고, 그 대가가 recall 회귀입니다.
+          한 지표의 개선이 다른 지표의 회귀와 <strong>같이 오는지</strong> 보는 습관이 "숫자를 읽을 줄 안다"의 실체예요. 판정표를 한 줄씩이 아니라 한 덩어리로 읽으세요.
+        </p>
+      </details>
+    </section>
+
+    <div class="pager">
+      <a class="prev" href="./5.html"><small>← 이전</small> STEP 5 · Judge + 신뢰도</a>
+      <a class="next" href="./7.html"><small>다음 →</small> STEP 7 · Langfuse datasets</a>
+    </div>
+
+  </main>
+</div>
+
+<script src="./highlight.js" defer></script>
+</body>
+</html>
