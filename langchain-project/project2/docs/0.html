@@ -48,34 +48,46 @@
       </div>
 
       <div class="label">🎯 목표</div>
-      <p>독립 실행되는 <code>project2/</code> 환경을 만들고, <strong>P1 서버와 통신이 되는지</strong>까지 확인해 "빈 캔버스"를 준비한다.</p>
-
-      <div class="label">🧠 개념</div>
       <p>
-        P1과 <strong>같은 폴더에 섞지 않고 별도 프로젝트로 나누는 이유</strong>가 이 STEP의 핵심입니다.
-        P2는 P1의 검색 결과만 필요할 뿐, P1의 무거운 짐(Chroma DB·리랭커 모델·PDF 파서)까지 짊어질 이유가 없습니다.
-        두 서비스가 <strong>HTTP라는 얇은 창구</strong>로만 만나면, 각자 가볍게 뜨고 각자 고쳐도 서로 안 깨집니다.
-        지금 폴더를 나누는 이 결정이 STEP 2에서 "왜 import가 아니라 requests인가"의 답이 됩니다.
+        <code>project2/</code>를 <strong>혼자서도 도는 프로젝트</strong>로 세우고, <strong>P1 서버와 말이 통하는지</strong>까지 확인합니다.
+        코드는 아직 한 줄도 안 씁니다. 빈 캔버스를 제대로 준비하는 게 이번 목표예요.
       </p>
 
-      <div class="label">🛠 할 일</div>
-      <p>다섯 조각으로 나눠 하나씩 보고, <a href="#full-code">맨 아래에 이어 붙인 전체 명령어</a>를 그대로 복사해 쓰면 됩니다.</p>
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>P1과 폴더를 나눕니다. 창구 하나로만 만나게</h3>
+      <p>
+        P2가 필요한 건 P1의 <strong>검색 결과</strong>뿐입니다. Chroma DB도, 리랭커 모델도, PDF 파서도 필요 없어요.
+        그런데 같은 폴더에 섞어 두면 그 짐을 전부 같이 지게 됩니다 — 패키지 버전이 하나만 어긋나도 둘이 함께 막히고요.
+      </p>
+      <p>
+        그래서 <strong>HTTP라는 얇은 창구</strong>로만 만나게 합니다. P2가 P1에 대해 아는 건 <strong>주소 하나와 JSON 모양</strong>뿐입니다.
+        지금 폴더를 나누는 이 결정이, STEP 2에서 "왜 <code>import</code>가 아니라 <code>requests</code>인가"의 답이 됩니다.
+      </p>
 
-      <div class="callout callout-info">
-        <strong>🧭 다섯 조각 한눈에</strong>
+      <div class="hflow">
+        <div class="hbox"><b>📚 P1 · 포트 8000</b><span>PDF · Chroma · 리랭커<br>무거운 짐은 전부 여기</span></div>
+        <div class="harrow">←</div>
+        <div class="hbox hi"><b>🔌 창구</b><span><code>POST /query</code><br>P2가 아는 건 이 주소뿐</span></div>
+        <div class="harrow">←</div>
+        <div class="hbox ok"><b>🤖 P2 · 포트 8001</b><span>도구 · Agent · 평가<br>가볍게 뜨고 따로 고친다</span></div>
+      </div>
+
+      <div class="callout callout-analogy">
+        <strong>📞 비유 — 옆 건물 자료실에 전화 걸기</strong>
         <p style="margin-top:6px">
-          <b>①</b> 가상환경 만들기 &nbsp;→&nbsp; <b>②</b> 의존성 설치(세 묶음) &nbsp;→&nbsp;
-          <b>③</b> 폴더 구조 잡기 &nbsp;→&nbsp; <b>④</b> <code>.env</code>로 키 준비 &nbsp;→&nbsp;
-          <b>⑤</b> P1 서버 띄우고 연결 확인
+          우리 사무실(P2)은 서고를 통째로 들여놓지 않습니다. 필요할 때 <strong>자료실(P1)에 전화해서 필요한 것만 묻습니다.</strong>
+          그러니 사무실은 책장 없이도 일할 수 있고, 자료실이 다른 건물로 이사해도 <strong>전화번호만 바꾸면</strong> 됩니다.
+          자료실이 오늘 문을 닫았다면? 사무실은 그 일만 못 할 뿐, 나머지 일은 계속합니다.
+        </p>
+        <p>
+          그 전화번호가 <code>.env</code>의 <code>P1_API_URL</code>입니다. 이 값을 코드가 아니라 설정에 두는 이유가 정확히 "이사할 수 있어서"예요.
         </p>
       </div>
 
-      <h3>① 가상환경 만들기</h3>
-      <p>
-        이 가이드가 들어 있는 <code>project2/</code> 폴더에서 시작합니다. 폴더는 이미 있으니 만들 필요는 없고,
-        그 안에 <strong>이 프로젝트 전용 파이썬 환경</strong>만 새로 깔면 됩니다.
-        P1과 환경을 나눠야 "P2는 무슨 패키지로 도는가"가 <code>pyproject.toml</code> 하나로 정확히 드러납니다.
-      </p>
+      <div class="label">🛠 할 일 — 다섯 조각</div>
+      <p>하나씩 보고, 아래 <strong>전체 명령어</strong>를 그대로 복사해 써도 됩니다.</p>
+
+      <div class="piece"><span class="pn">①</span><h4>P2 전용 파이썬 환경</h4><small>— 폴더는 이미 있다. 환경만 새로 깐다</small></div>
       <div class="filename">터미널 B — P2 작업용</div>
 <pre><code># 이 가이드가 들어 있는 폴더로 이동 (docs/의 부모)
 cd ~/Documents/langchain-study/langchain-project/project2
@@ -86,25 +98,25 @@ cd ~/Documents/langchain-study/langchain-project/project2
 #   .gitignore       → 깃에 올리지 않을 파일 목록 (.env 등)
 #   .venv/           → P2 전용 파이썬 환경 (P1과 섞이지 않는 칸막이)
 uv init .</code></pre>
-
-      <h3>② 의존성 설치 — 필요한 시점별로 세 묶음</h3>
       <p>
-        한 번에 다 깔지만, <strong>어느 패키지가 어느 STEP에서 쓰이는지</strong> 알고 넘어가세요.
-        나중에 <code>ImportError</code>가 났을 때 "아 이건 STEP 7용이었지" 하고 바로 짚을 수 있습니다.
+        환경을 나눠야 "P2는 무슨 패키지로 도는가"가 <code>pyproject.toml</code> 하나에 정확히 드러납니다.
+        STEP 9에서 남에게 보여 줄 때, 이 파일이 곧 <strong>이 프로젝트의 부품 목록</strong>이 돼요.
       </p>
+
+      <div class="piece"><span class="pn">②</span><h4>의존성 — 세 묶음으로 나눠서</h4><small>— 어느 패키지가 어느 STEP 것인지 알고 넘어간다</small></div>
       <div class="filename">터미널 B</div>
-<pre><code># 1묶음 · Agent 코어 (STEP 1~4에서 사용)
+<pre><code># 1묶음 · Agent 코어 (STEP 1~4)
 #   langgraph → checkpointer(InMemorySaver)가 여기 들어 있다. langchain이 내부적으로 쓰지만
-#               우리가 직접 import 하므로 명시적으로 적어 둔다(의존성은 '쓰는 쪽이 선언'이 원칙)
+#               우리가 직접 import 하므로 명시적으로 적는다('쓰는 쪽이 선언'이 원칙)
 #   ddgs      → DuckDuckGo 검색. API 키가 필요 없어 바로 쓸 수 있다
-#   requests  → STEP 2에서 P1의 HTTP 창구를 두드릴 때 쓴다
+#   requests  → STEP 2에서 P1의 창구를 두드릴 때 쓴다
 uv add langchain langchain-openai langgraph python-dotenv ddgs requests
 
-# 2묶음 · 서빙 · 관측 (STEP 5~6에서 사용)
-#   "uvicorn[standard]" 의 따옴표는 필수 — 없으면 셸이 [ ]를 파일이름 패턴으로 오해한다
+# 2묶음 · 서빙 · 관측 (STEP 5~6)
+#   "uvicorn[standard]" 의 따옴표는 필수 — 없으면 셸이 [ ]를 파일이름 패턴으로 읽는다
 uv add fastapi "uvicorn[standard]" langfuse
 
-# 3묶음 · Multi-LLM · 평가 (STEP 7~8에서 사용)
+# 3묶음 · Multi-LLM · 평가 (STEP 7~8)
 uv add langchain-google-genai pandas</code></pre>
       <table>
         <thead>
@@ -122,14 +134,9 @@ uv add langchain-google-genai pandas</code></pre>
           <tr><td><code>pandas</code></td><td><span class="badge badge-gray">8</span></td><td>평가 결과 집계·비교표 출력</td></tr>
         </tbody>
       </table>
+      <p>나중에 <code>ImportError</code>가 나면 이 표를 보세요. "아 이건 STEP 7용이었지" 하고 바로 짚입니다.</p>
 
-      <h3>③ 폴더 구조 잡기 — 파일 하나가 STEP 하나</h3>
-      <p>
-        지금은 <strong>빈 파일만 만들어 두고</strong> STEP마다 채웁니다.
-        P1과 달리 <code>data/</code>·<code>chroma_db/</code>가 없다는 점에 주목하세요 —
-        <strong>문서와 벡터DB는 전부 P1이 들고 있고, P2는 그걸 물어보기만 합니다.</strong>
-        P2가 이렇게 가벼운 것 자체가 서비스를 분리한 대가로 얻은 이득입니다.
-      </p>
+      <div class="piece"><span class="pn">③</span><h4>빈 파일 만들어 두기</h4><small>— 파일 하나가 대체로 STEP 하나</small></div>
 <pre><code>project2/
 ├── docs/                # 이 가이드
 ├── tools.py             # STEP 1, 2  — 도구 4종 정의
@@ -141,13 +148,12 @@ uv add langchain-google-genai pandas</code></pre>
 ├── evaluate.py          # STEP 8 — 채점 하네스
 ├── .env
 └── README.md            # STEP 9</code></pre>
-
-      <h3>④ <code>.env</code> — 키 준비</h3>
       <p>
-        P1에서 쓰던 <code>.env</code>를 그대로 복사해 오고, 두 줄만 더합니다.
-        Langfuse 키는 이미 P1에서 발급받았으니 <strong>같은 값을 그대로</strong> 쓰면 됩니다 —
-        같은 Langfuse 프로젝트에 P1·P2 트레이스가 함께 쌓여서, 나중에 "이 대화에서 P1 검색이 몇 번 일어났나"를 한 화면에서 볼 수 있습니다.
+        P1과 달리 <code>data/</code>도 <code>chroma_db/</code>도 없다는 점을 보세요.
+        <strong>문서와 벡터DB는 전부 P1이 들고 있고, P2는 물어보기만 합니다.</strong> P2가 이렇게 가벼운 것 자체가 나눠서 얻은 이득이에요.
       </p>
+
+      <div class="piece"><span class="pn">④</span><h4><code>.env</code> — 키와 주소</h4><small>— P1에서 쓰던 파일을 복사해 오고 두 줄 더한다</small></div>
       <div class="filename">.env</div>
 <pre><code>OPENAI_API_KEY=sk-...
 
@@ -160,43 +166,29 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com
 #          (나중에 P1을 다른 서버에 올려도 이 한 줄만 바꾸면 된다)
 P1_API_URL=http://localhost:8000
 
-# STEP 7 — Gemini. 학습용 .env에는 GEMINI_API_KEY로 저장돼 있을 텐데,
-#          langchain-google-genai가 찾는 이름은 GOOGLE_API_KEY다. 같은 값을 이 이름으로 넣어 준다.
+# STEP 7 — Gemini. langchain-google-genai가 찾는 이름은 GOOGLE_API_KEY다.
+#          학습용 .env에 GEMINI_API_KEY로 있다면 같은 값을 이 이름으로도 넣어 준다.
 GOOGLE_API_KEY=AIza...</code></pre>
-      <div class="callout callout-warn">
-        <strong>⚠️ 키 이름이 안 맞아 생기는 흔한 사고</strong>
-        <p style="margin-top:6px">
-          Gemini 키를 분명히 <code>.env</code>에 넣었는데 STEP 7에서 "API key not found"가 나는 일이 자주 있습니다.
-          원인은 대개 <strong>변수 이름</strong>이에요 — 라이브러리는 정해진 이름(<code>GOOGLE_API_KEY</code>)만 찾습니다.
-          "키가 없다"는 에러를 보면 <strong>키가 진짜 없는 건지, 이름이 다른 건지</strong>부터 확인하는 습관을 들이세요.
-        </p>
-        <p>
-          <code>.gitignore</code>에 <code>.env</code>가 있는지도 꼭 확인하세요. <code>uv init</code>이 보통 넣어 주지만, 없으면 직접 한 줄 추가합니다.
-        </p>
-      </div>
-
-      <h3>⑤ P1 서버 띄우고 연결 확인</h3>
       <p>
-        STEP 2부터 P1이 필요합니다. <strong>터미널을 두 개</strong> 씁니다 —
-        하나는 P1 서버를 계속 띄워 두는 용도, 다른 하나는 P2를 만드는 용도.
-        이 "서버 여러 개를 동시에 띄워 두고 서로 부르게 하는" 감각 자체가 실무 환경 그대로입니다.
+        Langfuse 키는 P1에서 발급받은 <strong>같은 값</strong>을 씁니다. 그래야 한 프로젝트에 P1·P2 기록이 함께 쌓여서,
+        나중에 "이 대화에서 P1 검색이 몇 번 일어났나"를 한 화면에서 볼 수 있어요.
+        <code>.gitignore</code>에 <code>.env</code>가 들어 있는지도 확인해 두세요 — <code>uv init</code>이 보통 넣어 줍니다.
       </p>
-      <div class="filename">터미널 A — P1 전용 (닫지 말고 계속 켜 둠)</div>
+
+      <div class="piece"><span class="pn">⑤</span><h4>P1 띄우고 말 걸어 보기</h4><small>— 터미널 두 개를 동시에 쓰는 감각</small></div>
+      <div class="filename">터미널 A — P1 전용 (닫지 말고 계속 켜 둔다)</div>
 <pre><code>cd ~/Documents/langchain-study/langchain-project/project1
 uv run uvicorn main:app --reload</code></pre>
       <div class="filename">터미널 B — 연결 확인</div>
-<pre><code># P1이 살아 있는지 물어본다. {"status":"ok"} 가 나오면 성공
+<pre><code># P1이 살아 있는지 물어본다
 curl http://localhost:8000/health</code></pre>
-      <div class="callout callout-info">
-        <strong>💡 P1이 없어도 STEP 3부터는 진행됩니다</strong>
-        <p style="margin-top:6px">
-          P1을 아직 안 만들었다면 STEP 2만 건너뛰세요. 도구 3종(날짜·계산·웹검색)만으로도
-          메모리·가드레일·서빙·관측·Multi-LLM·평가는 전부 그대로 학습할 수 있습니다.
-          나중에 P1이 준비되면 <code>tools.py</code>에 도구 하나만 추가하면 됩니다 — <strong>그게 도구 구조의 장점이에요.</strong>
-        </p>
-      </div>
+      <p>
+        서버 두 개를 동시에 띄워 두고 서로 부르게 하는 이 모양이, 앞으로 STEP 5까지 계속 쓰는 작업 환경입니다.
+        P1이 8000, P2가 8001을 씁니다 — 포트가 겹치지 않는 것도 나눠 둔 덕이에요.
+      </p>
 
-      <div class="label" id="full-code">📄 전체 명령어 (①~③ 한 번에)</div>
+      <details>
+        <summary>전체 명령어 한 번에 — ①~③</summary>
       <div class="filename">터미널 B</div>
 <pre><code>cd ~/Documents/langchain-study/langchain-project/project2
 
@@ -210,25 +202,48 @@ uv add fastapi "uvicorn[standard]" langfuse
 uv add langchain-google-genai pandas
 
 touch tools.py agent.py providers.py prompts.py main.py evaluate.py eval_cases.json .env README.md</code></pre>
+      </details>
 
-      <div class="callout callout-result">
-        <strong>✅ 검증 게이트</strong>
-        <p style="margin-top:6px">둘 다 통과해야 STEP 1로 넘어갑니다.</p>
-<pre style="margin-top:8px"><code># 1) 패키지가 모두 설치됐는가
+      <div class="label">✅ 검증 — 둘 다 통과해야 STEP 1로</div>
+<pre><code># 1) 패키지가 모두 설치됐는가
 uv run python -c "import langchain, langgraph, ddgs, fastapi, langfuse; print('ok')"
-# → ok
 
-# 2) P1 서버와 통신이 되는가  (STEP 2를 건너뛸 거라면 이건 생략 가능)
-curl http://localhost:8000/health
-# → {"status":"ok"}</code></pre>
-      </div>
+# 2) P1과 통신이 되는가  (STEP 2를 건너뛸 거라면 생략 가능)
+curl http://localhost:8000/health</code></pre>
+      <ul class="checklist">
+        <li><b>설치됐다</b> — <code>ok</code>가 찍힌다. <code>ModuleNotFoundError</code>가 나면 ②의 해당 묶음을 다시 실행한다</li>
+        <li><b>말이 통한다</b> — <code>{"status":"ok"}</code>가 돌아온다</li>
+        <li><b>칸막이가 있다</b> — <code>project2/.venv/</code>가 생겼고, P1의 <code>.venv</code>와 별개다</li>
+        <li><b>키가 숨겨져 있다</b> — <code>.gitignore</code>에 <code>.env</code>가 있다</li>
+      </ul>
 
-      <div class="label">🎓 배우는 것</div>
+      <div class="label">🎓 한 줄 정리</div>
       <p>
-        서비스를 <strong>독립된 단위로 나누는 감각</strong>. 환경·의존성·키를 프로젝트별로 격리하고,
-        서비스 간 통신을 코드가 아니라 <strong>설정(<code>P1_API_URL</code>)</strong>으로 다루는 방식.
-        "라이브러리가 찾는 환경변수 이름"이라는, 문서에 잘 안 적히지만 실무에서 30분씩 잡아먹는 함정도 하나 배웠습니다.
+        <strong>서비스를 나눈다는 건 폴더를 나누는 게 아니라, 서로 아는 것을 주소 하나로 줄이는 것이다.</strong>
+        환경·의존성·키를 각자 갖고, 통신은 코드가 아니라 설정(<code>P1_API_URL</code>)에 둔다.
       </p>
+
+      <details class="more">
+        <summary>더 알아보기 — 환경변수 이름 / P1 없이 진행하기</summary>
+
+        <h3>라이브러리마다 찾는 이름이 정해져 있습니다</h3>
+        <p>
+          키를 <code>.env</code>에 분명히 넣었는데 "API key not found"가 나는 경우, 값이 아니라 <strong>변수 이름</strong>이 원인일 때가 많습니다.
+          라이브러리는 자기가 정해 둔 이름만 찾거든요 — <code>langchain-google-genai</code>는 <code>GOOGLE_API_KEY</code>를 봅니다.
+          학습용 <code>.env</code>에 <code>GEMINI_API_KEY</code>로 적어 두었다면, 같은 값을 <code>GOOGLE_API_KEY</code>라는 이름으로도 넣어 주면 됩니다.
+        </p>
+        <p>
+          "키가 없다"는 메시지를 보면 <strong>키가 정말 없는 건지, 이름이 다른 건지</strong>부터 확인하세요. 아래처럼 한 줄로 볼 수 있습니다.
+        </p>
+<pre><code>uv run python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(sorted(k for k in os.environ if 'KEY' in k))"</code></pre>
+
+        <h3>P1이 아직 없다면</h3>
+        <p>
+          STEP 2만 건너뛰면 됩니다. 도구 세 종(날짜·계산·웹검색)만으로도 메모리·가드레일·서빙·관측·Multi-LLM·평가는 전부 그대로 학습할 수 있어요.
+          나중에 P1이 준비되면 <code>tools.py</code>에 도구 하나를 더하고 <code>create_agent</code>의 목록에 이름 하나를 추가하면 끝입니다.
+          <strong>그게 능력을 도구 단위로 쪼개 둔 값</strong>입니다 — 새 능력이 생겨도 나머지 코드는 그대로예요.
+        </p>
+      </details>
     </section>
 
     <div class="pager">
