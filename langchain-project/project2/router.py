@@ -20,5 +20,6 @@ def health():
 
 @router.post("/chat", response_model=ChatOut)
 def chat(body: ChatIn):
-    result = ask(body.message, session_id=body.session_id)   # Agent 실행
+    # provider까지 그대로 전달한다. 창구가 하는 일은 여전히 '받아서 넘기기'뿐이다(STEP 7).
+    result = ask(body.message, session_id=body.session_id, provider=body.provider)
     return {**result, "session_id": body.session_id}         # 결과에 세션 번호를 얹어 돌려준다

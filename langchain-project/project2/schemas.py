@@ -14,6 +14,10 @@ class ChatIn(BaseModel):                 # 요청 본문 스키마
     # 기본값을 둔 건 curl로 시험하기 편하라고 둔 것이고, 실제 서비스라면
     # 로그인 사용자 ID 등에서 서버가 직접 만들어 내는 게 맞다.
     session_id: str = "default"
+    # 이 요청만 다른 모델로 돌리고 싶을 때 쓴다. 안 보내면 서버의 기본 모델(STEP 7).
+    # 여기서는 모델을 비교해 보려고 클라이언트에 열어 두지만, 공개 API라면
+    # 서버가 사용자 등급·실험 그룹을 보고 정하는 게 맞다.
+    provider: str | None = None          # ← 추가(STEP 7)
 
 
 class ChatOut(BaseModel):                # 응답 스키마 — STEP 4의 ChatReply를 HTTP로 옮긴 모양

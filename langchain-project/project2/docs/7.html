@@ -123,9 +123,12 @@ def select_provider(request, handler):
     return handler(request)                                     # 바뀐 요청으로 실제 호출 진행
 
 
+TOOLS = [get_today, calculate, web_search, search_internal_docs]
+TOOL_NAMES = {t.name for t in TOOLS}    # ← 우리가 쥐여 준 도구의 이름들. ③에서 쓴다
+
 agent = create_agent(
     model=get_model(),              # ← "openai:gpt-5-mini" 대신 콘센트
-    tools=[get_today, calculate, web_search, search_internal_docs],
+    tools=TOOLS,
     system_prompt=SYSTEM_PROMPT,
     checkpointer=checkpointer,
     context_schema=Context,         # ← 이 Agent가 받을 상자의 모양
@@ -154,18 +157,35 @@ agent = create_agent(
         클래스만 넘기면 랭체인이 모델을 보고 알맞은 방식을 고릅니다 — OpenAI는 STEP 4와 같은 JSON 스키마 모드, Gemini는 "형식 제출용 도구" 방식.
         Gemini 쪽은 도구를 계속 부르기 쉬운데, STEP 4에서 단 <code>ToolCallLimitMiddleware</code>가 8번에서 끊어 줍니다.
       </p>
+      <p>
+        방식이 갈리면서 <code>TOOL_NAMES</code>가 필요해집니다. "형식 제출용 도구" 방식에서는 최종 답이
+        <code>ChatReply</code>라는 <em>이름의 도구 호출</em>로 들어오는데, 이건 답을 정해진 형식에 맞춰 제출하는 절차지
+        Agent가 <strong>고른 도구</strong>가 아닙니다. <code>used_tools</code>가 모델에 따라 다른 걸 세면
+        STEP 8에서 두 모델의 "도구 선택 정확도"를 같은 자로 잴 수 없으니, 우리가 쥐여 준 도구만 세도록 ③에서 한 줄 겁니다.
+      </p>
 
       <div class="piece"><span class="pn">③</span><h4>ask()와 API — provider 칸 하나씩 뚫기</h4><small>— 요청 JSON → ask() → Context 상자로 전달</small></div>
 <pre><code># agent.py — ask()
 def ask(message: str, session_id: str = "default", provider: str | None = None) -> dict:
-    with langfuse.start_as_current_observation(name="agent-chat", as_type="span"):
-        langfuse.update_current_trace(session_id=session_id, input=message,
-                                      metadata={"provider": provider or DEFAULT_PROVIDER})  # 비교할 때 쓴다
+    with langfuse.start_as_current_observation(
+        name="agent-chat", as_type="span", input=message,
+    ) as trace, propagate_attributes(
+        session_id=session_id,
+        metadata={"provider": provider or DEFAULT_PROVIDER},   # ← 어느 모델로 돌렸는지 이름표
+    ):
         result = agent.invoke(
             {"messages": [{"role": "user", "content": message}]},
             {"configurable": {"thread_id": session_id}, "callbacks": [langfuse_handler]},
             context=Context(provider=provider),       # ← 상자를 채워서 넘긴다
         )
+        ...
+        used_tools = [
+            call["name"]
+            for m in messages[last_human:]
+            if getattr(m, "tool_calls", None)
+            for call in m.tool_calls
+            if call["name"] in TOOL_NAMES             # ← 형식 제출용 도구는 빼고 센다
+        ]
         ...                                           # 나머지는 STEP 6 그대로
 
 
@@ -232,9 +252,12 @@ def select_provider(request, handler):
     return handler(request)
 
 
+TOOLS = [get_today, calculate, web_search, search_internal_docs]
+TOOL_NAMES = {t.name for t in TOOLS}
+
 agent = create_agent(
     model=get_model(),
-    tools=[get_today, calculate, web_search, search_internal_docs],
+    tools=TOOLS,
     system_prompt=SYSTEM_PROMPT,
     checkpointer=checkpointer,
     context_schema=Context,
@@ -250,17 +273,27 @@ agent = create_agent(
 
 
 def ask(message: str, session_id: str = "default", provider: str | None = None) -> dict:
-    with langfuse.start_as_current_observation(name="agent-chat", as_type="span"):
-        langfuse.update_current_trace(
-            session_id=session_id, input=message,
-            metadata={"provider": provider or DEFAULT_PROVIDER},
-        )
+    with langfuse.start_as_current_observation(
+        name="agent-chat", as_type="span", input=message,
+    ) as trace, propagate_attributes(
+        session_id=session_id,
+        metadata={"provider": provider or DEFAULT_PROVIDER},
+    ):
         result = agent.invoke(
             {"messages": [{"role": "user", "content": message}]},
             {"configurable": {"thread_id": session_id}, "callbacks": [langfuse_handler]},
             context=Context(provider=provider),
         )
-        ...   # used_tools · out 만들기 · update_current_trace(output=...) 는 STEP 6과 동일
+        messages = result["messages"]
+        last_human = max(i for i, m in enumerate(messages) if m.type == "human")
+        used_tools = [
+            call["name"]
+            for m in messages[last_human:]
+            if getattr(m, "tool_calls", None)
+            for call in m.tool_calls
+            if call["name"] in TOOL_NAMES             # ← 우리가 쥐여 준 도구만 센다
+        ]
+        ...   # out 만들기 · trace.update(output=...) 는 STEP 6과 동일
 
 
 # ═══════════════ schemas.py — 칸 하나 추가 ═══════════════
@@ -292,23 +325,29 @@ curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
 curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
   -d '{"message":"안녕","provider":"gpt5"}'</code></pre>
       <ul class="checklist">
-        <li><b>둘 다 답한다</b> — Langfuse에서 두 트레이스의 <code>metadata.provider</code>가 각각 <code>openai</code>·<code>gemini</code></li>
-        <li><b>Gemini 후속 질문도 1분 안에 끝난다</b> — <code>used_tools</code>가 한두 개</li>
-        <li><b>오타는 500</b> — <code>unknown provider</code>. 조용히 기본 모델로 넘어가면 안 된다</li>
-        <li><b>표를 채운다</b> — Langfuse에서 두 트레이스를 나란히 놓고 아래 표를. 이 표가 STEP 9 README에 들어간다</li>
+        <li class="done"><b>둘 다 답한다</b> — Langfuse에서 두 트레이스의 <code>metadata.provider</code>가 각각 <code>openai</code>·<code>gemini</code></li>
+        <li class="done"><b>Gemini 후속 질문도 1분 안에 끝난다</b> — 앞 대화를 이어받아 답하므로 <code>used_tools</code>는 많아야 한두 개다</li>
+        <li class="done"><b>오타는 500</b> — <code>unknown provider</code>. 조용히 기본 모델로 넘어가면 안 된다</li>
+        <li class="done"><b>표를 채운다</b> — Langfuse에서 두 트레이스를 나란히 놓고 아래 표를. 이 표가 STEP 9 README에 들어간다</li>
       </ul>
       <table>
         <thead><tr><th style="width:34%">항목</th><th>openai</th><th>gemini</th></tr></thead>
         <tbody>
-          <tr><td>지연 (초)</td><td></td><td></td></tr>
-          <tr><td>입력 · 출력 토큰</td><td></td><td></td></tr>
-          <tr><td>비용</td><td></td><td></td></tr>
-          <tr><td>호출한 도구</td><td></td><td></td></tr>
-          <tr><td>근거(sources)를 채웠는가</td><td></td><td></td></tr>
+          <tr><td>지연 (초)</td><td>39.0</td><td>20.4</td></tr>
+          <tr><td>입력 · 출력 토큰</td><td>2,688 · 1,690</td><td>2,452 · 941</td></tr>
+          <tr><td>비용</td><td>$0.0041</td><td>$0.0031</td></tr>
+          <tr><td>호출한 도구</td><td><code>search_internal_docs</code> 1회</td><td><code>search_internal_docs</code> 1회</td></tr>
+          <tr><td>근거(sources)를 채웠는가</td><td>○ (3건)</td><td>○ (4건)</td></tr>
         </tbody>
       </table>
+      <p class="small">
+        위 숫자는 "신용카드 분실 시 회원 책임은?" 한 질문을 P1을 띄운 상태에서 각각 한 번씩 돌려 Langfuse에서 읽은 값입니다.
+        모델·문서·질문이 다르면 당연히 달라지니, 여러분의 실측치로 바꿔 적으세요.
+      </p>
       <p>
-        표를 채우다 보면 <strong>비용·속도만 다른 게 아니라 행동이 다르다</strong>는 걸 보게 됩니다 — 한쪽만 문서 검색을 부르거나, 한쪽만 근거를 채우거나.
+        표를 채우다 보면 <strong>비용·속도만 다른 게 아니라 행동이 다르다</strong>는 걸 보게 됩니다.
+        위 실측에서는 둘 다 문서 검색을 한 번씩 부르고 근거도 채웠지만, 출력 토큰이 1,690 대 941로 갈렸습니다 —
+        한쪽이 훨씬 길게 답한다는 뜻이고, 길다고 더 정확한 건 아닙니다.
         질문 하나로는 어느 쪽이 나은지 말할 수 없죠. 여러 질문으로 채점해야 하고, 그게 STEP 8입니다.
       </p>
 

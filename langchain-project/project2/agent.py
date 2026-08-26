@@ -1,14 +1,15 @@
 # ═══════════════════════════════════════════════════════════════════
 # STEP 4 · Agent 조립: 모델 + 도구 + 프롬프트 + 메모리 + 가드레일 + 구조화 출력.
 # STEP 6 · 관측성(Langfuse): 요청 하나가 처리되는 과정 전체를 트레이스 하나로 남긴다.
-# 이 파일이 앞으로 모델선택(STEP 7)을 얹어 가며 자라날 자리다.
+# STEP 7 · 모델 선택: 모델 이름을 코드 밖(.env·요청)으로 꺼낸다.
 # ═══════════════════════════════════════════════════════════════════
+from dataclasses import dataclass                                     # ← 추가(STEP 7)
+
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.agents.middleware import (                             # ← 추가(STEP 4)
-    before_agent, PIIMiddleware, ToolCallLimitMiddleware,
-)
-from langchain.agents.structured_output import ProviderStrategy       # ← 추가(STEP 4)
+    before_agent, wrap_model_call, PIIMiddleware, ToolCallLimitMiddleware,
+)                                                                     # ← wrap_model_call 추가(STEP 7)
 from langchain.messages import AIMessage                              # ← 추가(STEP 4)
 from langgraph.checkpoint.memory import InMemorySaver   # ← 추가(STEP 3)
 from pydantic import BaseModel, Field                                 # ← 추가(STEP 4)
@@ -17,6 +18,7 @@ from langfuse.langchain import CallbackHandler                        # ← 추�
 # propagate_attributes = 지금 열려 있는 상자와 그 자식들에 이름표(세션·태그)를 붙이는 도구
 from langfuse import get_client, propagate_attributes                 # ← 추가(STEP 6)
 
+from providers import get_model, DEFAULT_PROVIDER                     # ← 추가(STEP 7)
 from tools import get_today, calculate, web_search, search_internal_docs   # ← search_internal_docs 추가(STEP 2)
 
 load_dotenv()                                        # .env의 OPENAI_API_KEY·LANGFUSE_* 로드
@@ -102,6 +104,31 @@ def input_guardrail(state, runtime):
 
 
 # ─────────────────────────────────────────────────────────────
+# 모델 선택 — 요청마다 다른 모델을 쓸 수 있게 (STEP 7)
+# ─────────────────────────────────────────────────────────────
+@dataclass
+class Context:
+    """요청마다 달라지는 '설정'을 담는 상자.
+
+    대화 내용(state)과는 별개다 — checkpointer에 저장되지 않고,
+    요청 한 번 도는 동안만 살아 있다. "이 요청을 어떻게 처리할지"만 담는다.
+    """
+
+    provider: str | None = None            # None이면 기본 모델(DEFAULT_PROVIDER)
+
+
+# @wrap_model_call = 모델을 부르기 '직전'에 끼어들어, 들어가는 요청을 고칠 수 있는 훅.
+# 고친 request를 handler에 넘기면 그대로 반영된다.
+@wrap_model_call
+def select_provider(request, handler):
+    """요청에 provider가 지정돼 있으면 그 모델로 갈아끼운다."""
+    name = getattr(request.runtime.context, "provider", None)   # 상자에서 provider를 꺼내
+    if name:
+        request = request.override(model=get_model(name))       # 요청의 모델만 바꿔치기
+    return handler(request)                                     # 바뀐 요청으로 실제 호출 진행
+
+
+# ─────────────────────────────────────────────────────────────
 # 구조화 출력 — 채점할 수 있게 '칸'을 만든다 (STEP 4)
 # ─────────────────────────────────────────────────────────────
 class ChatReply(BaseModel):
@@ -123,37 +150,42 @@ class ChatReply(BaseModel):
 # 운영에서는 Postgres/SQLite 기반 checkpointer로 교체해야 한다(STEP 9 README에 명시).
 checkpointer = InMemorySaver()
 
-# 모델은 "provider:model" 문자열로도 넘길 수 있다. STEP 7에서 이 부분을 갈아끼운다.
+# Agent가 쥐고 있는 진짜 도구들. 이름만 따로 모아 두는 이유는 ask()의 주석 참고.
+TOOLS = [get_today, calculate, web_search, search_internal_docs]      # ← 추가(STEP 2)
+TOOL_NAMES = {t.name for t in TOOLS}                                  # ← 추가(STEP 7)
+
 agent = create_agent(
-    model="openai:gpt-5-mini",
-    tools=[get_today, calculate, web_search, search_internal_docs],   # ← 추가
+    model=get_model(),                    # ← "openai:gpt-5-mini" 대신 콘센트(STEP 7)
+    tools=TOOLS,
     system_prompt=SYSTEM_PROMPT,
     checkpointer=checkpointer,                                        # ← 추가(STEP 3)
+    context_schema=Context,               # ← 이 Agent가 받을 상자의 모양(STEP 7)
     middleware=[
         input_guardrail,                                          # ① 내가 만든 키워드 검문소
-        # ② 카드번호가 섞여 들어오면 마지막 4자리만 남기고 가린다.
-        #    사용자가 실수로 붙여넣은 번호가 OpenAI 서버까지 가는 걸 막는다.
+        select_provider,                                          # ② 요청별 모델 교체(STEP 7)
+        # ③ 카드번호가 섞여 들어오면 마지막 4자리만 남기고 가린다.
+        #    사용자가 실수로 붙여넣은 번호가 모델 제공사 서버까지 가는 걸 막는다.
         PIIMiddleware("credit_card", strategy="mask", apply_to_input=True),
         PIIMiddleware("email", strategy="redact", apply_to_input=True),
-        # ③ 요청 하나당 도구 호출 상한. 평소엔 1~3번이면 끝나므로 8이면 넉넉하다.
+        # ④ 요청 하나당 도구 호출 상한. 평소엔 1~3번이면 끝나므로 8이면 넉넉하다.
         #    넘으면 도구 대신 "한도 초과" 결과를 돌려주고(continue), 모델은 그때까지 모은 것으로 답을 마무리한다.
         ToolCallLimitMiddleware(run_limit=8, exit_behavior="continue"),
     ],
-    # 구조화 출력. ProviderStrategy = OpenAI의 JSON 스키마 모드. 모델이 "더 부를 도구가 없다"고
-    # 판단하면 그 답이 곧 ChatReply가 된다. (ToolStrategy는 매 스텝 도구를 하나 반드시 부르게
-    # 모델을 묶어서, 답을 찾은 뒤에도 검색을 다시 부르는 루프에 빠지기 쉽다.)
-    # 모델이 '도구 + 구조화 출력 동시 지원'이어야 쓸 수 있다 — OpenAI는 되고, Gemini 2.5는 STEP 7 참고.
-    response_format=ProviderStrategy(ChatReply),                      # ← 추가(STEP 4)
+    # 구조화 출력. 클래스만 넘기면 랭체인이 모델의 능력을 보고 방식을 고른다(STEP 7) —
+    # OpenAI는 JSON 스키마 모드(답 본문이 곧 ChatReply), Gemini 2.5는 '형식 제출용 도구' 방식.
+    # 모델을 갈아끼울 수 있게 만들었으니 형식을 받아 내는 방법도 모델에 맡기는 것이다.
+    response_format=ChatReply,                                        # ← 추가(STEP 4)
 )
 
 
-def ask(message: str, session_id: str = "default") -> dict:
+def ask(message: str, session_id: str = "default", provider: str | None = None) -> dict:
     """질문 하나를 처리해 {answer, sources, confident, used_tools, blocked} 형태로 돌려준다.
 
     session_id가 같으면 앞 대화가 이어진다. 두 번째 인자(config)의 thread_id가
     '대화방 번호'다. checkpointer를 달아 놓고 이 값을 안 넘기면 에러가 난다 —
     어느 차트를 꺼낼지 모르니까.
 
+    provider를 주면 이 요청만 그 모델로 처리한다. 안 주면 기본 모델(STEP 7).
     처리 과정 전체는 Langfuse에 트레이스(상자) 하나로 남는다(STEP 6).
     """
     # with = 상자 열기. 이 블록 안에서 생긴 기록은 모두 이 상자의 자식으로 들어가,
@@ -161,7 +193,12 @@ def ask(message: str, session_id: str = "default") -> dict:
     # 상자 3개로 흩어져서 "이 질문 하나에 총 얼마 들었나"를 볼 수 없다.
     with langfuse.start_as_current_observation(
         name="agent-chat", as_type="span", input=message,
-    ) as trace, propagate_attributes(session_id=session_id):   # 세션 이름표 → 같은 대화가 한 줄로 묶인다
+    ) as trace, propagate_attributes(
+        session_id=session_id,             # 세션 이름표 → 같은 대화가 한 줄로 묶인다
+        # 어느 모델로 돌렸는지 이름표를 달아 둔다. 두 모델의 비용·지연을 나란히 비교할 때
+        # 대시보드에서 이 값으로 걸러 본다(STEP 7).
+        metadata={"provider": provider or DEFAULT_PROVIDER},           # ← 추가(STEP 7)
+    ):
         result = agent.invoke(
             {"messages": [{"role": "user", "content": message}]},
             {
@@ -170,6 +207,7 @@ def ask(message: str, session_id: str = "default") -> dict:
                 # 이 config를 넘긴 호출만 Langfuse에 남는다.
                 "callbacks": [langfuse_handler],                       # ← 추가(STEP 6)
             },
+            context=Context(provider=provider),                        # ← 상자를 채워 넘긴다(STEP 7)
         )
         messages = result["messages"]
 
@@ -180,8 +218,10 @@ def ask(message: str, session_id: str = "default") -> dict:
         # 마지막 사용자 발화의 내용을 읽으려는 게 아니라, messages[last_human:] 슬라이싱의
         # 시작점으로 쓰려고 위치만 구하는 것이다.
         last_human = max(i for i, m in enumerate(messages) if m.type == "human")
-        # ProviderStrategy는 답을 모델의 본문(JSON)으로 받으므로 messages에 남는 tool_calls는
-        # 전부 우리가 쥐여 준 진짜 도구다 — 따로 거를 게 없다. STEP 8의 채점 대상이 이것.
+        # 세는 건 '우리가 쥐여 준 도구'뿐이다(TOOL_NAMES). 모델에 따라 구조화 출력이
+        # ChatReply라는 이름의 도구 호출로 들어오기도 하는데(STEP 7의 Gemini), 그건 답변을
+        # 형식에 맞춰 제출하는 절차지 Agent가 고른 도구가 아니다. 모델을 바꿔도 이 목록의
+        # 의미가 같아야 STEP 8에서 두 모델의 '도구 선택 정확도'를 같은 자로 잴 수 있다.
         used_tools = [
             call["name"]
             for m in messages[last_human:]           # 이번 턴 구간만 훑고
@@ -189,6 +229,7 @@ def ask(message: str, session_id: str = "default") -> dict:
             # getattr(..., None)으로 안전하게 본다. 도구를 안 쓴 AI는 []라서 같이 걸러진다.
             if getattr(m, "tool_calls", None)
             for call in m.tool_calls                 # 한 메시지가 도구를 여러 개 부를 수도 있다
+            if call["name"] in TOOL_NAMES
         ]
 
         # 가드레일에 막히면 모델을 아예 호출하지 않고 끝난다(jump_to="end").
