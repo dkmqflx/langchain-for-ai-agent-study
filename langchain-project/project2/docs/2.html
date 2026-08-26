@@ -49,30 +49,30 @@
 
       <div class="label">🎯 목표</div>
       <p>
-        P1의 <code>POST /query</code>를 부르는 도구를 만들어 Agent에 꽂고,
-        <strong>약관 질문에는 이 도구를, 일반 질문에는 다른 도구를 고르게</strong> 만든다.
+        P1이 만들어 둔 <code>POST /query</code>를 부르는 도구를 하나 더 만들어 Agent에 꽂습니다.
+        그러면 <strong>약관 질문에는 이 도구를, 일반 질문에는 다른 도구를</strong> Agent가 알아서 고릅니다.
       </p>
 
-      <div class="callout callout-warn">
-        <strong>⚠️ P1 서버가 켜져 있어야 합니다</strong>
-        <p style="margin-top:6px">
-          터미널 A에서 <code>cd ~/Documents/langchain-study/langchain-project/project1 &amp;&amp; uv run uvicorn main:app --reload</code>.
-          P1이 없다면 이 STEP을 건너뛰고 <a href="./3.html">STEP 3</a>으로 가도 됩니다.
-        </p>
-      </div>
-
-      <div class="label">🧠 개념</div>
-      <h3>"항상 검색"에서 "필요할 때만 검색"으로</h3>
+      <div class="label">🧠 개념 — 딱 하나만</div>
+      <h3>같은 RAG인데, 감싸는 방식이 바뀌면 동작이 바뀝니다</h3>
       <p>
         P1의 RAG는 질문이 뭐든 <strong>무조건 벡터DB를 뒤졌습니다.</strong> 코드가 그렇게 생겼으니까요.
-        "안녕하세요"라고 인사해도 약관을 검색했고, "1+1은?"이라고 물어도 약관을 검색했습니다.
-        검색은 공짜가 아닙니다 — 임베딩 API 호출, 리랭커 모델 실행, 그리고 쓸데없는 청크가 프롬프트에 실려 답변까지 흐려집니다.
+        "안녕하세요"라고 인사해도 약관을 검색했고, "1+1은?"에도 약관을 검색했습니다.
+        검색은 공짜가 아닙니다 — 임베딩 호출과 리랭커 실행이 들고, 엉뚱한 청크가 프롬프트에 실려 답변까지 흐려집니다.
       </p>
       <p>
-        같은 RAG를 <strong>도구로</strong> 바꾸면 이 판단이 LLM에게 넘어갑니다.
-        "이 질문은 우리 문서에 답이 있을 법한가?"를 매번 따져 보고, 아니면 안 부릅니다.
-        <strong>P1 코드는 한 줄도 안 고쳤는데 동작이 달라진 겁니다</strong> — 바뀐 건 그걸 호출하는 쪽의 구조뿐이에요.
+        같은 RAG를 <strong>도구로</strong> 감싸면 "이 질문은 우리 문서에 답이 있을 법한가"라는 <strong>판단이 LLM에게 넘어갑니다.</strong>
+        P1 코드는 한 줄도 안 고치는데 동작이 달라져요. 바뀐 건 그걸 부르는 쪽의 구조뿐입니다.
       </p>
+
+      <div class="hflow">
+        <div class="hbox dim"><b>P1 · 체인</b><span>질문 → <strong>무조건</strong> 검색 → 답<br>판단하는 사람: 개발자(코드)</span></div>
+        <div class="harrow">⇒</div>
+        <div class="hbox hi"><b>P2 · 도구</b><span>질문 → <strong>LLM이 설명을 읽고 판단</strong><br>필요하면 부르고, 아니면 건너뛴다</span></div>
+        <div class="harrow">→</div>
+        <div class="hbox ok"><b>달라지는 것</b><span>0번일 수도, 여러 번일 수도<br>웹검색·계산과 한 답에 섞인다</span></div>
+      </div>
+
       <table>
         <thead><tr><th style="width:22%"></th><th style="width:39%">P1 — RAG 체인</th><th>P2 — RAG 도구</th></tr></thead>
         <tbody>
@@ -84,11 +84,9 @@
         </tbody>
       </table>
 
-      <h3>그래서 이 STEP의 진짜 난이도는 docstring에 있다</h3>
       <p>
-        도구를 만드는 코드는 15줄이면 끝납니다. 어려운 건 <strong>"언제 이 도구를 쓸지"를 LLM에게 이해시키는 문장</strong>이에요.
-        도구가 네 개가 되는 순간 <code>web_search</code>와 <code>search_internal_docs</code>가 서로 헷갈리기 시작하거든요.
-        둘 다 "찾아본다"는 도구니까요.
+        마지막 줄이 이 STEP의 전부입니다. 판단을 LLM에게 넘겼으니, <strong>LLM이 읽는 문장(docstring)이 곧 코드</strong>가 됩니다.
+        도구를 만드는 코드는 15줄이면 끝나요. 어려운 건 <code>web_search</code>와 <code>search_internal_docs</code>를 <strong>헷갈리지 않게 설명하는 일</strong>입니다 — 둘 다 "찾아본다"는 도구니까요.
       </p>
       <table>
         <thead><tr><th style="width:44%">docstring</th><th>결과</th></tr></thead>
@@ -99,7 +97,7 @@
           </tr>
           <tr>
             <td><code>"""사내 문서를 검색한다."""</code></td>
-            <td><span class="badge badge-yellow">△</span> 나아졌지만 "사내 문서에 뭐가 들었는지"를 모르니 여전히 헛다리를 짚는다</td>
+            <td><span class="badge badge-yellow">△</span> 나아졌지만 "거기 뭐가 들었는지"를 모르니 여전히 헛다리를 짚는다</td>
           </tr>
           <tr>
             <td><b>무엇이 들었는지</b> + <b>어떤 질문에 쓰는지</b> + <b>언제 쓰면 안 되는지</b></td>
@@ -107,52 +105,41 @@
           </tr>
         </tbody>
       </table>
+
       <div class="callout callout-analogy">
         <strong>🗂 비유 — 신입에게 넘기는 인수인계서</strong>
         <p style="margin-top:6px">
           "저 캐비닛 참고하세요"라고만 하면 신입은 아무 때나 캐비닛을 열어 봅니다.
-          <strong>"저 캐비닛엔 우리 회사 금융 약관 4종이 들어 있어요. 조항이나 수수료 규정을 물어보면 거기서 찾고,
-          바깥 뉴스는 거기 없으니 인터넷을 보세요."</strong> 이렇게 말해 줘야 제대로 씁니다.
-          docstring은 딱 이 인수인계서예요. 그리고 <strong>"거기 없는 것"까지 알려 주는 게 절반</strong>입니다.
+          <strong>"저 캐비닛엔 우리 회사 금융 약관 네 종이 들어 있어요. 조항이나 수수료 규정을 물어보면 거기서 찾고,
+          바깥 뉴스는 거기 없으니 인터넷을 보세요."</strong> 이렇게 적어 줘야 제대로 씁니다.
+          docstring이 딱 이 인수인계서예요. 그리고 <strong>"거기 없는 것"까지 알려 주는 게 절반</strong>입니다.
         </p>
       </div>
 
-      <div class="label">🛠 할 일</div>
+      <div class="label">🛠 할 일 — 파일 둘, 세 조각</div>
+      <p>먼저 <strong>P1 서버를 띄워 둡니다.</strong> P2는 P1을 HTTP로 부르므로, 켜져 있어야 도구가 일합니다.</p>
+<pre><code># 터미널 A — P1 (문서 검색 서버, 포트 8000)
+cd ~/Documents/langchain-study/langchain-project/project1 &amp;&amp; uv run uvicorn main:app --reload</code></pre>
 
-      <h3>① <code>tools.py</code>에 네 번째 도구 추가</h3>
-      <p>파일 맨 위 import와 맨 아래 도구, 두 군데를 고칩니다.</p>
-      <div class="filename">tools.py — 맨 위에 추가</div>
+      <div class="piece"><span class="pn">①</span><h4>tools.py 맨 위 — P1 주소 준비</h4><small>— 주소는 코드에 박지 않고 .env에서 읽는다</small></div>
 <pre><code>import os
 import requests                     # P1의 HTTP 창구를 두드리는 도구
 from dotenv import load_dotenv
 
-load_dotenv()                       # ← STEP 1엔 없던 줄. 왜 여기 필요한지는 아래 경고 참고
+load_dotenv()                       # ← STEP 1엔 없던 줄
 
 # P1 서버 주소. 코드에 박지 않고 .env에서 읽는다 →
 # 나중에 P1을 다른 서버에 올려도 이 코드는 그대로 두고 설정만 바꾸면 된다.
 P1_API_URL = os.getenv("P1_API_URL", "http://localhost:8000")</code></pre>
+      <p>
+        <code>agent.py</code>에 이미 <code>load_dotenv()</code>가 있는데 여기에도 쓰는 이유는 <strong>실행 순서</strong>입니다.
+        파이썬은 <code>from tools import ...</code> 줄을 만나면 <code>tools.py</code>를 <strong>통째로 먼저</strong> 실행합니다.
+        <code>P1_API_URL = os.getenv(...)</code>가 값을 읽는 시점이 <code>agent.py</code>의 <code>load_dotenv()</code>보다 앞이라는 뜻이죠.
+        <code>load_dotenv()</code>는 여러 번 불러도 안전하니, <strong>환경변수를 읽는 파일은 각자 부르는 것</strong>이 규칙입니다.
+      </p>
 
-      <div class="callout callout-danger">
-        <strong>🚨 <code>load_dotenv()</code>를 <code>tools.py</code>에도 넣어야 하는 이유 — 임포트 순서의 함정</strong>
-        <p style="margin-top:6px">
-          <code>agent.py</code>에 이미 <code>load_dotenv()</code>가 있는데 왜 또 쓸까요? <strong>실행 순서 때문입니다.</strong>
-          파이썬은 <code>from tools import ...</code> 줄을 만나는 순간 <code>tools.py</code>를 <strong>통째로 먼저 실행</strong>합니다.
-          그때 <code>agent.py</code>의 <code>load_dotenv()</code>는 아직 실행 전이에요.
-        </p>
-<pre style="margin-top:6px"><code>agent.py 실행 시작
-  ├─ from tools import ...   → tools.py 전체 실행
-  │    └─ P1_API_URL = os.getenv("P1_API_URL")   ← .env가 아직 안 읽혔다! → None → 기본값
-  └─ load_dotenv()                                ← 이제야 읽는다. 하지만 이미 늦었다</code></pre>
-        <p style="margin-top:6px">
-          지금은 기본값이 우연히 맞아서 티가 안 나지만, P1 주소를 바꾸는 순간 <strong>"분명 .env를 고쳤는데 안 먹네"</strong>로 30분을 씁니다.
-          <code>load_dotenv()</code>는 여러 번 불러도 안전하니, <strong>환경변수를 읽는 파일마다 각자 부르는 게</strong> 안전합니다.
-        </p>
-      </div>
-
-      <div class="filename">tools.py — 맨 아래에 추가</div>
+      <div class="piece"><span class="pn">②</span><h4>tools.py 맨 아래 — 네 번째 도구</h4><small>— 이 STEP의 본체. 절반이 docstring이다</small></div>
 <pre><code># ── 도구 4 · 사내 문서 검색 (P1 RAG 서비스 호출) ──────────────────
-# P1의 코드를 import 하지 않고 HTTP로 부른다. P2는 Chroma도 리랭커 모델도 몰라도 되고,
-# P1이 죽어도 P2는 살아 있다. 두 서비스를 나눠 얻는 이득이 이 함수 하나에 압축돼 있다.
 @tool
 def search_internal_docs(question: str) -> str:
     """사내 문서에서 근거와 함께 답을 찾는다.
@@ -171,12 +158,12 @@ def search_internal_docs(question: str) -> str:
         r = requests.post(
             f"{P1_API_URL}/query",
             json={"question": question, "mode": "rerank"},   # P1이 만든 최고 성능 구성
-            timeout=60,          # 리랭커는 느리다. 첫 호출은 모델 다운로드까지 겹쳐 더 걸린다
+            timeout=60,          # 리랭커는 느리다. 첫 호출은 모델 다운로드까지 겹친다
         )
         r.raise_for_status()     # 4xx·5xx면 여기서 예외 → 아래 except로 간다
     except requests.exceptions.RequestException as e:
-        # P1이 꺼져 있어도 Agent는 죽지 않는다. '실패했다'는 사실을 LLM에게 보고할 뿐이다.
-        # 뒷문장이 중요하다 — LLM에게 '그럼 어떻게 하라'까지 알려 줘야 엉뚱하게 지어내지 않는다.
+        # P1이 꺼져 있어도 Agent는 멈추지 않는다. '실패했다'는 사실을 LLM에게 보고할 뿐이다.
+        # 뒷문장이 중요하다 — '그럼 어떻게 하라'까지 알려 줘야 엉뚱하게 지어내지 않는다.
         return (f"사내 문서 검색 서비스에 연결할 수 없습니다({e}). "
                 "이 질문은 사내 문서로 확인할 수 없다고 사용자에게 알려라.")
 
@@ -188,16 +175,15 @@ def search_internal_docs(question: str) -> str:
         f"{c.get('source')} p.{c.get('page')}" for c in data.get("citations", [])
     ))
 
-    # 답변과 근거를 한 문자열로 합쳐 돌려준다.
-    # 근거를 같이 넘겨야 Agent가 최종 답변에 "「신용카드 표준약관」 40쪽에 따르면..." 처럼 인용할 수 있다.
+    # 근거를 같이 넘겨야 Agent가 최종 답변에 "「신용카드 표준약관」 40쪽에 따르면..."처럼 인용할 수 있다.
     return f"{data['answer']}\n\n[근거] " + " / ".join(cites)</code></pre>
-
-      <h3>② <code>agent.py</code> — 도구 등록 + 규칙 한 줄</h3>
       <p>
-        도구를 목록에 넣고, 시스템 프롬프트에 <strong>"어느 도구를 먼저 보라"</strong>는 우선순위를 적습니다.
-        도구가 넷이 되면 설명만으로는 경합이 생기기 시작해서, 프롬프트에서 한 번 더 정리해 주는 게 효과가 큽니다.
+        <strong>서비스 경계에서 해야 하는 세 가지</strong>가 이 함수에 다 들어 있습니다 —
+        <code>timeout</code>을 정하고, 실패를 <strong>예외 대신 문자열로</strong> 바꾸고, 그 문자열에 <strong>LLM이 다음에 할 행동</strong>까지 적는 것.
+        예외를 그대로 올리면 Agent 전체가 멈추지만, 문자열로 돌려주면 LLM은 "그 도구는 지금 못 쓰는구나" 하고 나머지로 답을 맺습니다.
       </p>
-      <div class="filename">agent.py — 고치는 두 군데</div>
+
+      <div class="piece"><span class="pn">③</span><h4>agent.py — 등록하고 우선순위 적기</h4><small>— 도구가 넷이 되면 프롬프트에서 한 번 더 정리해 준다</small></div>
 <pre><code>from tools import get_today, calculate, web_search, search_internal_docs   # ← 추가
 
 SYSTEM_PROMPT = """너는 정확성을 최우선으로 하는 업무 비서다.
@@ -216,21 +202,58 @@ agent = create_agent(
     tools=[get_today, calculate, web_search, search_internal_docs],   # ← 추가
     system_prompt=SYSTEM_PROMPT,
 )</code></pre>
+      <p>
+        새로 붙은 건 <strong>규칙 3번과 4번</strong>입니다. 3번은 약관 질문이 <code>web_search</code>로 새지 않게 우선순위를 못 박고,
+        4번은 찾은 근거를 답변에 인용하게 합니다. docstring은 <strong>도구 하나를 설명</strong>하고, 시스템 프롬프트는 <strong>도구 사이의 순서</strong>를 정합니다 — 역할이 다릅니다.
+      </p>
 
-      <div class="callout callout-info">
-        <strong>💡 규칙 3번이 하는 일 — "일반적으로 신용카드 분실 시에는…"을 막는다</strong>
-        <p style="margin-top:6px">
-          이 줄이 없으면 Agent는 약관 질문에도 <code>web_search</code>를 부르곤 합니다. 그리고 인터넷에서 찾은
-          <strong>다른 회사의 약관</strong>으로 그럴듯하게 답합니다. 문장은 매끄럽지만 <strong>우리 약관과 다른 내용</strong>이죠.
-          이런 오류는 "틀렸다"가 눈에 잘 안 띄어서 가장 위험합니다.
-          STEP 8의 평가 케이스에 <code>expect_tool</code>(어떤 도구를 썼어야 하는가) 항목을 넣는 이유가 정확히 이것입니다.
-        </p>
-      </div>
+      <details>
+        <summary>도구 넷이 된 tools.py의 뼈대 보기</summary>
+<pre><code># ═══════════════════════════════════════════════════════════════════
+# tools.py — Agent에게 쥐여 줄 도구들. @tool 하나면 평범한 함수가 도구가 된다.
+# ═══════════════════════════════════════════════════════════════════
+import ast
+import operator
+import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-      <div class="callout callout-result">
-        <strong>✅ 검증 게이트</strong>
-        <p style="margin-top:6px">네 가지 모두 확인합니다. 특히 4번은 <strong>P1 서버를 일부러 끄고</strong> 해 보세요.</p>
-<pre style="margin-top:8px"><code># 1) 약관 질문 → search_internal_docs 를 부르고, 답변에 문서명·쪽수가 있는가
+import requests
+from dotenv import load_dotenv
+from langchain.tools import tool
+from ddgs import DDGS
+
+load_dotenv()
+P1_API_URL = os.getenv("P1_API_URL", "http://localhost:8000")
+
+
+@tool
+def get_today() -> str:
+    """오늘 날짜와 현재 시각(한국 시간)을 알려준다. ..."""
+    ...
+
+
+@tool
+def calculate(expression: str) -> str:
+    """사칙연산·거듭제곱 수식을 계산한다. ..."""
+    ...
+
+
+@tool
+def web_search(query: str, max_results: int = 3) -> str:
+    """웹에서 최신 정보를 검색한다. ..."""
+    ...
+
+
+@tool
+def search_internal_docs(question: str) -> str:
+    """사내 문서에서 근거와 함께 답을 찾는다. ..."""
+    ...</code></pre>
+        <p>앞의 세 도구는 STEP 1에서 만든 그대로입니다. 이번에 더한 건 <code>os</code>·<code>requests</code>·<code>load_dotenv</code> 임포트와 맨 아래 도구 하나예요.</p>
+      </details>
+
+      <div class="label">✅ 검증 — 네 가지</div>
+<pre><code># 1) 약관 질문 → 사내 문서를 부르는가
 uv run python agent.py "신용카드를 분실하면 회원 책임은 어디까지야?"
 
 # 2) 일반 상식 → 사내 문서를 부르지 '않는가'
@@ -238,33 +261,54 @@ uv run python agent.py "파이썬에서 리스트와 튜플의 차이가 뭐야?
 
 # 3) 도구 두 개를 섞는가
 uv run python agent.py "카드 연회비 관련 조항 찾아보고, 연회비가 15000원이면 5년치는 얼마야?"
-#    → search_internal_docs · calculate 가 둘 다 호출돼야 한다
 
-# 4) P1이 꺼져 있어도 Agent가 죽지 않는가  ← 터미널 A에서 Ctrl+C 로 P1을 끄고 실행
-uv run python agent.py "신용카드 분실 시 책임은?"
-#    → 500 에러가 아니라 "사내 문서를 확인할 수 없다"는 답변이 나와야 한다</code></pre>
-        <p>
-          4번을 통과했다면 <strong>서비스를 분리한 값을 제대로 받은 것</strong>입니다.
-          P1이 죽어도 P2는 나머지 도구로 계속 일하니까요. 확인했으면 P1을 다시 켜 두세요.
-        </p>
-      </div>
-
-      <div class="callout callout-warn">
-        <strong>⚠️ 첫 호출이 유독 느리다면</strong>
-        <p style="margin-top:6px">
-          P1의 <code>rerank</code> 모드는 Cross-Encoder 모델을 씁니다. 그 서버에서 <strong>처음 한 번</strong>은 모델을 내려받느라 수십 초가 걸릴 수 있어요.
-          <code>timeout=60</code>을 넉넉히 잡아 둔 이유입니다. 그래도 넘친다면 P1을 <code>curl</code>로 한 번 미리 깨워 두거나,
-          도구에서 <code>"mode": "hybrid"</code>로 바꿔 리랭커를 건너뛰세요.
-        </p>
-      </div>
-
-      <div class="label">🎓 배우는 것</div>
+# 4) P1을 끄고 — 터미널 A에서 Ctrl+C 로 P1을 내린 뒤 실행
+uv run python agent.py "신용카드 분실 시 책임은?"</code></pre>
+      <ul class="checklist">
+        <li><b>부른다</b> — <code>↳ 호출: [('search_internal_docs', ...)]</code>이 찍히고, 답변에 문서명·쪽수가 인용돼 있다</li>
+        <li><b>안 부른다</b> — 리스트와 튜플 질문에는 도구를 하나도 부르지 않는다</li>
+        <li><b>섞는다</b> — <code>search_internal_docs</code>와 <code>calculate</code>가 둘 다 호출되고 계산 결과가 답에 들어간다</li>
+        <li><b>P1이 없어도 답한다</b> — 에러로 멈추지 않고 "사내 문서로는 확인할 수 없다"고 말한다. 인터넷에서 남의 약관을 주워 오지도 않는다</li>
+      </ul>
       <p>
-        <strong>서비스를 도구로 감싸 조립하는 방법</strong>. 같은 RAG라도 "체인으로 부르느냐, 도구로 부르느냐"에 따라
-        동작이 달라진다는 것. 그리고 <strong>서비스 경계에서 반드시 해야 하는 일</strong> —
-        타임아웃 정하기, 실패를 예외 대신 메시지로 바꾸기, 실패했을 때 LLM이 취할 행동까지 알려 주기.
-        여기에 임포트 순서와 <code>load_dotenv()</code>라는, 한 번 겪으면 잊지 못할 함정도 하나 더.
+        네 번째가 <strong>서비스를 두 개로 나눈 값</strong>입니다. P1이 멈춰도 P2는 나머지 도구로 계속 일해요. 확인했으면 P1을 다시 켜 두세요.
       </p>
+
+      <div class="label">🎓 한 줄 정리</div>
+      <p>
+        <strong>같은 RAG라도 체인으로 부르면 개발자가 판단하고, 도구로 감싸면 LLM이 판단한다.</strong>
+        판단을 넘긴 이상 <strong>docstring이 곧 코드</strong>이고, 다른 서비스를 부르는 자리에서는 <strong>실패도 답변의 일부</strong>로 만들어야 한다.
+      </p>
+
+      <details class="more">
+        <summary>더 알아보기 — 첫 호출이 느릴 때 / 왜 import 대신 HTTP인가 / 규칙 3번이 막는 것</summary>
+
+        <h3>첫 호출이 유독 느리다면</h3>
+        <p>
+          P1의 <code>rerank</code> 모드는 Cross-Encoder 모델을 씁니다. 그 서버에서 <strong>처음 한 번</strong>은 모델을 내려받느라 수십 초가 걸릴 수 있어요.
+          도구에 <code>timeout=60</code>을 넉넉히 잡아 둔 이유입니다. 그래도 넘친다면 P1을 <code>curl</code>로 한 번 미리 깨워 두거나,
+          도구에서 <code>"mode": "hybrid"</code>로 바꿔 리랭커를 건너뛰면 됩니다.
+        </p>
+
+        <h3>P1을 <code>import</code> 하지 않고 HTTP로 부르는 이유</h3>
+        <p>
+          같은 컴퓨터에 있으니 <code>from project1.rag import ...</code>처럼 가져다 쓸 수도 있습니다. 그렇게 하면 P2가
+          Chroma도, 임베딩 모델도, 리랭커도 <strong>전부 같이 짊어지게</strong> 됩니다. 라이브러리 버전이 하나만 어긋나도 두 프로젝트가 함께 막히고요.
+        </p>
+        <p>
+          HTTP로 부르면 P2가 아는 건 <strong>주소 하나와 JSON 모양</strong>뿐입니다. P1을 다른 서버로 옮겨도 <code>.env</code>의 <code>P1_API_URL</code>만 바꾸면 되고,
+          P1이 멈춰도 P2는 살아 있어요. 도구 하나를 이렇게 감싸 두면 <strong>나중에 P1을 통째로 다른 구현으로 갈아끼워도</strong> P2는 모릅니다.
+        </p>
+
+        <h3>규칙 3번이 실제로 막는 것</h3>
+        <p>
+          이 줄이 없으면 Agent는 약관 질문에도 <code>web_search</code>를 곧잘 부릅니다. 그리고 인터넷에서 찾은
+          <strong>다른 회사의 약관</strong>으로 그럴듯하게 답해요. 문장은 매끄러운데 <strong>우리 약관과 내용이 다릅니다.</strong>
+          이런 답은 틀린 티가 안 나서 사람이 읽어도 잘 못 잡습니다.
+          그래서 STEP 8의 평가 케이스에는 답변 내용뿐 아니라 <code>expect_tool</code>(어떤 도구를 <strong>썼어야</strong> 하는가)을 함께 적습니다 —
+          "맞는 도구를 골랐는가"는 사람 대신 코드가 셀 수 있는 항목이거든요.
+        </p>
+      </details>
     </section>
 
     <div class="pager">
