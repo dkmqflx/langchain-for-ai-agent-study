@@ -155,7 +155,7 @@ agent = create_agent(
         Gemini 쪽은 도구를 계속 부르기 쉬운데, STEP 4에서 단 <code>ToolCallLimitMiddleware</code>가 8번에서 끊어 줍니다.
       </p>
 
-      <div class="piece"><span class="pn">③</span><h4>ask()와 main.py — provider 칸 하나씩 뚫기</h4><small>— 요청 JSON → ask() → Context 상자로 전달</small></div>
+      <div class="piece"><span class="pn">③</span><h4>ask()와 API — provider 칸 하나씩 뚫기</h4><small>— 요청 JSON → ask() → Context 상자로 전달</small></div>
 <pre><code># agent.py — ask()
 def ask(message: str, session_id: str = "default", provider: str | None = None) -> dict:
     with langfuse.start_as_current_observation(name="agent-chat", as_type="span"):
@@ -169,20 +169,22 @@ def ask(message: str, session_id: str = "default", provider: str | None = None) 
         ...                                           # 나머지는 STEP 6 그대로
 
 
-# main.py
+# schemas.py
 class ChatIn(BaseModel):
     message: str
     session_id: str = "default"
     provider: str | None = None                       # ← 추가. 안 보내면 기본 모델
 
-@app.post("/chat", response_model=ChatOut)
+
+# router.py
+@router.post("/chat", response_model=ChatOut)
 def chat(body: ChatIn):
     result = ask(body.message, session_id=body.session_id, provider=body.provider)   # ← 전달
     return {**result, "session_id": body.session_id}</code></pre>
       <p><code>DEFAULT_PROVIDER</code>도 함께 가져옵니다: <code>from providers import get_model, DEFAULT_PROVIDER</code>.</p>
 
       <details>
-        <summary>전체 코드 한 번에 보기 — providers.py · agent.py 변경 · main.py 변경</summary>
+        <summary>전체 코드 한 번에 보기 — providers.py · agent.py 변경 · schemas.py·router.py 변경</summary>
 <pre><code># ═══════════════ providers.py (새 파일) ═══════════════
 # STEP 7 · 'openai' 같은 이름 하나로 모델 객체를 얻는 창구.
 import os
@@ -261,14 +263,15 @@ def ask(message: str, session_id: str = "default", provider: str | None = None) 
         ...   # used_tools · out 만들기 · update_current_trace(output=...) 는 STEP 6과 동일
 
 
-# ═══════════════ main.py — 두 군데 수정 ═══════════════
+# ═══════════════ schemas.py — 칸 하나 추가 ═══════════════
 class ChatIn(BaseModel):
     message: str
     session_id: str = "default"
     provider: str | None = None
 
 
-@app.post("/chat", response_model=ChatOut)
+# ═══════════════ router.py — 그 칸을 ask()로 넘긴다 ═══════════════
+@router.post("/chat", response_model=ChatOut)
 def chat(body: ChatIn):
     result = ask(body.message, session_id=body.session_id, provider=body.provider)
     return {**result, "session_id": body.session_id}</code></pre>

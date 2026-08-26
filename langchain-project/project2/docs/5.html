@@ -64,7 +64,7 @@
       <div class="hflow">
         <div class="hbox hi"><b>📱 클라이언트</b><span>질문 + <code>session_id</code>를 보낸다<br>"u1 방에서 하는 말이에요"</span></div>
         <div class="harrow">→</div>
-        <div class="hbox"><b>🚪 main.py (FastAPI)</b><span>JSON을 받아 <code>ask()</code>에 그대로 넘긴다<br>새로 하는 일은 거의 없다</span></div>
+        <div class="hbox"><b>🚪 router.py (FastAPI)</b><span>JSON을 받아 <code>ask()</code>에 그대로 넘긴다<br>새로 하는 일은 거의 없다</span></div>
         <div class="harrow">→</div>
         <div class="hbox"><b>🤖 ask() (STEP 4)</b><span><code>session_id</code>를 <code>thread_id</code>로 쓴다</span></div>
         <div class="harrow">→</div>
@@ -79,19 +79,18 @@
         </p>
       </div>
 
-      <div class="label">🛠 할 일 — main.py 한 파일, 세 조각</div>
+      <div class="label">🛠 할 일 — 파일 셋, 조각 셋</div>
       <p>Agent 코드는 한 줄도 안 고칩니다. <code>ask()</code>를 HTTP로 감싸기만 해요.</p>
+      <p>
+        감싸는 코드는 성격이 다른 세 덩어리라 파일도 셋으로 나눕니다 —
+        <strong>계약서</strong>(<code>schemas.py</code>) · <strong>창구</strong>(<code>router.py</code>) · <strong>조립</strong>(<code>main.py</code>).
+        엔드포인트가 늘어나도 "이 API가 뭘 받고 뭘 주나"는 <code>schemas.py</code> 하나만 열면 되고, 서빙 코드의 흔한 관례라 미리 익혀 둘 만합니다.
+      </p>
 
-      <div class="piece"><span class="pn">①</span><h4>준비물</h4><small>— FastAPI 앱 하나 만들고 ask()를 가져온다</small></div>
-<pre><code>from fastapi import FastAPI
-from pydantic import BaseModel
+      <div class="piece"><span class="pn">①</span><h4>schemas.py — 주고받을 모양</h4><small>— 들어오는 JSON과 나가는 JSON의 칸</small></div>
+<pre><code>from pydantic import BaseModel
 
-from agent import ask                    # STEP 1~4에서 만든 함수 그대로
-
-app = FastAPI(title="P2 Agent API")      # 이 변수 이름(app)을 실행 명령에서 쓴다</code></pre>
-
-      <div class="piece"><span class="pn">②</span><h4>주고받을 모양 정하기</h4><small>— 들어오는 JSON과 나가는 JSON의 칸</small></div>
-<pre><code>class ChatIn(BaseModel):                 # 들어오는 것
+class ChatIn(BaseModel):                 # 들어오는 것
     message: str                         # 질문. 없으면 FastAPI가 알아서 422로 거절한다
     session_id: str = "default"          # 보관증. 안 보내면 "default" 방을 쓴다
 
@@ -107,33 +106,42 @@ class ChatOut(BaseModel):                # 나가는 것 — STEP 4의 ask() 결
         <code>/docs</code> 페이지가 공짜로 생기는 것도 이 덕분이에요.
       </p>
 
-      <div class="piece"><span class="pn">③</span><h4>창구 두 개</h4><small>— 살아 있나 확인용 하나, 진짜 대화용 하나</small></div>
-<pre><code>@app.get("/health")                      # 서버가 떠 있는지만 본다. Agent를 안 태우니 공짜
+      <div class="piece"><span class="pn">②</span><h4>router.py — 창구 두 개</h4><small>— 살아 있나 확인용 하나, 진짜 대화용 하나</small></div>
+<pre><code>from fastapi import APIRouter
+
+from agent import ask                    # STEP 1~4에서 만든 함수 그대로
+from schemas import ChatIn, ChatOut      # ①에서 적은 계약서
+
+router = APIRouter()                     # 창구 묶음. main.py의 app에 통째로 등록된다
+
+@router.get("/health")                   # 서버가 떠 있는지만 본다. Agent를 안 태우니 공짜
 def health():
     return {"status": "ok"}
 
-@app.post("/chat", response_model=ChatOut)
+@router.post("/chat", response_model=ChatOut)
 def chat(body: ChatIn):                  # body = ChatIn 모양으로 검사된 요청
     result = ask(body.message, session_id=body.session_id)   # 보관증을 그대로 넘긴다
     return {**result, "session_id": body.session_id}         # 결과에 보관증을 얹어 돌려준다</code></pre>
       <p>
-        <code>{**result, ...}</code>는 "result 딕셔너리를 펼치고 칸 하나 더 얹는다"는 파이썬 문법입니다.
+        <code>@app.get</code> 대신 <code>@router.get</code>을 쓰는 것 말고는 창구를 적는 방식이 똑같습니다.
+        <code>{**result, ...}</code>는 "result 딕셔너리를 펼치고 칸 하나 더 얹는다"는 파이썬 문법이고,
         <code>session_id</code>를 돌려주는 이유는 클라이언트가 <strong>다음 요청에 그대로 실어 보내라</strong>는 뜻이에요.
       </p>
 
+      <div class="piece"><span class="pn">③</span><h4>main.py — 앱 만들고 창구 등록</h4><small>— 이 파일이 하는 일은 두 줄이 전부다</small></div>
+<pre><code>from fastapi import FastAPI
+
+from router import router
+
+app = FastAPI(title="P2 Agent API")      # 이 변수 이름(app)을 실행 명령에서 쓴다
+app.include_router(router)               # 이 한 줄로 /health와 /chat이 열린다</code></pre>
+
       <details>
-        <summary>전체 코드 한 번에 보기 — main.py</summary>
+        <summary>전체 코드 한 번에 보기 — 세 파일</summary>
 <pre><code># ═══════════════════════════════════════════════════════════════════
-# STEP 5 · FastAPI 서빙: ask()를 HTTP(POST /chat)로 노출한다.
-# 실행: uv run uvicorn main:app --reload --port 8001   (P1이 8000을 쓰므로 8001)
-# 자동 문서: http://localhost:8001/docs
+# schemas.py · API가 주고받을 데이터의 '모양'만 모아 둔 파일. 로직은 한 줄도 없다.
 # ═══════════════════════════════════════════════════════════════════
-from fastapi import FastAPI
 from pydantic import BaseModel
-
-from agent import ask
-
-app = FastAPI(title="P2 Agent API")
 
 
 class ChatIn(BaseModel):
@@ -150,15 +158,39 @@ class ChatOut(BaseModel):
     session_id: str
 
 
-@app.get("/health")
+# ═══════════════════════════════════════════════════════════════════
+# router.py · HTTP 창구들. 요청을 받아 ask()에 넘기고 결과를 돌려주는 게 전부다.
+# ═══════════════════════════════════════════════════════════════════
+from fastapi import APIRouter
+
+from agent import ask
+from schemas import ChatIn, ChatOut
+
+router = APIRouter()
+
+
+@router.get("/health")
 def health():
     return {"status": "ok"}
 
 
-@app.post("/chat", response_model=ChatOut)
+@router.post("/chat", response_model=ChatOut)
 def chat(body: ChatIn):
     result = ask(body.message, session_id=body.session_id)
-    return {**result, "session_id": body.session_id}</code></pre>
+    return {**result, "session_id": body.session_id}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# main.py · 앱을 만들고 창구 묶음을 등록한다.
+# 실행: uv run uvicorn main:app --reload --port 8001   (P1이 8000을 쓰므로 8001)
+# 자동 문서: http://localhost:8001/docs
+# ═══════════════════════════════════════════════════════════════════
+from fastapi import FastAPI
+
+from router import router
+
+app = FastAPI(title="P2 Agent API")
+app.include_router(router)</code></pre>
       </details>
 
       <div class="filename">실행 — 터미널 두 개</div>
@@ -189,7 +221,7 @@ curl -X POST http://localhost:8001/chat -H "Content-Type: application/json" \
         <li class="done"><b>다른 방은 남남이다</b> — u2는 앞 대화를 모른다</li>
         <li class="done"><b>차단도 된다</b> — <code>blocked: true</code>, answer는 거절 문구. <strong>0초</strong>에 온다</li>
       </ul>
-      <p><a href="http://localhost:8001/docs">http://localhost:8001/docs</a>도 열어 보세요. ②에서 적은 계약서가 그대로 화면이 돼 있습니다.</p>
+      <p><a href="http://localhost:8001/docs">http://localhost:8001/docs</a>도 열어 보세요. ①에서 적은 계약서가 그대로 화면이 돼 있습니다.</p>
 
       <div class="label">🎓 한 줄 정리</div>
       <p>

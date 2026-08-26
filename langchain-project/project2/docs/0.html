@@ -143,7 +143,9 @@ uv add langchain-google-genai pandas</code></pre>
 ├── agent.py             # STEP 3, 4, 6, 7 — Agent 조립
 ├── providers.py         # STEP 7 — 모델 이름 → 모델 객체 팩토리
 ├── prompts.py           # STEP 8 — 시스템 프롬프트 A / B
-├── main.py              # STEP 5 — FastAPI
+├── main.py              # STEP 5 — FastAPI 앱 조립
+├── router.py            # STEP 5 — 창구(엔드포인트)
+├── schemas.py           # STEP 5 — 요청·응답 스키마
 ├── eval_cases.json      # STEP 8 — 평가 케이스
 ├── evaluate.py          # STEP 8 — 채점 하네스
 ├── .env
@@ -201,7 +203,7 @@ uv add fastapi "uvicorn[standard]" langfuse
 # Multi-LLM·평가 (STEP 7~8)
 uv add langchain-google-genai pandas
 
-touch tools.py agent.py providers.py prompts.py main.py evaluate.py eval_cases.json .env README.md</code></pre>
+touch tools.py agent.py providers.py prompts.py main.py router.py schemas.py evaluate.py eval_cases.json .env README.md</code></pre>
       </details>
 
       <div class="label">✅ 검증 — 둘 다 통과해야 STEP 1로</div>

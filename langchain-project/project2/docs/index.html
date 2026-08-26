@@ -291,7 +291,9 @@ uv run uvicorn main:app --reload        # http://localhost:8000 에서 대기</c
 ├── agent.py             # STEP 3, 4, 6, 7 — Agent 조립(메모리·가드레일·관측·모델선택)
 ├── providers.py         # STEP 7 — 모델 이름 → 모델 객체 팩토리
 ├── prompts.py           # STEP 8 — 시스템 프롬프트 A / B
-├── main.py              # STEP 5 — FastAPI (/chat, /chat/stream, /health)
+├── main.py              # STEP 5 — FastAPI 앱 조립(창구 등록)
+├── router.py            # STEP 5 — 창구(/chat, /chat/stream, /health)
+├── schemas.py           # STEP 5 — 요청·응답 스키마
 ├── eval_cases.json      # STEP 8 — 평가 케이스 10~20개
 ├── evaluate.py          # STEP 8 — 채점 하네스 (결정론적 + LLM-as-judge)
 ├── .env
