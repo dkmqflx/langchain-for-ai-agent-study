@@ -265,10 +265,10 @@ uv run python agent.py "카드 연회비 관련 조항 찾아보고, 연회비�
 # 4) P1을 끄고 — 터미널 A에서 Ctrl+C 로 P1을 내린 뒤 실행
 uv run python agent.py "신용카드 분실 시 책임은?"</code></pre>
       <ul class="checklist">
-        <li><b>부른다</b> — <code>↳ 호출: [('search_internal_docs', ...)]</code>이 찍히고, 답변에 문서명·쪽수가 인용돼 있다</li>
-        <li><b>안 부른다</b> — 리스트와 튜플 질문에는 도구를 하나도 부르지 않는다</li>
-        <li><b>섞는다</b> — <code>search_internal_docs</code>와 <code>calculate</code>가 둘 다 호출되고 계산 결과가 답에 들어간다</li>
-        <li><b>P1이 없어도 답한다</b> — 에러로 멈추지 않고 "사내 문서로는 확인할 수 없다"고 말한다. 인터넷에서 남의 약관을 주워 오지도 않는다</li>
+        <li class="done"><b>부른다</b> — <code>↳ 호출: [('search_internal_docs', ...)]</code>이 찍히고, 답변에 문서명·쪽수가 인용돼 있다</li>
+        <li class="done"><b>안 부른다</b> — 리스트와 튜플 질문에는 도구를 하나도 부르지 않는다</li>
+        <li class="done"><b>섞는다</b> — <code>search_internal_docs</code>와 <code>calculate</code>가 둘 다 호출되고 계산 결과가 답에 들어간다</li>
+        <li class="done"><b>P1이 없어도 답한다</b> — 에러로 멈추지 않고 "사내 문서로는 확인할 수 없다"고 말한다. 인터넷에서 남의 약관을 주워 오지도 않는다</li>
       </ul>
       <p>
         네 번째가 <strong>서비스를 두 개로 나눈 값</strong>입니다. P1이 멈춰도 P2는 나머지 도구로 계속 일해요. 확인했으면 P1을 다시 켜 두세요.

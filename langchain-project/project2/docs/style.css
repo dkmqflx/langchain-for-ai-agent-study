@@ -343,3 +343,7 @@
     .checklist li { padding: 7px 0 7px 30px; position: relative; border-bottom: 1px dashed var(--border); }
     .checklist li::before { content: "☐"; position: absolute; left: 6px; top: 6px; color: var(--text-secondary); }
     .checklist li code { white-space: nowrap; }
+    /* 실제로 돌려 보고 통과를 확인한 항목 */
+    .checklist li.done::before { content: "\2611"; color: var(--green); }
+    .checklist li.done { color: var(--text-secondary); }
+    .checklist li.done b { color: var(--green); }

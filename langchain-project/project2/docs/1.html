@@ -348,10 +348,10 @@ uv run python agent.py "LangChain 1.0의 주요 변화가 뭐야?"
 # 3) 도구를 '안 쓰는' 판단도 하는가
 uv run python agent.py "안녕? 너는 무슨 일을 할 수 있어?"</code></pre>
       <ul class="checklist">
-        <li><b>둘을 연달아</b> — <code>↳ 호출:</code> 줄에 <code>get_today</code>와 <code>calculate</code>가 각각 보이고, 곱셈 결과가 <code>7006652</code>다</li>
-        <li><b>맞는 걸 고른다</b> — <code>web_search</code>를 부르고 답변에 출처 URL이 붙는다</li>
-        <li><b>안 부르기도 한다</b> — 인사에는 <code>↳ 호출:</code> 줄이 <strong>하나도 없다</strong></li>
-        <li><b>주문서가 보인다</b> — 도구를 부른 <code>[ai]</code> 줄은 본문이 비어 있고 호출 줄만 있다. 개념에서 본 3단계가 이것이다</li>
+        <li class="done"><b>둘을 연달아</b> — <code>↳ 호출:</code> 줄에 <code>get_today</code>와 <code>calculate</code>가 각각 보이고, 곱셈 결과가 <code>7006652</code>다</li>
+        <li class="done"><b>맞는 걸 고른다</b> — <code>web_search</code>를 부르고 답변에 출처 URL이 붙는다</li>
+        <li class="done"><b>안 부르기도 한다</b> — 인사에는 <code>↳ 호출:</code> 줄이 <strong>하나도 없다</strong></li>
+        <li class="done"><b>주문서가 보인다</b> — 도구를 부른 <code>[ai]</code> 줄은 본문이 비어 있고 호출 줄만 있다. 개념에서 본 3단계가 이것이다</li>
       </ul>
       <p>
         세 번째가 핵심입니다. 모든 질문에 도구를 부르는 Agent는 고르는 게 아니라 <strong>그냥 다 부르는 것</strong>이고, 비용과 지연만 늘어요.
